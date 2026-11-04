@@ -56,6 +56,7 @@ try {
   assert.equal(await evaluate("document.querySelector('label').htmlFor"), 'password');
   assert.equal(await evaluate("document.querySelector('#password').type"), 'password');
   assert.equal(await evaluate('document.cookie'), '');
+  assert.equal(await evaluate("fetch('/api/v1/dashboard').then(response => response.status)"), 401);
   for (const proof of ['missing', 'wrong']) {
     await evaluate(`document.querySelector('[name=csrf_token]').value = ${JSON.stringify(proof === 'missing' ? '' : 'wrong')}; document.querySelector('#password').value = 'synthetic-browser'; document.querySelector('button').click()`);
     await waitFor("document.body.textContent.includes('invalid_csrf')");
@@ -86,6 +87,19 @@ try {
   await evaluate("document.body.dataset.beforeReload = 'true'");
   await call('Page.reload');
   await waitFor("document.body.dataset.beforeReload !== 'true' && document.querySelector('h1')?.textContent === 'Signed in'");
+  assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('section h2'), heading => heading.textContent)"), ['Capsules', 'Switches', 'Countdowns', 'Agent health']);
+  assert.equal(await evaluate("document.querySelector('#switches').textContent.includes('production use remains blocked')"), true);
+  assert.equal(await evaluate("document.querySelector('#agents').textContent.includes('no verified agent observations')"), true);
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.sections')).display"), 'grid');
+  assert.equal(await evaluate("document.querySelector('nav').getAttribute('aria-label')"), 'Dashboard sections');
+  await evaluate("document.querySelector('nav a').focus()");
+  await call('Input.dispatchKeyEvent', {type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9});
+  await call('Input.dispatchKeyEvent', {type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9});
+  assert.equal(await evaluate("document.activeElement.getAttribute('href')"), '#switches');
+  assert.equal(await evaluate("getComputedStyle(document.activeElement).outlineStyle"), 'solid');
+  await call('Input.dispatchKeyEvent', {type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13});
+  await call('Input.dispatchKeyEvent', {type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13});
+  await waitFor("location.hash === '#switches'");
   const request = async (method, path, body, token) => evaluate(`(async () => {
     const response = await fetch(${JSON.stringify(path)}, {method: ${JSON.stringify(method)},
       headers: {'Content-Type': 'application/json', ${token ? `'X-CSRF-Token': ${JSON.stringify(token)}` : ''}},
@@ -94,6 +108,13 @@ try {
     return {status: response.status, body: await response.text()};
   })()`);
   const csrf = await evaluate("document.querySelector('[name=csrf_token]').value");
+  const dashboard = await request('GET', '/api/v1/dashboard?limit=1');
+  assert.equal(dashboard.status, 200);
+  const summary = JSON.parse(dashboard.body);
+  for (const section of ['capsules', 'switches', 'countdowns', 'agents']) assert.deepEqual(summary[section].items, []);
+  assert.equal(summary.switches.state, 'blocked');
+  assert.equal(summary.agents.state, 'unavailable');
+  assert.equal((await request('GET', '/api/v1/dashboard?limit=101')).status, 400);
   const tokenBody = JSON.stringify({name: 'browser', scopes: ['read'], expires_at: '2099-01-01T00:00:00Z'});
   for (const token of [undefined, 'wrong']) {
     assert.equal((await request('DELETE', '/api/v1/session', undefined, token)).status, 403);
@@ -102,14 +123,19 @@ try {
   const created = await request('POST', '/api/v1/tokens', tokenBody, csrf);
   assert.equal(created.status, 201);
   const tokenID = JSON.parse(created.body).id;
+  const readToken = JSON.parse(created.body).token;
+  const bearerDashboard = () => evaluate(`fetch('/api/v1/dashboard', {headers: {Authorization: ${JSON.stringify(`Bearer ${readToken}`)}}}).then(response => response.status)`);
+  assert.equal(await bearerDashboard(), 200);
   assert.equal((await request('DELETE', `/api/v1/tokens/${tokenID}`)).status, 403);
   assert.equal((await request('DELETE', `/api/v1/tokens/${tokenID}`, undefined, csrf)).status, 204);
+  assert.equal(await bearerDashboard(), 401);
   await evaluate("document.querySelector('[name=csrf_token]').remove(); document.querySelector('button').click()");
   await waitFor("document.body.textContent.includes('invalid_csrf')");
   await call('Page.navigate', {url: `${origin}/owner`});
   await waitFor("document.querySelector('h1')?.textContent === 'Signed in'");
   await evaluate("document.querySelector('button').click()");
   await waitFor("document.querySelector('h1')?.textContent === 'Owner sign-in'");
+  assert.equal((await request('GET', '/api/v1/dashboard')).status, 401);
   await evaluate("document.body.dataset.beforeReload = 'true'");
   await call('Page.reload');
   await waitFor("document.body.dataset.beforeReload !== 'true' && document.querySelector('h1')?.textContent === 'Owner sign-in'");
@@ -120,7 +146,7 @@ try {
   const cooldown = await request('POST', '/api/v1/session', JSON.stringify({password: 'synthetic-browser'}), bootstrap.csrf_token);
   assert.equal(cooldown.status, 429);
   assert.ok(!cooldown.body.includes('synthetic-browser'));
-  console.log('Browser: CSRF proof, cross-origin rejection, token administration, sign-in, sign-out, and cooldown pass');
+  console.log('Browser: dashboard states, keyboard navigation, scoped summary access, CSRF proof, token administration, sign-in, sign-out, and cooldown pass');
 } finally {
   socket?.close();
   browser.kill('SIGTERM');

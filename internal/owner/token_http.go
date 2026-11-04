@@ -18,15 +18,22 @@ func (s *Store) RequireOwner(next http.Handler) http.Handler {
 			authorizationError(w, ErrCredentials)
 			return
 		}
+		now := s.webNow()
 		cookie, err := r.Cookie(cookieName)
 		if err == nil {
-			_, err = s.Authenticate(cookie.Value, time.Now())
+			// Rejected request policies must not extend the session's idle deadline.
+			_, err = s.authenticateSession(cookie.Value, now, false)
 		}
 		if err != nil {
 			authorizationError(w, err)
 			return
 		}
 		if !requireCSRF(w, r) {
+			return
+		}
+		// Recheck durable state because recovery or revocation can follow the first check.
+		if _, err := s.Authenticate(cookie.Value, s.webNow()); err != nil {
+			authorizationError(w, err)
 			return
 		}
 		next.ServeHTTP(w, r)

@@ -124,6 +124,58 @@ Token routes use the same TLS and error safeguards as session routes.
 For API route authors, use `Store.RequireScope(scope, next)` inside the owner handler's TLS and response safeguards.
 The guard admits a matching API token or a valid owner session with CSRF proof for mutations.
 Use `Store.RequireOwner(next)` for credential administration.
+The owner guard validates the session before it checks CSRF proof and origin.
+It renews the idle deadline only after those request checks pass.
+Rejected CSRF proof or origin preserves the previous idle deadline.
+The guard rechecks durable session state before renewal to detect concurrent revocation or recovery.
 The store methods require a trusted clock. They do not replace route authorization.
 
-The complete owner epic adds the dashboard before integration into `dev`.
+## Owner dashboard
+
+After sign-in, `/owner` shows capsules, switches, countdowns, and agent health.
+The page provides section links, visible keyboard focus, and a sign-out form.
+The layout supports narrow screens and the browser's light or dark color scheme.
+The sign-out form retains the session and CSRF safeguards.
+If the owner session is absent or expired, the page shows sign-in.
+If storage fails, the page shows an error and a retry link.
+
+`GET /api/v1/dashboard` accepts an owner session or a bearer token with the exact `read` scope.
+An explicit bearer credential prevents fallback to an owner cookie.
+The response requires HTTPS outside the local lab and uses `Cache-Control: no-store`.
+The optional `limit` parameter accepts one integer from 1 through 100. The default is 100.
+The limit applies separately to each summary list. Invalid limits return 400 after authorization.
+Unauthorized requests return 401. Tokens without `read` return 403. Storage failures return 503.
+Errors use the shared JSON error format and response request identifier.
+
+Each response has `capsules`, `switches`, `countdowns`, and `agents` fields.
+Each field contains a textual `state`, a `message`, and an `items` array.
+Future metadata items use `{id,name,state}`. Summary items contain no content or credentials.
+`Store.Dashboard(limit)` supplies this contract after the caller authorizes access.
+
+The current feature stores contain no capsule, switch, or countdown implementation.
+Their lists therefore return empty arrays. Capsule and countdown states are `not_implemented`.
+The switch state is `blocked`, consistent with the owner's production decision in ADR 0005.
+Agent health is `unavailable` because the dashboard has no verified agent observations.
+These states do not claim that an agent is healthy or that content has released.
+The page explains feature availability instead of offering unsupported creation controls.
+
+## Audit events
+
+The owner database retains the newest 256 audit events in the versioned `audit-v1` bucket.
+Each event contains only `version`, `at`, and `action`. The timestamp uses server UTC.
+Fixed action names describe owner initialization, recovery, rejected passwords, session creation, session revocation, token creation, and token revocation.
+Events contain no password, session identifier, token value, token name, plaintext, key, or share.
+The event format accepts no caller-supplied text.
+The log records password rejection after a password check. Requests rejected before that check create no event.
+Repeated revocation of an absent session or token creates no event.
+
+Successful mutations persist their event in the same transaction as the state change.
+If the audit write fails, the transaction preserves the previous state.
+The store reports an error when it cannot record a rejected password.
+The retention limit removes the oldest event after each additional write.
+This local history does not provide an external audit archive or protection against host access.
+
+`Store.AuditEvents(limit)` returns the newest events first. The limit must be from 1 through 100.
+The caller must authorize owner access before it calls this method.
+Invalid limits, invalid event state, or unavailable storage return an error without partial results.
+The store API exposes no audit write method for caller-supplied fields.

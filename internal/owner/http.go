@@ -15,18 +15,18 @@ const cookieName = "__Host-epochalypse-session"
 
 var ownerPage = template.Must(template.New("owner").Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Owner access — epochalypse</title></head>
-<body><main>{{if .SignedIn}}<h1>Signed in</h1><p>Your owner session is active.</p>
-<form method="post" action="/owner/sign-out"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
-{{else}}<h1>Owner sign-in</h1>{{if .Error}}<p role="alert">Invalid credentials. Try again.</p>{{end}}
+<body><main><h1>Owner sign-in</h1>{{if .Error}}<p role="alert">Invalid credentials. Try again.</p>{{end}}
 <form method="post" action="/owner/sign-in"><label for="password">Password</label>
 <input type="hidden" name="csrf_token" value="{{.CSRF}}">
 <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024">
-<button type="submit">Sign in</button></form>{{end}}</main></body></html>`))
+<button type="submit">Sign in</button></form></main></body></html>`))
 
 // Handler returns the owner routes. The lab option permits local HTTP requests.
 func (s *Store) Handler(lab bool) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /owner", s.page)
+	mux.HandleFunc("GET /owner/style.css", dashboardStyle)
+	mux.Handle("GET /api/v1/dashboard", s.RequireScope("read", http.HandlerFunc(s.dashboardJSON)))
 	mux.HandleFunc("GET /api/v1/csrf", csrfBootstrap)
 	mux.HandleFunc("POST /api/v1/session", s.signIn)
 	mux.Handle("DELETE /api/v1/session", s.RequireOwner(http.HandlerFunc(s.signOut)))
@@ -38,7 +38,7 @@ func (s *Store) Handler(lab bool) http.Handler {
 		w.Header().Set("X-Request-ID", rand.Text())
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("Content-Security-Policy", "default-src 'none'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
 		if !lab && r.TLS == nil {
 			webError(w, http.StatusUpgradeRequired, "tls_required", "Use HTTPS.")
 			return
@@ -57,24 +57,28 @@ func webError(w http.ResponseWriter, status int, code, message string) {
 
 func (s *Store) page(w http.ResponseWriter, r *http.Request) {
 	signedIn := false
-	if cookie, err := r.Cookie(cookieName); err == nil {
+	if cookie, err := r.Cookie(cookieName); err == nil && len(r.Header.Values("Authorization")) == 0 {
 		_, err = s.Authenticate(cookie.Value, time.Now())
 		if err != nil && !errors.Is(err, ErrCredentials) {
-			webError(w, 503, "unavailable", "Owner access is unavailable.")
+			dashboardUnavailable(w)
 			return
 		}
 		signedIn = err == nil
 	}
-	renderOwner(w, r, signedIn, false)
+	if signedIn {
+		s.dashboardHTML(w, r)
+		return
+	}
+	renderSignIn(w, r, false)
 }
 
-func renderOwner(w http.ResponseWriter, r *http.Request, signedIn, failed bool) {
+func renderSignIn(w http.ResponseWriter, r *http.Request, failed bool) {
 	token := csrfToken(w, r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = ownerPage.Execute(w, struct {
-		SignedIn, Error bool
-		CSRF            string
-	}{signedIn, failed, token})
+		Error bool
+		CSRF  string
+	}{failed, token})
 }
 
 func credentials(w http.ResponseWriter, r *http.Request) (string, error) {
@@ -132,7 +136,7 @@ func (s *Store) signIn(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/owner/sign-in" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(401)
-			renderOwner(w, r, false, true)
+			renderSignIn(w, r, true)
 			return
 		}
 		webError(w, 401, "invalid_credentials", "Invalid credentials.")
