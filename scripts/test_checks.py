@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 
-STAGES = ("check-tools", "test-unit", "test-e2e", "test-race", "coverage", "fuzz-smoke", "lint", "build")
+STAGES = ("check-tools", "test-unit", "test-integration", "test-e2e", "test-race", "coverage", "fuzz-smoke", "lint", "build")
 
 
 class CheckTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class CheckTests(unittest.TestCase):
                 self.assertEqual(calls[-1], stage)
 
     def test_future_suites_report_failure(self):
-        for target in ("test-integration", "test-resolvers"):
+        for target in ("test-resolvers",):
             result = subprocess.run(["make", target], capture_output=True, text=True, timeout=30)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("unavailable", result.stderr)
