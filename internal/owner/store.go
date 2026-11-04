@@ -60,7 +60,7 @@ func Open(stateDir string) (*Store, error) {
 	}
 	s := &Store{db: db, webNow: time.Now}
 	if err := db.Update(func(tx *bolt.Tx) error {
-		for _, name := range [][]byte{stateBucket, sessionBucket, tokenBucket} {
+		for _, name := range [][]byte{stateBucket, sessionBucket, tokenBucket, auditBucket} {
 			if _, err := tx.CreateBucketIfNotExists(name); err != nil {
 				return err
 			}
@@ -130,7 +130,14 @@ func (s *Store) setPassword(password []byte, recoverOwner bool) error {
 			return err
 		}
 		_, err = tx.CreateBucket(sessionBucket)
-		return err
+		if err != nil {
+			return err
+		}
+		action := ownerInitialized
+		if recoverOwner {
+			action = ownerRecovered
+		}
+		return appendAudit(tx, action, time.Now())
 	})
 }
 

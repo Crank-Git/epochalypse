@@ -28,6 +28,9 @@ func (s *Store) SignIn(password []byte, now time.Time) (string, error) {
 		return "", err
 	}
 	if !identity.Password.matches(password) {
+		if err := s.db.Update(func(tx *bolt.Tx) error { return appendAudit(tx, signInRejected, now) }); err != nil {
+			return "", err
+		}
 		return "", ErrCredentials
 	}
 	return s.persistSession(identity, now)
@@ -51,7 +54,10 @@ func (s *Store) persistSession(identity Identity, now time.Time) (string, error)
 		if current.Password != identity.Password {
 			return ErrCredentials
 		}
-		return tx.Bucket(sessionBucket).Put(key[:], encoded)
+		if err := tx.Bucket(sessionBucket).Put(key[:], encoded); err != nil {
+			return err
+		}
+		return appendAudit(tx, sessionCreated, now)
 	})
 	if err != nil {
 		return "", fmt.Errorf("persist session: %w", err)
@@ -128,5 +134,14 @@ func (s *Store) SignOut(token string) error {
 	if err != nil {
 		return err
 	}
-	return s.db.Update(func(tx *bolt.Tx) error { return tx.Bucket(sessionBucket).Delete(key) })
+	return s.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(sessionBucket)
+		if bucket.Get(key) == nil {
+			return nil
+		}
+		if err := bucket.Delete(key); err != nil {
+			return err
+		}
+		return appendAudit(tx, sessionRevoked, time.Now())
+	})
 }

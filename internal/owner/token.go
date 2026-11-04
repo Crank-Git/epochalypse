@@ -87,7 +87,10 @@ func (s *Store) CreateToken(request TokenRequest, now time.Time) (TokenGrant, er
 		if err != nil {
 			return err
 		}
-		return tx.Bucket(tokenBucket).Put(digest[:], encoded)
+		if err := tx.Bucket(tokenBucket).Put(digest[:], encoded); err != nil {
+			return err
+		}
+		return appendAudit(tx, tokenCreated, now)
 	})
 	if err != nil {
 		return TokenGrant{}, err
@@ -127,7 +130,10 @@ func (s *Store) RevokeToken(id string) error {
 		if key == nil {
 			return nil
 		}
-		return bucket.Delete(key)
+		if err := bucket.Delete(key); err != nil {
+			return err
+		}
+		return appendAudit(tx, tokenRevoked, time.Now())
 	})
 }
 

@@ -127,3 +127,24 @@ Use `Store.RequireOwner(next)` for credential administration.
 The store methods require a trusted clock. They do not replace route authorization.
 
 The complete owner epic adds the dashboard before integration into `dev`.
+
+## Audit events
+
+The owner database retains the newest 256 audit events in the versioned `audit-v1` bucket.
+Each event contains only `version`, `at`, and `action`. The timestamp uses server UTC.
+Fixed action names describe owner initialization, recovery, rejected passwords, session creation, session revocation, token creation, and token revocation.
+Events contain no password, session identifier, token value, token name, plaintext, key, or share.
+The event format accepts no caller-supplied text.
+The log records password rejection after a password check. Requests rejected before that check create no event.
+Repeated revocation of an absent session or token creates no event.
+
+Successful mutations persist their event in the same transaction as the state change.
+If the audit write fails, the transaction preserves the previous state.
+The store reports an error when it cannot record a rejected password.
+The retention limit removes the oldest event after each additional write.
+This local history does not provide an external audit archive or protection against host access.
+
+`Store.AuditEvents(limit)` returns the newest events first. The limit must be from 1 through 100.
+The caller must authorize owner access before it calls this method.
+Invalid limits, invalid event state, or unavailable storage return an error without partial results.
+The store API exposes no audit write method for caller-supplied fields.
