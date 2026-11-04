@@ -51,18 +51,8 @@ func Serve(ctx context.Context, config Config, ready func(Addresses)) error {
 	defer func() { _ = httpListener.Close() }()
 	addresses := Addresses{HTTP: httpListener.Addr().String()}
 	results := make(chan error, 3)
-	var dns *dnsListeners
-	if config.Mode == "dns" {
-		dns, err = openDNS(ctx, config.DNSAddr)
-		if err != nil {
-			return err
-		}
-		defer dns.close()
-		addresses.DNS = dns.tcp.Addr().String()
-		go func() { results <- dns.serveUDP() }()
-		go func() { results <- dns.serveTCP() }()
-	}
 	handler := Handler()
+	var respond func([]byte, bool) []byte
 	if config.Mode == "server" {
 		state, err := openMainState(config)
 		if err != nil {
@@ -70,6 +60,18 @@ func Serve(ctx context.Context, config Config, ready func(Addresses)) error {
 		}
 		defer state.close()
 		state.routes(handler, config.LocalLab)
+		respond = state.dnsResponder()
+	}
+	if config.Mode == "dns" || respond != nil {
+		dns, err := openDNS(ctx, config.DNSAddr)
+		if err != nil {
+			return err
+		}
+		defer dns.close()
+		dns.respond = respond
+		addresses.DNS = dns.tcp.Addr().String()
+		go func() { results <- dns.serveUDP() }()
+		go func() { results <- dns.serveTCP() }()
 	}
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second}
 	defer func() { _ = server.Close() }()

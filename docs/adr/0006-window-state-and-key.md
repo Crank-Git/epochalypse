@@ -82,3 +82,33 @@ Retrieved 2026-11-04:
 - [Go ECDSA](https://pkg.go.dev/crypto/ecdsa): Go 1.27.3 shipped `PrivateKey.Bytes` and `ParseRawPrivateKey` validate the private scalar and derive its public key.
 - [RFC 4034, section 3.1.5](https://www.rfc-editor.org/rfc/rfc4034.html#section-3.1.5): inception and expiration use unsigned 32-bit serial time.
 - [Compatibility evidence](../research/dns-compatibility.md): algorithm 13 interoperates with the pinned resolver configurations.
+
+## Authority integration
+
+Use the selected adapter's codec and signature APIs with the project's bounded listener transport.
+The adapter's shipped `Server.Shutdown` documentation states that its context deadline is not implemented.
+The project instead bounds active TCP clients, query counts, and connection operations.
+Shutdown closes these clients before it closes the database.
+
+The authority caches one verified snapshot per database revision and UTC hour.
+Infrastructure signatures span the current hour and refresh on later queries.
+Only the owner's original signature covers the TXT RRset.
+The infrastructure signer rejects TXT records.
+
+DS records belong at the delegating parent.
+The child-only authority returns signed NODATA for an apex DS query.
+Its typed metadata exposes the public DNSKEY and derived parent DS.
+See [RFC 4035, section 3.1.4.1](https://www.rfc-editor.org/rfc/rfc4035.html#section-3.1.4.1).
+
+An explicit external nameserver separates authoritative infrastructure from future-signature records.
+The configured HTTPS origin keeps administration and release discovery outside the experimental zone.
+Production rejects reserved lab names and marked synthetic keys.
+Explicit `EPOCHALYPSE_ENV=lab` classifies synthetic material separately from HTTP transport safeguards.
+Non-loopback owner access still requires TLS in that environment.
+The existing loopback-only insecure HTTP option retains its original guard.
+
+The adapter does not preserve arbitrary wire-label octets in its dotted name representation.
+A literal dot inside one label can otherwise change canonical NSEC order or alias an existing window.
+The authority checks label octets before the adapter decodes the question.
+Unsupported forms receive a non-authoritative refusal without an answer or denial proof.
+`docs/windows.md` defines the supported wire bytes and parser bounds.

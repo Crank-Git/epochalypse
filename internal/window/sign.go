@@ -19,6 +19,7 @@ import (
 type Signer struct {
 	key     *dns.DNSKEY
 	private crypto.Signer
+	labOnly bool
 }
 
 // LoadSigner reads a protected BIND private key and its sibling .key file.
@@ -52,8 +53,11 @@ func LoadSigner(zone, privatePath string) (*Signer, error) {
 		return nil, errors.New("private DNSSEC key does not match the public DNSKEY")
 	}
 	key.Hdr.TTL = 60
-	return &Signer{key: key, private: p}, nil
+	return &Signer{key: key, private: p, labOnly: strings.Contains(string(private), "epochalypse-lab-only")}, nil
 }
+
+// LabOnly reports an explicit synthetic-key marker without exposing key material.
+func (s *Signer) LabOnly() bool { return s.labOnly }
 
 func readKeyFile(path string, private bool) ([]byte, error) {
 	info, err := os.Lstat(path)

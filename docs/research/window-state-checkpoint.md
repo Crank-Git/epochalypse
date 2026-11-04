@@ -9,7 +9,8 @@ Baseline: `c47240b5e43f1667643d309b204a13d3cfd115f8`
 
 The initial checkpoint adds the durable domain and key policy.
 The next slice adds owner-protected creation and offline CLI commands.
-Live DNS behavior remains incomplete.
+The authority slice adds live UDP/TCP service and infrastructure signatures.
+Compose setup and executable-process DNS restart evidence remain incomplete.
 
 `internal/window` supplies these contracts:
 
@@ -92,11 +93,34 @@ The same shell call restores both dispatchers from `HEAD`.
 
 ## Remaining work
 
-Co-host authoritative UDP/TCP listeners with the main HTTP process.
-Serve TXT, RRSIG, DNSKEY, DS, SOA, NS, and authenticated denial responses.
-Keep infrastructure signatures valid without another TXT signature.
-Test UDP truncation, explicit TCP fallback, no recursion, bind failure, and teardown.
-Verify authenticated HTTP creation, immediate UDP/TCP access, and restart access through real listeners.
 Update isolated lab routing while the three agents retain independent processes and volumes.
-Finish authority-specific operator documentation and failure-path tests.
+Create protected synthetic keys and self-signed TLS through verified pinned tooling.
+Use explicit `EPOCHALYPSE_ENV=lab` without weakening the loopback-only insecure HTTP guard.
+Verify DNS and restart through separate executable processes.
+The current live Go test restarts `Serve` and the database within one test process.
+Finish lab operator documentation and process-level failure-path tests.
 Run the full suite and retain at least 95.00 percent aggregate coverage before sub-merge.
+
+## Authority evidence
+
+The initial `TestAuthorityPublishesTheStoredFutureSignature` reports an actual REFUSED response before implementation.
+Infrastructure-signature stubs also fail before implementation.
+`TestMainServesHTTPCreatedWindowsBeforeInceptionAndAfterRestart` initially reports `main server does not bind authoritative DNS`.
+That test first creates its window through authenticated HTTP.
+After integration, the same test reads identical TXT/RRSIG records through UDP and TCP before and after service restart.
+
+`TestAuthorityQueryFallsBackToTCP` initially receives the truncated UDP response without a TCP retry.
+It passes after the explicit fallback implementation.
+The transport tests cover persistent TCP queries, active-client shutdown, connection limits, and malformed frames.
+
+Review identifies a lossy wire-label case in the adapter.
+Before the wire guard, one label containing the full dotted window name receives that window's TXT answer.
+`TestAuthorityRefusesWireLabelsBeforeLossyDecode` reproduces this failure before the fix.
+The guard now refuses literal dots, backslashes, controls, and non-ASCII label octets before decoding.
+Further tests cover hidden octets behind compression pointers, pointer loops, truncated names, and name-size bounds.
+Each unsupported form lacks an authoritative answer or denial proof.
+
+The final authority `make check` passes on 2026-11-04.
+It reports 337 Go tests, zero skips, and 1724 of 1781 covered statements: 96.7996 percent.
+Race, Chromium, CLI, fuzz, lint, vet, and both Linux builds pass.
+The final run includes the raw-wire regression fix.

@@ -11,7 +11,7 @@ await mkdir(`${directory}/coverage`);
 // Each browser run uses a separate synthetic DNSSEC key.
 const key = generateKeyPairSync('ec', {namedCurve: 'prime256v1'}).privateKey.export({format: 'jwk'});
 const publicKey = Buffer.concat([Buffer.from(key.x, 'base64url'), Buffer.from(key.y, 'base64url')]).toString('base64');
-await writeFile(`${directory}/synthetic.private`, `Private-key-format: v1.3\nAlgorithm: 13 (ECDSAP256SHA256)\nPrivateKey: ${Buffer.from(key.d, 'base64url').toString('base64')}\n`, {mode: 0o600});
+await writeFile(`${directory}/synthetic.private`, `Private-key-format: v1.3\nAlgorithm: 13 (ECDSAP256SHA256)\nComment: epochalypse-lab-only\nPrivateKey: ${Buffer.from(key.d, 'base64url').toString('base64')}\n`, {mode: 0o600});
 await writeFile(`${directory}/synthetic.key`, `windows.example. 60 IN DNSKEY 257 3 13 ${publicKey}`, {mode: 0o600});
 const env = {...process.env, GOCOVERDIR: `${directory}/coverage`};
 const init = spawnSync(`${directory}/epochalypse`, ['owner', 'init', '--password-file', `${directory}/password`, '--state-dir', `${directory}/data`], {env, encoding: 'utf8', timeout: 10000});

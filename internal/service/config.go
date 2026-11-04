@@ -3,10 +3,13 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Crank-Git/epochalypse/internal/authority"
 	"github.com/Crank-Git/epochalypse/internal/window"
 	"io"
 	"net"
+	"net/url"
 	"os"
+	"strings"
 )
 
 // Config contains the local process configuration.
@@ -22,10 +25,23 @@ type Config struct {
 	Zone         string
 	KeyFile      string
 	WindowLimits *window.Limits
+	NameServer   string
+	PublicURL    string
+	Environment  string
+}
+
+func (c Config) nameServer() string {
+	if c.NameServer != "" {
+		return c.NameServer
+	}
+	return "ns.lab.invalid."
 }
 
 // Validate rejects incomplete process configuration.
 func (c Config) Validate() error {
+	if c.Environment != "" && c.Environment != "lab" && c.Environment != "production" {
+		return fmt.Errorf("environment must be lab or production")
+	}
 	if c.Mode != "server" && c.Mode != "dns" && c.Mode != "agent" {
 		return fmt.Errorf("invalid service mode")
 	}
@@ -44,6 +60,10 @@ func (c Config) Validate() error {
 	if err := c.validateWindows(); err != nil {
 		return err
 	}
+	return c.validateLabHTTP()
+}
+
+func (c Config) validateLabHTTP() error {
 	if c.LocalLab {
 		host, _, err := net.SplitHostPort(c.HTTPAddr)
 		if err != nil || !net.ParseIP(host).IsLoopback() {
@@ -63,7 +83,47 @@ func (c Config) validateWindows() error {
 	if c.Zone != "" && (c.Mode != "server" || c.DNSAddr == "") {
 		return fmt.Errorf("signed windows require the main server and DNS address")
 	}
+	if c.Zone != "" {
+		if err := authority.ValidateNameServer(c.Zone, c.nameServer()); err != nil {
+			return err
+		}
+		if !c.labMaterialAllowed() && (c.NameServer == "" || labZone(c.Zone) || labZone(c.NameServer)) {
+			return fmt.Errorf("production authority requires an explicit external nameserver and a non-lab zone")
+		}
+		if !c.LocalLab {
+			return c.validateProductionAuthority()
+		}
+	}
 	return nil
+}
+
+func (c Config) validateProductionAuthority() error {
+	if c.TLSCert == "" {
+		return fmt.Errorf("production authority requires an explicit external nameserver, TLS, and a non-lab zone")
+	}
+	u, err := url.Parse(c.PublicURL)
+	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.ForceQuery {
+		return fmt.Errorf("production authority requires a public HTTPS origin without credentials")
+	}
+	if u.Path != "" && u.Path != "/" {
+		return fmt.Errorf("public URL must be an origin")
+	}
+	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), ".")) + "."
+	if host == c.Zone || strings.HasSuffix(host, "."+c.Zone) {
+		return fmt.Errorf("administration and release discovery must use a host outside the experimental zone")
+	}
+	return nil
+}
+
+func (c Config) labMaterialAllowed() bool { return c.Environment == "lab" }
+
+func labZone(zone string) bool {
+	for _, suffix := range []string{"example.", "invalid.", "test.", "localhost.", "example.com.", "example.net.", "example.org."} {
+		if zone == suffix || strings.HasSuffix(zone, "."+suffix) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c Config) windowLimits() window.Limits {
@@ -81,8 +141,10 @@ func ReadConfig(path string) error {
 
 // Settings contains non-secret versioned file configuration.
 type Settings struct {
-	Version int    `json:"version"`
-	Zone    string `json:"zone,omitempty"`
+	Version    int    `json:"version"`
+	Zone       string `json:"zone,omitempty"`
+	NameServer string `json:"nameserver,omitempty"`
+	PublicURL  string `json:"public_url,omitempty"`
 }
 
 // ReadSettings reads the bounded public configuration before service startup.

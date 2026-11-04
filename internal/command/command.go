@@ -54,6 +54,7 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 	flags.SetOutput(stderr)
 	configPath := flags.String("config", envDefault("EPOCHALYPSE_CONFIG", "config/local.json"), "Path to the version 1 local configuration")
 	config := service.Config{Mode: args[0]}
+	flags.StringVar(&config.Environment, "environment", envDefault("EPOCHALYPSE_ENV", "lab"), "lab or production")
 	flags.StringVar(&config.HTTPAddr, "http-addr", envDefault("EPOCHALYPSE_HTTP_ADDR", "127.0.0.1:8080"), "HTTP listen address")
 	flags.StringVar(&config.DNSAddr, "dns-addr", envDefault("EPOCHALYPSE_DNS_ADDR", "127.0.0.1:1053"), "TCP and UDP DNS listen address")
 	flags.StringVar(&config.StateDir, "state-dir", envDefault("EPOCHALYPSE_STATE_DIR", "var/state"), "State directory")
@@ -63,6 +64,8 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 	flags.StringVar(&config.TLSKey, "tls-key", "", "TLS private key file")
 	flags.StringVar(&config.Zone, "zone", "", "Dedicated experimental zone")
 	flags.StringVar(&config.KeyFile, "key-file", os.Getenv("EPOCHALYPSE_KEY_FILE"), "Protected BIND private key file")
+	flags.StringVar(&config.NameServer, "nameserver", "", "Canonical nameserver outside the experimental zone")
+	flags.StringVar(&config.PublicURL, "public-url", os.Getenv("EPOCHALYPSE_PUBLIC_URL"), "Public HTTPS origin outside the experimental zone")
 	maxObjects := flags.String("max-objects", envDefault("EPOCHALYPSE_MAX_OBJECTS", "100"), "Maximum retained window documents")
 	maxBytes := flags.String("quota-bytes", envDefault("EPOCHALYPSE_QUOTA_BYTES", "1073741824"), "Maximum retained window JSON bytes")
 	if err := flags.Parse(args[1:]); err != nil {
@@ -85,6 +88,12 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 	}
 	if config.Zone == "" {
 		config.Zone = settings.Zone
+	}
+	if config.NameServer == "" {
+		config.NameServer = settings.NameServer
+	}
+	if config.PublicURL == "" {
+		config.PublicURL = settings.PublicURL
 	}
 	if err := service.Serve(ctx, config, func(service.Addresses) {}); err != nil {
 		_, _ = fmt.Fprintln(stderr, err)

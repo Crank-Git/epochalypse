@@ -124,8 +124,23 @@ func (s *Store) Get(id string) (Window, error) {
 
 // List returns the immutable public windows in identifier order.
 func (s *Store) List() ([]Window, error) {
+	windows, _, err := s.Snapshot()
+	return windows, err
+}
+
+// Revision returns the current transaction identifier for an ephemeral read cache.
+func (s *Store) Revision() (int, error) {
+	var revision int
+	err := s.db.View(func(tx *bolt.Tx) error { revision = tx.ID(); return nil })
+	return revision, err
+}
+
+// Snapshot returns verified windows and one consistent cache revision.
+func (s *Store) Snapshot() ([]Window, int, error) {
 	windows := []Window{}
+	var revision int
 	err := s.db.View(func(tx *bolt.Tx) error {
+		revision = tx.ID()
 		return tx.Bucket(windowBucket).ForEach(func(_, data []byte) error {
 			w, err := s.decode(data)
 			if err != nil {
@@ -135,7 +150,7 @@ func (s *Store) List() ([]Window, error) {
 			return nil
 		})
 	})
-	return windows, err
+	return windows, revision, err
 }
 
 func (s *Store) decode(data []byte) (Window, error) {
