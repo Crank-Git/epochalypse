@@ -24,6 +24,14 @@ The stop command preserves the state volumes.
 
 The DNS and agent modes are foundation scaffolds.
 The DNS server returns REFUSED for complete query headers.
+It reads the complete TCP frame before it returns a 12-byte response.
+The two-byte length field limits each query to 65,535 bytes.
+The UDP receive buffer holds 65,535 bytes to prevent silent input truncation.
+Complete UDP queries above 512 bytes receive the same 12-byte REFUSED response.
+The response preserves the query identifier and clears the recursion-available flag.
+Short headers and incoming responses receive no reply.
+The server closes each TCP connection after one frame or a one-second deadline.
+Incomplete frames receive no reply.
 It serves neither records nor DNSSEC signatures.
 The agent processes provide health routes and versioned state directories.
 They provide no switch, receipt, key share, or release behavior.
@@ -56,6 +64,7 @@ Verified interfaces, retrieved 2026-11-04:
 - [Docker official Go image](https://hub.docker.com/_/golang), Go 1.27.3 Alpine image.
 - [Docker official Alpine image](https://hub.docker.com/_/alpine), Alpine 3.22.2 image.
 - [DNS message and transport formats](https://www.rfc-editor.org/rfc/rfc1035.html), RFC 1035 sections 4.1 and 4.2.
+- [TCP message length field](https://www.rfc-editor.org/rfc/rfc7766.html#section-8), RFC 7766 section 8.
 
 The Dockerfile pins both image indexes by digest.
 `docker buildx imagetools inspect` verifies each digest before its first use.

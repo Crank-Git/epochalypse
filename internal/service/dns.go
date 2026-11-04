@@ -14,6 +14,9 @@ type dnsListeners struct {
 	udp net.PacketConn
 }
 
+// The TCP length field limits allocation and covers every standard UDP datagram.
+const maxDNSMessage = 1<<16 - 1
+
 func openDNS(ctx context.Context, address string) (*dnsListeners, error) {
 	var lc net.ListenConfig
 	tcp, err := lc.Listen(ctx, "tcp", address)
@@ -43,7 +46,7 @@ func refused(query []byte) []byte {
 }
 
 func (d *dnsListeners) serveUDP() error {
-	buffer := make([]byte, 512)
+	buffer := make([]byte, maxDNSMessage)
 	for {
 		n, peer, err := d.udp.ReadFrom(buffer)
 		if err != nil {
@@ -76,9 +79,6 @@ func serveDNSConnection(conn net.Conn) {
 		return
 	}
 	length := binary.BigEndian.Uint16(size[:])
-	if length > 512 {
-		return
-	}
 	query := make([]byte, int(length))
 	if _, err := io.ReadFull(conn, query); err != nil {
 		return
