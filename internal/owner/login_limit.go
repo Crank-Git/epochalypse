@@ -53,7 +53,8 @@ func (l *loginLimiter) attempt(source string, now func() time.Time, authenticate
 	// Serialize password checks so concurrent attempts cannot exceed the failure allowance.
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	current := now()
+	authenticationTime := now()
+	current := authenticationTime
 	// A clock rollback must not move the fifth failure's cooldown into the past.
 	if current.Before(l.latest) {
 		current = l.latest
@@ -76,7 +77,8 @@ func (l *loginLimiter) attempt(source string, now func() time.Time, authenticate
 	if current.Before(failures.until) || (!exists && len(l.sources) >= maxLoginSources) {
 		return "", errLoginLimited
 	}
-	token, err := authenticate(current)
+	// Session validation uses wall time, so the limiter must not give sessions a future timestamp.
+	token, err := authenticate(authenticationTime)
 	if errors.Is(err, ErrCredentials) {
 		l.identity.add(current)
 		failures.add(current)

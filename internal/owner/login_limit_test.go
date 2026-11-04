@@ -212,3 +212,28 @@ func TestWebCooldownRejectsCorrectPasswordsUntilTheBoundary(t *testing.T) {
 		t.Fatalf("cooldown boundary: %d %s", w.Code, w.Body)
 	}
 }
+
+func TestWebIssuesAUsableSessionDuringClockRollback(t *testing.T) {
+	s := sessionStore(t)
+	now := time.Now()
+	s.webNow = func() time.Time { return now }
+	request := func(password string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", "https://localhost/api/v1/session", strings.NewReader(`{"password":"`+password+`"}`))
+		r.Header.Set("Content-Type", "application/json")
+		addCSRF(t, s, r)
+		w := httptest.NewRecorder()
+		s.Handler(false).ServeHTTP(w, r)
+		return w
+	}
+	if w := request("wrong"); w.Code != 401 {
+		t.Fatalf("first failure: %d", w.Code)
+	}
+	now = now.Add(-time.Minute)
+	w := request("synthetic")
+	if w.Code != 204 || len(w.Result().Cookies()) != 1 {
+		t.Fatalf("sign-in during rollback: %d %s", w.Code, w.Body)
+	}
+	if _, err := s.Authenticate(w.Result().Cookies()[0].Value, now); err != nil {
+		t.Fatalf("issued session fails validation during rollback: %v", err)
+	}
+}
