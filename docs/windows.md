@@ -3,7 +3,7 @@
 Window content is public data. A future DNSSEC signature does not keep content secret.
 The current build stores signed records through HTTP and the local CLI.
 The main process serves authoritative UDP/TCP DNS from the same committed state.
-Compose lab routing remains in progress in issue #8.
+The [Compose lab](lab.md) uses explicit synthetic DNS keys and self-signed TLS.
 
 ## Configuration
 

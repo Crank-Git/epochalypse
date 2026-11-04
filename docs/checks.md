@@ -13,6 +13,7 @@ The command requires every currently applicable check to pass:
 - Live HTTP and DNS listener tests with three agent instances.
 - CLI E2E tests through an instrumented executable.
 - Browser dashboard states, keyboard access, scoped summary access, sign-in, sign-out, CSRF rejection, token administration, and cooldown tests through Chromium.
+- A TLS Compose lab with immediate signed UDP/TCP records, explicit fallback, a new executable process, four independent volumes, and three healthy agents.
 - Go race checks.
 - Aggregate coverage across every first-party Go package.
 - A 30-second command-parser fuzz test.
@@ -31,10 +32,11 @@ The gate compares integer statement totals before it formats the percentage.
 An absent, empty, malformed, or insufficient profile fails the gate.
 Use `python3 scripts/coverage_gate.py <profile> [<profile> ...]` to validate profiles directly.
 
-`make test-integration` starts five local listeners and verifies HTTP health.
-The DNS listener refuses queries over UDP and TCP.
+The foundation test in `make test-integration` starts five local listeners and verifies HTTP health.
+Its standalone DNS scaffold refuses queries over UDP and TCP.
+Signed-window service tests instead exercise the cohost authority through real HTTP, UDP, TCP, and restart.
 The CLI E2E suite verifies process startup, configuration errors, occupied ports, and signal shutdown.
-`make test-resolvers` fails with an explicit unavailable message until the DNS feature supplies its suite.
+`make test-resolvers` fails with an explicit unavailable message until the resolver-observation slice supplies its suite.
 The DNS feature supplies tests against the three pinned resolver configurations.
 `scripts/test_browser.py` runs the required browser flow. A missing Docker daemon or a failed browser fails the check.
 The browser test uses synthetic owner state and a temporary profile.

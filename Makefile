@@ -29,6 +29,7 @@ test-unit:
 test-e2e:
 	python3 -m unittest discover -s scripts -p 'test_e2e.py'
 	python3 -m unittest discover -s scripts -p 'test_browser.py'
+	python3 -m unittest discover -s scripts -p 'test_lab.py'
 
 test-integration:
 	python3 scripts/go_tests.py -count=1 ./tests/integration

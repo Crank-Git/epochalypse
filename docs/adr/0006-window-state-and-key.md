@@ -1,7 +1,7 @@
 # ADR 0006: Keep signed windows in the main process
 
 Date: 2026-11-04
-Status: accepted technical choice for issue #8; service integration remains in progress
+Status: accepted technical choice for issue #8
 
 ## Service and state
 

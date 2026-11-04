@@ -10,7 +10,7 @@ Baseline: `c47240b5e43f1667643d309b204a13d3cfd115f8`
 The initial checkpoint adds the durable domain and key policy.
 The next slice adds owner-protected creation and offline CLI commands.
 The authority slice adds live UDP/TCP service and infrastructure signatures.
-Compose setup and executable-process DNS restart evidence remain incomplete.
+The lab slice completes Compose setup and executable-process DNS restart evidence.
 
 `internal/window` supplies these contracts:
 
@@ -93,13 +93,8 @@ The same shell call restores both dispatchers from `HEAD`.
 
 ## Remaining work
 
-Update isolated lab routing while the three agents retain independent processes and volumes.
-Create protected synthetic keys and self-signed TLS through verified pinned tooling.
-Use explicit `EPOCHALYPSE_ENV=lab` without weakening the loopback-only insecure HTTP guard.
-Verify DNS and restart through separate executable processes.
-The current live Go test restarts `Serve` and the database within one test process.
-Finish lab operator documentation and process-level failure-path tests.
-Run the full suite and retain at least 95.00 percent aggregate coverage before sub-merge.
+All assigned implementation and local verification are complete.
+Issues #9 through #11 retain resolver observations, public pages, and trust diagnostics.
 
 ## Authority evidence
 
@@ -130,3 +125,31 @@ The new tests and authority implementation remain present.
 The live test creates its window through authenticated HTTP, then fails with `main server does not bind authoritative DNS`.
 The same shell call restores the dispatcher from `HEAD`.
 `git status --short` then returns no output.
+
+## Lab evidence
+
+The new Compose test initially fails against the previous lab because `/state/lab/tls.crt` does not exist.
+The old lab has no signed-window key or TLS setup.
+The Dockerfile repair supplies the pinned module checksums and embedded web assets.
+
+The pinned BIND image lacks the two proposed setup executables.
+The existing pinned Playwright image instead supplies verified Node.js v26.13.0 and OpenSSL 3.0.13.
+The setup uses Node crypto and the shipped OpenSSL `req` options.
+Key generation has no network access. The generated files have mode 0600 and UID 65534.
+
+`test_lab_preserves_signed_windows_after_process_restart` passes through real container executables.
+It verifies the copied self-signed certificate before owner sign-in and window creation.
+It immediately reads the committed 512-byte TXT and exact RRSIG through UDP and TCP.
+It verifies UDP truncation and the explicit TCP retry.
+It restarts the main container and checks that its host PID changes.
+The new process serves the identical signature.
+
+The test verifies four independent volumes, UID 65534, disabled setup networking, and three healthy agents.
+It also verifies unsafe private-key mode rejection and unchanged DNSKEY material after repeated setup.
+Its cleanup removes only its unique test project and volumes.
+
+The final post-merge `make check` passes on 2026-11-04.
+Go suites report 337 passed tests and zero skips.
+Aggregate coverage is 1724 of 1781 statements, or 96.7996 percent.
+CLI, Chromium, Compose, race, fuzz, lint, vet, and both Linux builds pass.
+The required Compose flow runs in both the E2E and aggregate coverage stages.
