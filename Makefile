@@ -50,7 +50,7 @@ fuzz-smoke:
 	go test ./internal/command -run='^$$' -fuzz=FuzzRun -fuzztime=30s -parallel=2
 
 lint: check-tools
-	@test -z "$$(gofmt -l $$(find cmd internal tests -name '*.go' 2>/dev/null))" || { echo 'Run gofmt on the reported Go files.' >&2; exit 1; }
+	@test -z "$$(gofmt -l $$(find cmd internal web tests -name '*.go' 2>/dev/null))" || { echo 'Run gofmt on the reported Go files.' >&2; exit 1; }
 	go vet ./...
 	golangci-lint run ./...
 
