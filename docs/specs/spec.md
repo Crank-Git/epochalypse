@@ -171,8 +171,10 @@ The [compatibility report](../research/dns-compatibility.md) records real resolv
 ADR 0004 records the choice. Production integration remains separate.
 Use [tlock v1.2.0](https://github.com/drand/tlock/tree/v1.2.0) as the initial compatibility target.
 Verify quicknet configuration explicitly. Legacy examples contain conflicting network references.
-The durable store, password library, threshold library, and lint tools remain foundation decisions with version-specific documentation.
-The spec does not assume their unverified interfaces.
+Owner state uses bbolt v1.5.0 and Argon2id from golang.org/x/crypto v0.58.0.
+ADR 0003 and docs/owner.md define the verified storage and password contracts.
+The foundation pins the lint tools in its check scripts.
+The threshold library remains gated on protocol acceptance; no interface has approval.
 
 Use provider-neutral Linux services and container examples. Managed platforms must meet port and state requirements.
 Each agent provides its own public recovery endpoint and durable ciphertext copy.
