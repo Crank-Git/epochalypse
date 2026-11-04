@@ -386,6 +386,8 @@ No unanswered product question blocks the approved plan. Technical gates block t
 
 ## Changelog
 
+- 2026-11-04: After replacement research and independent review, the owner retains the original guarantee and leaves switch implementation blocked. Continue other features. See ADR 0005.
+
 - 2026-11-04: The owner preserves the original switch guarantee. Research a replacement in issue #70 before protocol acceptance.
 
 - 2026-11-04: Ship the baseline switch model and counterexamples as research only. Keep recovery completion and protocol acceptance blocked.
