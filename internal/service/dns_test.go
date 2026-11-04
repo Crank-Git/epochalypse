@@ -9,15 +9,15 @@ import (
 )
 
 func TestTCPRefusesLargeFrames(t *testing.T) {
-	for _, length := range []int{513, 1232, 65535} {
+	for _, length := range []uint16{513, 1232, 65535} {
 		client, server := net.Pipe()
 		done := make(chan struct{})
 		go func() { serveDNSConnection(server); _ = server.Close(); close(done) }()
 		if err := client.SetDeadline(time.Now().Add(time.Second)); err != nil {
 			t.Fatal(err)
 		}
-		frame := make([]byte, length+2)
-		binary.BigEndian.PutUint16(frame[:2], uint16(length))
+		frame := make([]byte, int(length)+2)
+		binary.BigEndian.PutUint16(frame[:2], length)
 		frame[2], frame[3], frame[4] = 0x12, 0x34, 1
 		if _, err := client.Write(frame); err != nil {
 			t.Fatal(err)
