@@ -26,6 +26,9 @@ func (s *Store) RequireOwner(next http.Handler) http.Handler {
 			authorizationError(w, err)
 			return
 		}
+		if !requireCSRF(w, r) {
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }

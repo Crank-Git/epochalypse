@@ -44,6 +44,7 @@ func TestScopedRequestsRejectEscalationAndRevokedTokens(t *testing.T) {
 			r.AddCookie(&http.Cookie{Name: cookieName, Value: session, Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 		}
 		w := httptest.NewRecorder()
+		addCSRF(t, s, r)
 		s.RequireScope(test.scope, next).ServeHTTP(w, r)
 		if w.Code != test.status {
 			t.Fatalf("scope %s: %d %s", test.scope, w.Code, w.Body)
@@ -56,6 +57,7 @@ func TestScopedRequestsRejectEscalationAndRevokedTokens(t *testing.T) {
 	r.Header.Add("Authorization", "Bearer "+grant.Token)
 	r.Header.Add("Authorization", "Bearer "+grant.Token)
 	w := httptest.NewRecorder()
+	addCSRF(t, s, r)
 	s.RequireScope("switch:checkin", next).ServeHTTP(w, r)
 	if w.Code != 401 {
 		t.Fatal("duplicate authorization accepted")
@@ -68,6 +70,7 @@ func TestScopedRequestsRejectEscalationAndRevokedTokens(t *testing.T) {
 		r.Header.Set("Authorization", "Bearer "+grant.Token)
 		r.AddCookie(&http.Cookie{Name: cookieName, Value: session, Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 		w := httptest.NewRecorder()
+		addCSRF(t, s, r)
 		s.Handler(true).ServeHTTP(w, r)
 		if w.Code != 401 {
 			t.Fatal("API token administers tokens")
@@ -79,6 +82,7 @@ func TestScopedRequestsRejectEscalationAndRevokedTokens(t *testing.T) {
 	r = httptest.NewRequest("GET", "/resource", nil)
 	r.Header.Set("Authorization", "Bearer "+grant.Token)
 	w = httptest.NewRecorder()
+	addCSRF(t, s, r)
 	s.RequireScope("switch:checkin", next).ServeHTTP(w, r)
 	if w.Code != 401 {
 		t.Fatal("revoked token reaches handler")
@@ -113,6 +117,7 @@ func TestTokenAPIRejectsInvalidBodies(t *testing.T) {
 		r.Header.Set("Content-Type", test.media)
 		r.AddCookie(&http.Cookie{Name: cookieName, Value: session, Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 		w := httptest.NewRecorder()
+		addCSRF(t, s, r)
 		s.Handler(true).ServeHTTP(w, r)
 		if w.Code != test.status {
 			t.Fatalf("invalid body: %d %s", w.Code, w.Body)
@@ -124,6 +129,7 @@ func TestTokenAPIRejectsInvalidBodies(t *testing.T) {
 	r := httptest.NewRequest("DELETE", "/api/v1/tokens/bad", nil)
 	r.AddCookie(&http.Cookie{Name: cookieName, Value: session, Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 	w := httptest.NewRecorder()
+	addCSRF(t, s, r)
 	s.Handler(true).ServeHTTP(w, r)
 	if w.Code != 400 {
 		t.Fatal("invalid id revokes token")
@@ -139,6 +145,7 @@ func TestTokenAPIReportsUnavailableState(t *testing.T) {
 		r := httptest.NewRequest("POST", "/api/v1/tokens", nil)
 		r.AddCookie(&http.Cookie{Name: cookieName, Value: strings.Repeat("A", 43), Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 		w := httptest.NewRecorder()
+		addCSRF(t, s, r)
 		handler.ServeHTTP(w, r)
 		if w.Code != 503 {
 			t.Fatalf("closed state: %d", w.Code)
@@ -174,6 +181,7 @@ func TestTokenAPIRequiresOwnerAndReturnsOneTimeValue(t *testing.T) {
 			r.AddCookie(&http.Cookie{Name: cookieName, Value: cookie, Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 		}
 		w := httptest.NewRecorder()
+		addCSRF(t, s, r)
 		s.Handler(true).ServeHTTP(w, r)
 		return w
 	}

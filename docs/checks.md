@@ -12,7 +12,7 @@ The command requires every currently applicable check to pass:
 - Go unit tests and check-script tests.
 - Live HTTP and DNS listener tests with three agent instances.
 - CLI E2E tests through an instrumented executable.
-- Browser sign-in and sign-out tests through Chromium in an isolated Linux container.
+- Browser sign-in, sign-out, CSRF rejection, token administration, and cooldown tests through Chromium in an isolated Linux container.
 - Go race checks.
 - Aggregate coverage across every first-party Go package.
 - A 30-second command-parser fuzz test.

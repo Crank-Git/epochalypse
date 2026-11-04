@@ -32,6 +32,43 @@ Forwarded headers do not establish TLS for owner access.
 Malformed credentials return 400. Invalid credentials return 401. An unavailable owner store returns 503.
 Errors use the shared JSON error format and exclude credential values.
 
+## CSRF proof
+
+Every password sign-in request requires CSRF proof, including requests before authentication.
+Cookie-authorized mutations also require proof. The local lab applies the same checks.
+The owner forms supply a hidden `csrf_token` field automatically.
+
+For an API client, request `GET /api/v1/csrf` first.
+Save its `__Host-epochalypse-csrf` cookie and the `csrf_token` value from the JSON response.
+The cookie uses Secure, HttpOnly, SameSite=Strict, and the host-only `/` path.
+The token contains 256 random bits. The response uses `Cache-Control: no-store`.
+Send the cookie with `X-CSRF-Token: <csrf_token>` on each mutation.
+After sign-in, also send the session cookie.
+The proof remains valid while the client retains the CSRF cookie.
+The bootstrap endpoint and owner page reuse that cookie across tabs and failed sign-ins.
+
+The server rejects missing, incorrect, or duplicate proof with 403 and `invalid_csrf`.
+Query parameters cannot supply proof. Form bodies have an 8192-byte limit.
+If an `Origin` header is present, it must match the request scheme and host exactly.
+The server rejects cross-site browser requests, including requests with otherwise valid proof.
+Clients without an `Origin` header still require proof.
+Forwarded headers do not change the accepted origin.
+Only a bearer token that passes the scope guard can omit CSRF proof.
+Bearer tokens cannot authorize session deletion or token administration.
+
+## Failed sign-in limits
+
+The server permits five failed password checks per owner identity and peer address within 15 minutes.
+The fifth failure starts a 15-minute cooldown for each limit.
+During the cooldown, sign-in returns 429 with a generic credential error and a `Retry-After` header.
+The server rejects correct passwords during the cooldown.
+Successful sign-ins preserve failures until their window expires.
+Form and API sign-ins share the limits. Concurrent requests cannot exceed the failure allowance.
+The server uses the socket peer address. Forwarded headers cannot select another address.
+The server retains at most 1024 source entries and removes expired entries before it admits another source.
+At capacity, the server rejects a new source until an entry expires.
+The limits use process memory. A server restart clears them.
+
 ## Scoped tokens
 
 For local token creation, stop the server to release the database lock.
@@ -51,7 +88,8 @@ For token creation while the server runs, use the authenticated owner session:
 ```http
 POST /api/v1/tokens
 Content-Type: application/json
-Cookie: __Host-epochalypse-session=<session>
+Cookie: __Host-epochalypse-session=<session>; __Host-epochalypse-csrf=<csrf_token>
+X-CSRF-Token: <csrf_token>
 
 {"name":"automation","scopes":["read"],"expires_at":"2027-01-01T00:00:00Z"}
 ```
@@ -84,8 +122,8 @@ Malformed requests return 400. Bodies over 8192 bytes return 413.
 Token routes use the same TLS and error safeguards as session routes.
 
 For API route authors, use `Store.RequireScope(scope, next)` inside the owner handler's TLS and response safeguards.
-The guard admits a matching API token or a valid owner session.
+The guard admits a matching API token or a valid owner session with CSRF proof for mutations.
 Use `Store.RequireOwner(next)` for credential administration.
 The store methods require a trusted clock. They do not replace route authorization.
 
-The complete owner epic adds CSRF checks, failed sign-in limits, and the dashboard before integration into `dev`.
+The complete owner epic adds the dashboard before integration into `dev`.

@@ -71,7 +71,7 @@ func Serve(ctx context.Context, config Config, ready func(Addresses)) error {
 		}
 		defer func() { _ = store.Close() }()
 		ownerHandler := store.Handler(config.LocalLab)
-		for _, path := range []string{"/owner", "/owner/", "/api/v1/session", "/api/v1/tokens", "/api/v1/tokens/"} {
+		for _, path := range []string{"/owner", "/owner/", "/api/v1/csrf", "/api/v1/session", "/api/v1/tokens", "/api/v1/tokens/"} {
 			handler.Handle(path, ownerHandler)
 		}
 	}

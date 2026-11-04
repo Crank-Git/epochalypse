@@ -16,9 +16,10 @@ const cookieName = "__Host-epochalypse-session"
 var ownerPage = template.Must(template.New("owner").Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Owner access — epochalypse</title></head>
 <body><main>{{if .SignedIn}}<h1>Signed in</h1><p>Your owner session is active.</p>
-<form method="post" action="/owner/sign-out"><button type="submit">Sign out</button></form>
+<form method="post" action="/owner/sign-out"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
 {{else}}<h1>Owner sign-in</h1>{{if .Error}}<p role="alert">Invalid credentials. Try again.</p>{{end}}
 <form method="post" action="/owner/sign-in"><label for="password">Password</label>
+<input type="hidden" name="csrf_token" value="{{.CSRF}}">
 <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024">
 <button type="submit">Sign in</button></form>{{end}}</main></body></html>`))
 
@@ -26,17 +27,18 @@ var ownerPage = template.Must(template.New("owner").Parse(`<!doctype html>
 func (s *Store) Handler(lab bool) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /owner", s.page)
+	mux.HandleFunc("GET /api/v1/csrf", csrfBootstrap)
 	mux.HandleFunc("POST /api/v1/session", s.signIn)
-	mux.HandleFunc("DELETE /api/v1/session", s.signOut)
+	mux.Handle("DELETE /api/v1/session", s.RequireOwner(http.HandlerFunc(s.signOut)))
 	mux.HandleFunc("POST /owner/sign-in", s.signIn)
-	mux.HandleFunc("POST /owner/sign-out", s.signOut)
+	mux.Handle("POST /owner/sign-out", s.RequireOwner(http.HandlerFunc(s.signOut)))
 	mux.Handle("POST /api/v1/tokens", s.RequireOwner(http.HandlerFunc(s.createToken)))
 	mux.Handle("DELETE /api/v1/tokens/{id}", s.RequireOwner(http.HandlerFunc(s.revokeToken)))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Request-ID", rand.Text())
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("Content-Security-Policy", "default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
 		if !lab && r.TLS == nil {
 			webError(w, http.StatusUpgradeRequired, "tls_required", "Use HTTPS.")
 			return
@@ -63,12 +65,16 @@ func (s *Store) page(w http.ResponseWriter, r *http.Request) {
 		}
 		signedIn = err == nil
 	}
-	renderOwner(w, signedIn, false)
+	renderOwner(w, r, signedIn, false)
 }
 
-func renderOwner(w http.ResponseWriter, signedIn, failed bool) {
+func renderOwner(w http.ResponseWriter, r *http.Request, signedIn, failed bool) {
+	token := csrfToken(w, r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = ownerPage.Execute(w, struct{ SignedIn, Error bool }{signedIn, failed})
+	_ = ownerPage.Execute(w, struct {
+		SignedIn, Error bool
+		CSRF            string
+	}{signedIn, failed, token})
 }
 
 func credentials(w http.ResponseWriter, r *http.Request) (string, error) {
@@ -101,6 +107,9 @@ func credentials(w http.ResponseWriter, r *http.Request) (string, error) {
 }
 
 func (s *Store) signIn(w http.ResponseWriter, r *http.Request) {
+	if !requireCSRF(w, r) {
+		return
+	}
 	password, err := credentials(w, r)
 	if err != nil {
 		var sizeError *http.MaxBytesError
@@ -111,12 +120,19 @@ func (s *Store) signIn(w http.ResponseWriter, r *http.Request) {
 		webError(w, 400, "invalid_request", "Provide a password in the request body.")
 		return
 	}
-	token, err := s.SignIn([]byte(password), time.Now())
+	token, err := s.login.attempt(peerSource(r.RemoteAddr), s.webNow, func(now time.Time) (string, error) {
+		return s.SignIn([]byte(password), now)
+	})
+	if errors.Is(err, errLoginLimited) {
+		w.Header().Set("Retry-After", "900")
+		webError(w, 429, "invalid_credentials", "Invalid credentials.")
+		return
+	}
 	if errors.Is(err, ErrCredentials) {
 		if r.URL.Path == "/owner/sign-in" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(401)
-			renderOwner(w, false, true)
+			renderOwner(w, r, false, true)
 			return
 		}
 		webError(w, 401, "invalid_credentials", "Invalid credentials.")
