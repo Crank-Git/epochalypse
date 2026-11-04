@@ -3,7 +3,7 @@ id: switch-protocol
 feature: "Switch protocol review"
 epic: "Epic 4: Switch protocol review"
 status: issued
-issues: [23, 24, 25, 26, 27, 28]
+issues: [23, 24, 25, 26, 27, 28, 70]
 mockups: []
 ---
 

@@ -3,7 +3,7 @@
 ## Project state
 
 epochalypse provides DNSSEC window experiments, time capsules, dead man’s switches, and DNS countdowns.
-The owner approved the spec on 2026-11-04. This repository currently contains the spec and planning scaffold only.
+The owner approved the spec on 2026-11-04. The foundation and baseline research are implemented. The tracker records feature work still in progress.
 Read docs/specs/spec.md before work. Read the relevant docs/specs/features/ file before a feature change.
 The spec is public. Keep credentials, real secrets, and private infrastructure values outside tracked files.
 
@@ -13,13 +13,13 @@ Use Go with the toolchain from the spec. Use standard HTTP, templates, JSON, and
 Product source belongs in cmd/epochalypse, internal/, and web/.
 Tests belong beside their Go packages or in tests/ for cross-service checks.
 Deployment files belong in deploy/. Automation belongs in scripts/.
-The foundation epic creates these paths and verifies dependencies before implementation uses them.
+Verify dependencies before implementation uses them.
 Keep the generated spec site and its vendored assets tracked.
 
 ## Commands
 
-The following commands are planned. They become runnable through Epic 0.
-Do not report them as passing before their implementation exists.
+The foundation provides the commands below. Read docs/checks.md for the current required suites.
+Standalone resolver feature checks remain gated until their implementation exists; the isolated compatibility research has its own runner.
 
 - Build: `make build`.
 - Run the main service: `make run`.
