@@ -19,7 +19,7 @@ func TestSuccessorVerifiesLegacySignature(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	inception := uint32(time.Date(2026, 11, 5, 0, 0, 0, 0, time.UTC).Unix())
+	const inception uint32 = 1793836800
 	sig := &legacy.RRSIG{Hdr: legacy.RR_Header{Name: "window.demo.example.", Rrtype: legacy.TypeRRSIG, Class: legacy.ClassINET, Ttl: 60}, Algorithm: key.Algorithm, KeyTag: key.KeyTag(), SignerName: key.Hdr.Name, Inception: inception, Expiration: inception + 3600}
 	if err := sig.Sign(private.(crypto.Signer), []legacy.RR{txt}); err != nil {
 		t.Fatal(err)
