@@ -279,7 +279,7 @@ body.rv-open .layout { padding-right:21rem; }
  Visitor --&gt; Beacon[Verified drand beacon]
  Agents --&gt;|Two release shares and ciphertext| Visitor</pre></div>
 <p>Use Go 1.27.3 with standard HTTP, templates, JSON, and CLI flags. The <a href="https://go.dev/doc/devel/release">Go release history</a> documents this version and its security fixes. Use server-rendered HTML with a small local JavaScript layer. The web interface requires no external frontend service. Use <code>cmd/epochalypse</code> for the executable and <code>internal/</code> for domain modules. Separate modules cover authentication, DNS, capsules, switches, agent state, content, and the clock. Use injected clocks for deterministic tests. Use monotonic durations for local scheduling, with explicit UTC release boundaries.</p>
-<p>Select <a href="https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128">codeberg.org/miekg/dns v0.6.128</a> after the compatibility spike. Keep <a href="https://github.com/miekg/dns/tree/v1.1.73">miekg/dns v1.1.73</a> as an isolated comparison dependency. The <a href="../research/dns-compatibility.md">compatibility report</a> records real resolver evidence and API limits. ADR 0004 records the choice. Production integration remains separate. Use <a href="https://github.com/drand/tlock/tree/v1.2.0">tlock v1.2.0</a> as the initial compatibility target. Verify quicknet configuration explicitly. Legacy examples contain conflicting network references. The durable store, password library, threshold library, and lint tools remain foundation decisions with version-specific documentation. The spec does not assume their unverified interfaces.</p>
+<p>Select <a href="https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128">codeberg.org/miekg/dns v0.6.128</a> after the compatibility spike. Keep <a href="https://github.com/miekg/dns/tree/v1.1.73">miekg/dns v1.1.73</a> as an isolated comparison dependency. The <a href="../research/dns-compatibility.md">compatibility report</a> records real resolver evidence and API limits. ADR 0004 records the choice. Production integration remains separate. Use <a href="https://github.com/drand/tlock/tree/v1.2.0">tlock v1.2.0</a> as the initial compatibility target. Verify quicknet configuration explicitly. Legacy examples contain conflicting network references. Owner state uses bbolt v1.5.0 and Argon2id from golang.org/x/crypto v0.58.0. ADR 0003 and docs/owner.md define the verified storage and password contracts. The foundation pins the lint tools in its check scripts. The threshold library remains gated on protocol acceptance; no interface has approval.</p>
 <p>Use provider-neutral Linux services and container examples. Managed platforms must meet port and state requirements. Each agent provides its own public recovery endpoint and durable ciphertext copy. The main server is absent from the switch recovery path.</p>
 <h2 id="data-model">Data model</h2>
 <div class="diagram"><pre class="mermaid">erDiagram
@@ -427,6 +427,10 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>No unanswered product question blocks the approved plan. Technical gates block the affected implementation or production claim.</p>
 <h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-11-04: Run tlock compatibility research independently of live DNS-window implementation. Keep production capsules gated on DNS completion and the verified compatibility result.
+</li>
+</ul>
 <ul>
 <li>2026-11-04: After replacement research and independent review, the owner retains the original guarantee and leaves switch implementation blocked. Continue other features. See ADR 0005.
 </li>
