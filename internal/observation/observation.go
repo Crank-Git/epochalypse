@@ -2,11 +2,7 @@
 package observation
 
 import (
-	"context"
 	"time"
-
-	"codeberg.org/miekg/dns"
-	"github.com/Crank-Git/epochalypse/internal/authority"
 )
 
 // Clock records the configured offset separately from a measured interval.
@@ -40,6 +36,7 @@ type Flags struct {
 // Result preserves one resolver response and its environment.
 type Result struct {
 	Version   int       `json:"version"`
+	Name      string    `json:"name"`
 	Resolver  Target    `json:"resolver"`
 	Started   time.Time `json:"started"`
 	Completed time.Time `json:"completed"`
@@ -47,24 +44,4 @@ type Result struct {
 	Rcode     *uint16   `json:"rcode"`
 	Flags     *Flags    `json:"flags"`
 	Error     string    `json:"error,omitempty"`
-}
-
-// Observe queries one configured resolver for a public TXT record.
-func Observe(ctx context.Context, name string, target Target) Result {
-	result := Result{Version: 1, Resolver: target, Started: time.Now().UTC()}
-	request := dns.NewMsg(name, dns.TypeTXT)
-	request.RecursionDesired = true
-	request.Security = true
-	request.UDPSize = 1232
-	response, transport, err := authority.Query(ctx, target.Address, request)
-	result.Completed = time.Now().UTC()
-	result.Transport = transport
-	if err != nil {
-		result.Error = "resolver_unavailable"
-		return result
-	}
-	code := response.Rcode
-	result.Rcode = &code
-	result.Flags = &Flags{AD: response.AuthenticatedData, CD: response.CheckingDisabled, AA: response.Authoritative, RA: response.RecursionAvailable, RD: response.RecursionDesired, TC: response.Truncated, DO: response.Security}
-	return result
 }

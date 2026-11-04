@@ -1,4 +1,4 @@
-package observation
+package resolver
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 
 	"codeberg.org/miekg/dns"
 	"codeberg.org/miekg/dns/dnsutil"
+	"github.com/Crank-Git/epochalypse/internal/observation"
 )
 
 func failureResponder(t *testing.T) string {
@@ -44,9 +45,12 @@ func failureResponder(t *testing.T) string {
 
 func TestObservePreservesResponseAndProvenance(t *testing.T) {
 	offset := int64(0)
-	target := Target{ID: "unbound-strict", Address: failureResponder(t), Version: "1.22.0", VersionSource: "configured", Clock: Clock{OffsetNanoseconds: &offset, Source: "configured"}}
+	target := observation.Target{ID: "unbound-strict", Address: failureResponder(t), Version: "1.22.0", VersionSource: "configured", Clock: observation.Clock{OffsetNanoseconds: &offset, Source: "configured"}}
 	before := time.Now()
 	result := Observe(context.Background(), "public.example.", target)
+	if result.Name != "public.example." {
+		t.Fatalf("the observation loses its question: %+v", result)
+	}
 	if result.Rcode == nil || *result.Rcode != dns.RcodeServerFailure || result.Flags == nil || !result.Flags.RA || result.Flags.AD {
 		t.Fatalf("the observation loses the response: %+v", result)
 	}
@@ -58,7 +62,7 @@ func TestObservePreservesResponseAndProvenance(t *testing.T) {
 func TestObservePreservesUnavailableResult(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	result := Observe(ctx, "public.example.", Target{ID: "unavailable", Address: "127.0.0.1:1", Version: "unknown", VersionSource: "unknown", Clock: Clock{Source: "unknown"}})
+	result := Observe(ctx, "public.example.", observation.Target{ID: "unavailable", Address: "127.0.0.1:1", Version: "unknown", VersionSource: "unknown", Clock: observation.Clock{Source: "unknown"}})
 	if result.Error != "resolver_unavailable" || result.Rcode != nil || result.Flags != nil || result.Completed.Before(result.Started) {
 		t.Fatalf("the failed query claims a response: %+v", result)
 	}

@@ -4,6 +4,7 @@ package resolvers_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"codeberg.org/miekg/dns"
 	"github.com/Crank-Git/epochalypse/internal/authority"
 	"github.com/Crank-Git/epochalypse/internal/observation"
+	"github.com/Crank-Git/epochalypse/internal/resolver"
 	"github.com/Crank-Git/epochalypse/internal/window"
 )
 
@@ -61,9 +63,18 @@ func TestResolverAuthorityProcess(t *testing.T) {
 	}
 }
 
-func TestStrictResolverObservesProductionWindows(t *testing.T) {
+type resolverLab struct {
+	directory   string
+	network     string
+	authorityIP string
+	key         *dns.DNSKEY
+	records     map[string]window.Window
+	clock       observation.Clock
+}
+
+func newResolverLab(t *testing.T) resolverLab {
+	t.Helper()
 	directory := t.TempDir()
-	key, records := createFixture(t, directory)
 	binary := filepath.Join(directory, "authority.test")
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -73,12 +84,154 @@ func TestStrictResolverObservesProductionWindows(t *testing.T) {
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build authority: %v: %s", err, output)
 	}
+	key, records := createFixture(t, directory)
 	network := fmt.Sprintf("epochalypse-worker9-%d", time.Now().UnixNano())
 	docker(t, "network", "create", network)
 	t.Cleanup(func() { docker(t, "network", "rm", network) })
-	authorityContainer := startContainer(t, network, directory, "authority", "linux/arm64", bindImage, "/fixture/authority.test", "-test.run=^TestResolverAuthorityProcess$", "-test.timeout=3m")
-	ip := docker(t, "inspect", "--format", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", authorityContainer)
-	clockLower, clockUpper := sampleClock(t, authorityContainer)
+	container := startContainer(t, network, directory, "authority", "linux/arm64", bindImage, "/fixture/authority.test", "-test.run=^TestResolverAuthorityProcess$", "-test.timeout=3m")
+	ip := docker(t, "inspect", "--format", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", container)
+	lower, upper := sampleClock(t, container)
+	zero := int64(0)
+	return resolverLab{directory, network, ip, key, records, observation.Clock{OffsetNanoseconds: &zero, Source: "configured zero; shared Docker clock sample", LowerNanoseconds: &lower, UpperNanoseconds: &upper}}
+}
+
+func (lab resolverLab) startResolver(t *testing.T, kind, label string) observation.Target {
+	t.Helper()
+	config, entry, platform, image := resolverConfiguration(kind, lab.authorityIP, lab.key)
+	file := label + ".conf"
+	if err := os.WriteFile(filepath.Join(lab.directory, file), []byte(config), 0600); err != nil {
+		t.Fatal(err)
+	}
+	args := []string{"-d", "-c", "/fixture/" + file}
+	version := "1.22.0"
+	marker := "Version " + version
+	if kind == "bind" {
+		args = []string{"-g", "-c", "/fixture/" + file, "-n", "1"}
+		version = "9.20.24-1ubuntu0.4-Ubuntu"
+		marker = version
+	}
+	container := startContainer(t, lab.network, lab.directory, label, platform, image, entry, args...)
+	identity := docker(t, "exec", container, entry, "-V")
+	if !strings.Contains(identity, marker) {
+		t.Fatalf("unexpected %s identity: %s", kind, identity)
+	}
+	address := docker(t, "port", container, "53/udp")
+	target := observation.Target{ID: kind, Address: address, Version: version, VersionSource: "executable -V", Clock: lab.clock}
+	assertResult(t, awaitResponse(t, lab.records["current"].Name, target), dns.RcodeSuccess, true)
+	return target
+}
+
+func TestResolverMatrixObservesProductionWindows(t *testing.T) {
+	lab := newResolverLab(t)
+	warm, cold := map[string]observation.Target{}, map[string]observation.Target{}
+	for _, kind := range []string{"unbound-strict", "unbound-default", "bind"} {
+		warm[kind] = lab.startResolver(t, kind, kind+"-warm")
+		cold[kind] = lab.startResolver(t, kind, kind+"-cold")
+	}
+	results := []observation.Result{}
+	for _, kind := range []string{"unbound-strict", "unbound-default", "bind"} {
+		target := warm[kind]
+		for _, name := range []string{"current", "near", "future", "expired"} {
+			accepted := name == "current" || (name == "near" && kind == "unbound-default")
+			code := uint16(dns.RcodeServerFailure)
+			if accepted {
+				code = dns.RcodeSuccess
+			}
+			result := resolver.Observe(context.Background(), lab.records[name].Name, target)
+			assertResult(t, result, code, accepted)
+			results = append(results, result)
+		}
+	}
+	results = append(results, assertCacheBoundary(t, lab, warm, cold)...)
+	if err := os.MkdirAll("../../.test-artifacts", 0700); err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.MarshalIndent(struct {
+		Windows map[string]window.Window `json:"windows"`
+		Results []observation.Result     `json:"results"`
+	}{lab.records, results}, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("../../.test-artifacts/resolvers.json", data, 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertCacheBoundary(t *testing.T, lab resolverLab, warm, cold map[string]observation.Target) []observation.Result {
+	t.Helper()
+	results := []observation.Result{}
+	boundary := lab.records["boundary"]
+	if !time.Now().Before(boundary.Inception.Add(-2 * time.Second)) {
+		t.Fatal("the fixture does not leave time to prime failure caches")
+	}
+	for _, kind := range []string{"unbound-strict", "unbound-default", "bind"} {
+		code := uint16(dns.RcodeServerFailure)
+		if kind == "unbound-default" {
+			code = dns.RcodeSuccess
+		}
+		result := resolver.Observe(context.Background(), boundary.Name, warm[kind])
+		assertResult(t, result, code, kind == "unbound-default")
+		results = append(results, result)
+	}
+	// The clock interval and scheduling margin prevent an exact-boundary claim.
+	time.Sleep(time.Until(boundary.Inception.Add(2 * time.Second)))
+	for _, kind := range []string{"unbound-strict", "unbound-default", "bind"} {
+		coldResult := resolver.Observe(context.Background(), boundary.Name, cold[kind])
+		assertResult(t, coldResult, dns.RcodeSuccess, true)
+		warmResult := resolver.Observe(context.Background(), boundary.Name, warm[kind])
+		code := uint16(dns.RcodeSuccess)
+		if kind == "unbound-strict" {
+			code = dns.RcodeServerFailure
+		}
+		assertResult(t, warmResult, code, kind != "unbound-strict")
+		t.Logf("%s boundary=%s cold=%s rcode=%d warm=%s rcode=%d", kind, boundary.Inception.Format(time.RFC3339), coldResult.Completed.Format(time.RFC3339Nano), *coldResult.Rcode, warmResult.Completed.Format(time.RFC3339Nano), *warmResult.Rcode)
+		results = append(results, coldResult, warmResult)
+	}
+	// Strict Unbound retains a bogus entry for its default sixty-second interval.
+	until := time.Now().Add(45 * time.Second)
+	for {
+		result := resolver.Observe(context.Background(), boundary.Name, warm["unbound-strict"])
+		if result.Rcode != nil && *result.Rcode == dns.RcodeSuccess {
+			assertResult(t, result, dns.RcodeSuccess, true)
+			t.Logf("strict warm recovery at %s", result.Completed.Format(time.RFC3339Nano))
+			results = append(results, result)
+			break
+		}
+		if time.Now().After(until) {
+			t.Fatal("the warm strict resolver does not recover after its failure cache expires")
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return results
+}
+
+func assertResult(t *testing.T, result observation.Result, rcode uint16, ad bool) {
+	t.Helper()
+	if result.Error != "" || result.Rcode == nil || result.Flags == nil {
+		t.Fatalf("the resolver omits its response: %+v", result)
+	}
+	if *result.Rcode != rcode || result.Flags.AD != ad || !result.Flags.RA {
+		t.Fatalf("%s rcode=%d AD=%v RA=%v; want rcode=%d AD=%v", result.Resolver.ID, *result.Rcode, result.Flags.AD, result.Flags.RA, rcode, ad)
+	}
+	if result.Version != 1 || result.Resolver.Version == "" || result.Resolver.Clock.OffsetNanoseconds == nil || result.Completed.Before(result.Started) {
+		t.Fatalf("the result loses its provenance: %+v", result)
+	}
+}
+
+func resolverConfiguration(kind, ip string, key *dns.DNSKEY) (string, string, string, string) {
+	if kind == "bind" {
+		config := fmt.Sprintf(`options {
+ directory "/tmp";
+ listen-on { any; }; listen-on-v6 { none; };
+ recursion yes; allow-query { any; }; dnssec-validation yes;
+ pid-file "/tmp/named.pid"; session-keyfile "/tmp/session.key";
+};
+trust-anchors { "windows.example." static-key %d %d %d "%s"; };
+zone "windows.example." { type static-stub; server-addresses { %s; }; };
+`, key.Flags, key.Protocol, key.Algorithm, key.PublicKey, ip)
+		return config, "/usr/sbin/named", "linux/arm64", bindImage
+	}
 	config := fmt.Sprintf(`server:
  interface: 0.0.0.0
  username: ""
@@ -90,37 +243,16 @@ func TestStrictResolverObservesProductionWindows(t *testing.T) {
  access-control: 0.0.0.0/0 allow
  do-ip6: no
  local-zone: "example." nodefault
- val-sig-skew-min: 0
- val-sig-skew-max: 0
  trust-anchor: "%s"
 stub-zone:
  name: "windows.example."
  stub-addr: %s
  stub-first: no
-`, key.String(), strings.TrimSpace(ip))
-	if err := os.WriteFile(filepath.Join(directory, "strict.conf"), []byte(config), 0600); err != nil {
-		t.Fatal(err)
+`, key.String(), ip)
+	if kind == "unbound-strict" {
+		config = strings.Replace(config, "server:\n", "server:\n val-sig-skew-min: 0\n val-sig-skew-max: 0\n", 1)
 	}
-	resolver := startContainer(t, network, directory, "strict", "linux/amd64", unboundImage, "/opt/unbound/sbin/unbound", "-d", "-c", "/fixture/strict.conf")
-	version := docker(t, "exec", resolver, "/opt/unbound/sbin/unbound", "-V")
-	if !strings.Contains(version, "Version 1.22.0") {
-		t.Fatalf("unexpected resolver identity: %s", version)
-	}
-	address := strings.TrimSpace(docker(t, "port", resolver, "53/udp"))
-	offset := int64(0)
-	target := observation.Target{ID: "unbound-strict", Address: address, Version: "1.22.0", VersionSource: "executable -V", Clock: observation.Clock{OffsetNanoseconds: &offset, Source: "configured zero; Docker clock sampled from authority", LowerNanoseconds: &clockLower, UpperNanoseconds: &clockUpper}}
-	current := awaitResponse(t, records["current"].Name, target)
-	if current.Rcode == nil || *current.Rcode != dns.RcodeSuccess || current.Flags == nil || !current.Flags.AD || !current.Flags.RA {
-		t.Fatalf("the strict resolver cannot validate the positive control: %+v", current)
-	}
-	future := observation.Observe(context.Background(), records["future"].Name, target)
-	if future.Rcode == nil || *future.Rcode != dns.RcodeServerFailure || future.Flags == nil || future.Flags.AD {
-		t.Fatalf("the strict resolver accepts a future signature: %+v", future)
-	}
-	if future.Resolver.Version != "1.22.0" || future.Resolver.Clock.OffsetNanoseconds == nil || future.Completed.Before(future.Started) {
-		t.Fatalf("the observation loses resolver provenance: %+v", future)
-	}
-	t.Logf("strict production path: current rcode=%d AD=%v; future rcode=%d AD=%v; version=%s; offset interval=[%d,%d]ns", *current.Rcode, current.Flags.AD, *future.Rcode, future.Flags.AD, target.Version, clockLower, clockUpper)
+	return config, "/opt/unbound/sbin/unbound", "linux/amd64", unboundImage
 }
 
 func createFixture(t *testing.T, directory string) (*dns.DNSKEY, map[string]window.Window) {
@@ -148,7 +280,7 @@ func createFixture(t *testing.T, directory string) (*dns.DNSKEY, map[string]wind
 	defer func() { _ = store.Close() }()
 	now := time.Now().UTC().Truncate(time.Second)
 	records := map[string]window.Window{}
-	for label, start := range map[string]time.Time{"current": now.Add(-time.Hour), "future": now.Add(time.Hour)} {
+	for label, start := range map[string]time.Time{"current": now.Add(-time.Hour), "near": now.Add(20 * time.Minute), "future": now.Add(48 * time.Hour), "expired": now.Add(-48 * time.Hour), "boundary": now.Add(30 * time.Second)} {
 		in := window.Input{Content: "public resolver experiment", Inception: start.Format(time.RFC3339), Expiration: start.Add(2 * time.Hour).Format(time.RFC3339)}
 		record, err := store.Create(in, now)
 		if err != nil {
@@ -189,7 +321,7 @@ func awaitResponse(t *testing.T, name string, target observation.Target) observa
 	t.Helper()
 	until := time.Now().Add(10 * time.Second)
 	for time.Now().Before(until) {
-		result := observation.Observe(context.Background(), name, target)
+		result := resolver.Observe(context.Background(), name, target)
 		if result.Rcode != nil && *result.Rcode == dns.RcodeSuccess {
 			return result
 		}
