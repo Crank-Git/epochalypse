@@ -6,7 +6,8 @@
 
 ## Status
 
-Accepted research direction. No production protocol has acceptance.
+Accepted owner decision to retain the guarantee and keep switch implementation blocked.
+No production protocol has acceptance.
 
 ## Context
 
@@ -21,12 +22,15 @@ The owner states: “Keep the original guarantee; research a replacement protoco
 Preserve the original guarantee during replacement research in issue #70.
 Compare documented alternatives before any production switch implementation.
 Keep committed state distinct from client-observed confirmation.
-Any infeasible contract requires an explicit blocker report and maintainer decision.
+Replacement research compared replicated decisions and prepare/commit evidence.
+Independent review accepted its scoped final-response contradiction, not a universal impossibility claim.
+The owner then states: “Keep the guarantee and leave switch implementation blocked (recommended)”.
+Keep switch implementation blocked while other features continue.
 
 ## Consequences
 
 The baseline research remains useful as a reproducible counterexample.
-Issue #27 remains blocked on replacement research.
+Research #70 is complete. Issue #27 remains blocked because no accepted protocol satisfies its recovery criterion.
 Issue #28 remains the protocol acceptance gate.
 The project does not substitute eventual release at a later local deadline for the original guarantee.
 Production switch use stays disabled.
