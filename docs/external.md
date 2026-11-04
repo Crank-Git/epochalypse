@@ -3,7 +3,7 @@
 ## Operator setup
 
 The public repository belongs to the owner's personal GitHub account.
-The remote repository does not exist in the local configuration yet.
+The public remote is https://github.com/Crank-Git/epochalypse.
 The owner supplies the domain and VPS hosts during deployment setup.
 The owner can use owner-operated agents or independent trusted operators.
 Keep real addresses, credentials, and private keys outside this document.

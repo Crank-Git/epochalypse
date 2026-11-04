@@ -83,6 +83,6 @@ Keep `docs/specs/`, its generated HTML, and its vendored assets tracked.
 ## Repository setup
 
 The owner approved Git initialization on 2026-11-04.
-The local repository uses `main` and `dev`. The repository has no remote.
+The local repository uses `main` and `dev`. The public remote is `Crank-Git/epochalypse` on GitHub.
 The personal GitHub repository name and remote remain setup values.
 The package must reach the public remote before issue creation.

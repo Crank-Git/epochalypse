@@ -1,7 +1,7 @@
 ---
 name: epochalypse
 slug: epochalypse
-repo: null
+repo: Crank-Git/epochalypse
 status: approved
 spec_version: 2
 created: 2026-11-04
