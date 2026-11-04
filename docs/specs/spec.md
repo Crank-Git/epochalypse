@@ -386,6 +386,8 @@ No unanswered product question blocks the approved plan. Technical gates block t
 
 ## Changelog
 
+- 2026-11-04: The owner preserves the original switch guarantee. Research a replacement in issue #70 before protocol acceptance.
+
 - 2026-11-04: Ship the baseline switch model and counterexamples as research only. Keep recovery completion and protocol acceptance blocked.
 
 - 2026-11-04: Ship DNS compatibility research separately while owner access blocks production mutations. Select the verified successor adapter in ADR 0004.
@@ -408,7 +410,7 @@ The owner approved issue creation on 2026-11-04. Each requirement has at least o
 | dns-window | [#6](https://github.com/Crank-Git/epochalypse/issues/6) | [#7](https://github.com/Crank-Git/epochalypse/issues/7), [#8](https://github.com/Crank-Git/epochalypse/issues/8), [#9](https://github.com/Crank-Git/epochalypse/issues/9), [#10](https://github.com/Crank-Git/epochalypse/issues/10), [#11](https://github.com/Crank-Git/epochalypse/issues/11) |
 | owner | [#12](https://github.com/Crank-Git/epochalypse/issues/12) | [#13](https://github.com/Crank-Git/epochalypse/issues/13), [#14](https://github.com/Crank-Git/epochalypse/issues/14), [#15](https://github.com/Crank-Git/epochalypse/issues/15), [#16](https://github.com/Crank-Git/epochalypse/issues/16) |
 | capsules | [#17](https://github.com/Crank-Git/epochalypse/issues/17) | [#18](https://github.com/Crank-Git/epochalypse/issues/18), [#19](https://github.com/Crank-Git/epochalypse/issues/19), [#20](https://github.com/Crank-Git/epochalypse/issues/20), [#21](https://github.com/Crank-Git/epochalypse/issues/21), [#22](https://github.com/Crank-Git/epochalypse/issues/22) |
-| switch-protocol | [#23](https://github.com/Crank-Git/epochalypse/issues/23) | [#24](https://github.com/Crank-Git/epochalypse/issues/24), [#25](https://github.com/Crank-Git/epochalypse/issues/25), [#26](https://github.com/Crank-Git/epochalypse/issues/26), [#27](https://github.com/Crank-Git/epochalypse/issues/27), [#28](https://github.com/Crank-Git/epochalypse/issues/28) |
+| switch-protocol | [#23](https://github.com/Crank-Git/epochalypse/issues/23) | [#24](https://github.com/Crank-Git/epochalypse/issues/24), [#25](https://github.com/Crank-Git/epochalypse/issues/25), [#26](https://github.com/Crank-Git/epochalypse/issues/26), [#27](https://github.com/Crank-Git/epochalypse/issues/27), [#28](https://github.com/Crank-Git/epochalypse/issues/28), [#70](https://github.com/Crank-Git/epochalypse/issues/70) |
 | switches | [#29](https://github.com/Crank-Git/epochalypse/issues/29) | [#30](https://github.com/Crank-Git/epochalypse/issues/30), [#31](https://github.com/Crank-Git/epochalypse/issues/31), [#32](https://github.com/Crank-Git/epochalypse/issues/32), [#33](https://github.com/Crank-Git/epochalypse/issues/33), [#34](https://github.com/Crank-Git/epochalypse/issues/34) |
 | countdowns | [#35](https://github.com/Crank-Git/epochalypse/issues/35) | [#36](https://github.com/Crank-Git/epochalypse/issues/36), [#37](https://github.com/Crank-Git/epochalypse/issues/37), [#38](https://github.com/Crank-Git/epochalypse/issues/38) |
 | operations | [#39](https://github.com/Crank-Git/epochalypse/issues/39) | [#40](https://github.com/Crank-Git/epochalypse/issues/40), [#41](https://github.com/Crank-Git/epochalypse/issues/41), [#42](https://github.com/Crank-Git/epochalypse/issues/42), [#43](https://github.com/Crank-Git/epochalypse/issues/43), [#44](https://github.com/Crank-Git/epochalypse/issues/44) |
@@ -457,10 +459,10 @@ The owner approved issue creation on 2026-11-04. Each requirement has at least o
 | FR-switch-protocol-2 | [#24](https://github.com/Crank-Git/epochalypse/issues/24) |
 | FR-switch-protocol-3 | [#25](https://github.com/Crank-Git/epochalypse/issues/25) |
 | FR-switch-protocol-4 | [#25](https://github.com/Crank-Git/epochalypse/issues/25) |
-| FR-switch-protocol-5 | [#26](https://github.com/Crank-Git/epochalypse/issues/26) |
+| FR-switch-protocol-5 | [#26](https://github.com/Crank-Git/epochalypse/issues/26), [#70](https://github.com/Crank-Git/epochalypse/issues/70) |
 | FR-switch-protocol-6 | [#26](https://github.com/Crank-Git/epochalypse/issues/26) |
-| FR-switch-protocol-7 | [#27](https://github.com/Crank-Git/epochalypse/issues/27) |
-| FR-switch-protocol-8 | [#28](https://github.com/Crank-Git/epochalypse/issues/28) |
+| FR-switch-protocol-7 | [#27](https://github.com/Crank-Git/epochalypse/issues/27), [#70](https://github.com/Crank-Git/epochalypse/issues/70) |
+| FR-switch-protocol-8 | [#28](https://github.com/Crank-Git/epochalypse/issues/28), [#70](https://github.com/Crank-Git/epochalypse/issues/70) |
 | FR-switches-1 | [#30](https://github.com/Crank-Git/epochalypse/issues/30) |
 | FR-switches-2 | [#31](https://github.com/Crank-Git/epochalypse/issues/31) |
 | FR-switches-3 | [#32](https://github.com/Crank-Git/epochalypse/issues/32) |
