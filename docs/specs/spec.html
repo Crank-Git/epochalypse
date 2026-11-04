@@ -279,7 +279,7 @@ body.rv-open .layout { padding-right:21rem; }
  Visitor --&gt; Beacon[Verified drand beacon]
  Agents --&gt;|Two release shares and ciphertext| Visitor</pre></div>
 <p>Use Go 1.27.3 with standard HTTP, templates, JSON, and CLI flags. The <a href="https://go.dev/doc/devel/release">Go release history</a> documents this version and its security fixes. Use server-rendered HTML with a small local JavaScript layer. The web interface requires no external frontend service. Use <code>cmd/epochalypse</code> for the executable and <code>internal/</code> for domain modules. Separate modules cover authentication, DNS, capsules, switches, agent state, content, and the clock. Use injected clocks for deterministic tests. Use monotonic durations for local scheduling, with explicit UTC release boundaries.</p>
-<p>Evaluate <a href="https://github.com/miekg/dns/tree/v1.1.73">miekg/dns v1.1.73</a> through a compatibility spike. Its README describes DNSSEC support but directs new work toward a successor. The spike chooses a maintained adapter and records its exact version before product code uses it. Use <a href="https://github.com/drand/tlock/tree/v1.2.0">tlock v1.2.0</a> as the initial compatibility target. Verify quicknet configuration explicitly. Legacy examples contain conflicting network references. The durable store, password library, threshold library, and lint tools remain foundation decisions with version-specific documentation. The spec does not assume their unverified interfaces.</p>
+<p>Select <a href="https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128">codeberg.org/miekg/dns v0.6.128</a> after the compatibility spike. Keep <a href="https://github.com/miekg/dns/tree/v1.1.73">miekg/dns v1.1.73</a> as an isolated comparison dependency. The <a href="../research/dns-compatibility.md">compatibility report</a> records real resolver evidence and API limits. ADR 0004 records the choice. Production integration remains separate. Use <a href="https://github.com/drand/tlock/tree/v1.2.0">tlock v1.2.0</a> as the initial compatibility target. Verify quicknet configuration explicitly. Legacy examples contain conflicting network references. The durable store, password library, threshold library, and lint tools remain foundation decisions with version-specific documentation. The spec does not assume their unverified interfaces.</p>
 <p>Use provider-neutral Linux services and container examples. Managed platforms must meet port and state requirements. Each agent provides its own public recovery endpoint and durable ciphertext copy. The main server is absent from the switch recovery path.</p>
 <h2 id="data-model">Data model</h2>
 <div class="diagram"><pre class="mermaid">erDiagram
@@ -412,7 +412,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>A lost signing key can prevent renewal. Export and recovery procedures must state this consequence.
 </li>
-<li>The DNS adapter requires a maintenance and compatibility decision.
+<li>The DNS adapter passes synthetic compatibility checks. Production integration and public delegation remain separate gates.
 </li>
 <li>The tlock adapter requires an explicit verified network configuration and version check.
 </li>
@@ -427,6 +427,10 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>No unanswered product question blocks the approved plan. Technical gates block the affected implementation or production claim.</p>
 <h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-11-04: Ship DNS compatibility research separately while owner access blocks production mutations. Select the verified successor adapter in ADR 0004.
+</li>
+</ul>
 <ul>
 <li>2026-11-04: Require each implemented feature to add its applicable tests. Keep unavailable future-suite targets explicit and fail-closed. See ADR 0002.
 </li>
