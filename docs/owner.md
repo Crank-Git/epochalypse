@@ -126,7 +126,34 @@ The guard admits a matching API token or a valid owner session with CSRF proof f
 Use `Store.RequireOwner(next)` for credential administration.
 The store methods require a trusted clock. They do not replace route authorization.
 
-The complete owner epic adds the dashboard before integration into `dev`.
+## Owner dashboard
+
+After sign-in, `/owner` shows capsules, switches, countdowns, and agent health.
+The page provides section links, visible keyboard focus, and a sign-out form.
+The layout supports narrow screens and the browser's light or dark color scheme.
+The sign-out form retains the session and CSRF safeguards.
+If the owner session is absent or expired, the page shows sign-in.
+If storage fails, the page shows an error and a retry link.
+
+`GET /api/v1/dashboard` accepts an owner session or a bearer token with the exact `read` scope.
+An explicit bearer credential prevents fallback to an owner cookie.
+The response requires HTTPS outside the local lab and uses `Cache-Control: no-store`.
+The optional `limit` parameter accepts one integer from 1 through 100. The default is 100.
+The limit applies separately to each summary list. Invalid limits return 400 after authorization.
+Unauthorized requests return 401. Tokens without `read` return 403. Storage failures return 503.
+Errors use the shared JSON error format and response request identifier.
+
+Each response has `capsules`, `switches`, `countdowns`, and `agents` fields.
+Each field contains a textual `state`, a `message`, and an `items` array.
+Future metadata items use `{id,name,state}`. Summary items contain no content or credentials.
+`Store.Dashboard(limit)` supplies this contract after the caller authorizes access.
+
+The current feature stores contain no capsule, switch, or countdown implementation.
+Their lists therefore return empty arrays. Capsule and countdown states are `not_implemented`.
+The switch state is `blocked`, consistent with the owner's production decision in ADR 0005.
+Agent health is `unavailable` because the dashboard has no verified agent observations.
+These states do not claim that an agent is healthy or that content has released.
+The page explains feature availability instead of offering unsupported creation controls.
 
 ## Audit events
 

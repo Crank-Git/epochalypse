@@ -12,7 +12,7 @@ The command requires every currently applicable check to pass:
 - Go unit tests and check-script tests.
 - Live HTTP and DNS listener tests with three agent instances.
 - CLI E2E tests through an instrumented executable.
-- Browser sign-in, sign-out, CSRF rejection, token administration, and cooldown tests through Chromium in an isolated Linux container.
+- Browser dashboard states, keyboard access, scoped summary access, sign-in, sign-out, CSRF rejection, token administration, and cooldown tests through Chromium.
 - Go race checks.
 - Aggregate coverage across every first-party Go package.
 - A 30-second command-parser fuzz test.
@@ -38,6 +38,8 @@ The CLI E2E suite verifies process startup, configuration errors, occupied ports
 The DNS feature supplies tests against the three pinned resolver configurations.
 `scripts/test_browser.py` runs the required browser flow. A missing Docker daemon or a failed browser fails the check.
 The browser test uses synthetic owner state and a temporary profile.
+The dashboard checks verify the empty feature lists, the switch production block, and unavailable agent observations.
+The browser checks the section links with real Tab and Enter key events.
 The container has no external network access. The server listens on loopback inside the container.
 The test mounts the repository read-only and its own temporary directory with write access.
 The container removes itself after the test. The test stops its server and browser.
