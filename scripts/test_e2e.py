@@ -27,6 +27,7 @@ class CLITests(unittest.TestCase):
                 self.assertEqual(result.stderr if code == 0 else result.stdout, "")
             self.check_service_processes(binary, env, Path(directory))
             self.check_demo(binary, env, Path(directory))
+            self.check_tokens(binary, env, Path(directory))
             Path(".test-artifacts").mkdir(exist_ok=True)
             subprocess.run(["go", "tool", "covdata", "textfmt", f"-i={coverdir}", "-o=.test-artifacts/cli.out"], check=True)
 
@@ -68,6 +69,57 @@ class CLITests(unittest.TestCase):
         result = subprocess.run([binary, "server", "--config", str(directory / "missing.json")], env=env, capture_output=True, text=True, timeout=5)
         self.assertEqual(result.returncode, 1)
         self.assertIn("open local configuration", result.stderr)
+
+    def check_tokens(self, binary, env, directory):
+        state = directory / "token-state"
+        password = directory / "token-password"
+        password.write_text("synthetic-token-password\n")
+        password.chmod(0o600)
+        result = subprocess.run([binary, "owner", "init", "--state-dir", str(state), "--password-file", str(password)], env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        args = [binary, "token", "create", "--state-dir", str(state), "--name", "automation", "--scopes", "read,switch:checkin", "--expires-at", "2099-01-01T00:00:00Z"]
+        result = subprocess.run(args, env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        grant = json.loads(result.stdout)
+        self.assertEqual(len(grant["id"]), 32)
+        self.assertEqual(len(grant["token"]), 43)
+        self.assertEqual(result.stderr, "")
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
+        process = subprocess.Popen([binary, "server", "--config", str(directory / "local.json"), "--state-dir", str(state), "--http-addr", f"127.0.0.1:{port}", "--local-lab"], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            self.wait_for_health(process, port)
+            origin = f"http://127.0.0.1:{port}"
+            result = subprocess.run(args, env=env, capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 1)
+            self.assertNotIn(grant["token"], result.stdout + result.stderr)
+            request = urllib.request.Request(origin + "/api/v1/session", data=json.dumps({"password": "synthetic-token-password"}).encode(), headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(request, timeout=2) as response:
+                self.assertEqual(response.status, 204)
+                cookie = response.headers["Set-Cookie"].split(";", 1)[0]
+            body = json.dumps({"name": "api", "scopes": ["read"], "expires_at": "2099-01-01T00:00:00Z"}).encode()
+            request = urllib.request.Request(origin + "/api/v1/tokens", data=body, headers={"Content-Type": "application/json", "Cookie": cookie})
+            with urllib.request.urlopen(request, timeout=2) as response:
+                self.assertEqual(response.status, 201)
+                created = json.load(response)
+                self.assertEqual(response.headers["Cache-Control"], "no-store")
+            for item in (grant, created):
+                request = urllib.request.Request(origin + "/api/v1/tokens", data=body, headers={"Content-Type": "application/json", "Authorization": "Bearer " + item["token"]})
+                with self.assertRaises(urllib.error.HTTPError) as rejected:
+                    urllib.request.urlopen(request, timeout=2)
+                with rejected.exception as response:
+                    self.assertEqual(response.code, 401)
+                    self.assertNotIn(item["token"], response.read().decode())
+                request = urllib.request.Request(origin + "/api/v1/tokens/" + item["id"], method="DELETE", headers={"Cookie": cookie})
+                with urllib.request.urlopen(request, timeout=2) as response:
+                    self.assertEqual(response.status, 204)
+                    self.assertEqual(response.read(), b"")
+        finally:
+            process.terminate()
+            stdout, stderr = process.communicate(timeout=5)
+        self.assertEqual(process.returncode, 0, stderr)
+        self.assertEqual(stdout, "")
 
     def check_dns_frames(self, port):
         for transport, length in ((socket.SOCK_STREAM, 513), (socket.SOCK_STREAM, 65535), (socket.SOCK_DGRAM, 1232), (socket.SOCK_DGRAM, 8192)):

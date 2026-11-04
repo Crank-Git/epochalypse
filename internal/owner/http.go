@@ -30,6 +30,8 @@ func (s *Store) Handler(lab bool) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/session", s.signOut)
 	mux.HandleFunc("POST /owner/sign-in", s.signIn)
 	mux.HandleFunc("POST /owner/sign-out", s.signOut)
+	mux.Handle("POST /api/v1/tokens", s.RequireOwner(http.HandlerFunc(s.createToken)))
+	mux.Handle("DELETE /api/v1/tokens/{id}", s.RequireOwner(http.HandlerFunc(s.revokeToken)))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Request-ID", rand.Text())
 		w.Header().Set("Cache-Control", "no-store")
