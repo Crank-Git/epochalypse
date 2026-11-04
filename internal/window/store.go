@@ -20,6 +20,7 @@ var ErrNotFound = errors.New("window does not exist")
 type Store struct {
 	db     *bolt.DB
 	signer *Signer
+	limits Limits
 }
 
 var windowBucket = []byte("windows-v1")
@@ -27,6 +28,10 @@ var configurationBucket = []byte("configuration-v1")
 
 // Open opens version 1 window state independently of owner credentials.
 func Open(stateDir string, signer *Signer) (*Store, error) {
+	return OpenWithLimits(stateDir, signer, DefaultLimits())
+}
+
+func openStore(stateDir string, signer *Signer, limits Limits) (*Store, error) {
 	if signer == nil || signer.key == nil || signer.private == nil {
 		return nil, errors.New("configure the window signer before state access")
 	}
@@ -50,7 +55,7 @@ func Open(stateDir string, signer *Signer) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open window database: %w", err)
 	}
-	store := &Store{db: db, signer: signer}
+	store := &Store{db: db, signer: signer, limits: limits}
 	if err := db.Update(store.initialize); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("initialize window database: %w", err)
@@ -90,6 +95,9 @@ func (s *Store) Create(in Input, now time.Time) (Window, error) {
 	}
 	if err := s.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(windowBucket)
+		if err := s.limits.admits(bucket, len(encoded)); err != nil {
+			return err
+		}
 		if bucket.Get([]byte(w.ID)) != nil {
 			return errors.New("window identifier already exists")
 		}

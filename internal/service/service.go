@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Crank-Git/epochalypse/internal/owner"
 	"github.com/Crank-Git/epochalypse/internal/version"
 )
 
@@ -65,15 +64,12 @@ func Serve(ctx context.Context, config Config, ready func(Addresses)) error {
 	}
 	handler := Handler()
 	if config.Mode == "server" {
-		store, err := owner.Open(config.StateDir)
+		state, err := openMainState(config)
 		if err != nil {
 			return err
 		}
-		defer func() { _ = store.Close() }()
-		ownerHandler := store.Handler(config.LocalLab)
-		for _, path := range []string{"/owner", "/owner/", "/api/v1/csrf", "/api/v1/session", "/api/v1/tokens", "/api/v1/tokens/", "/api/v1/dashboard"} {
-			handler.Handle(path, ownerHandler)
-		}
+		defer state.close()
+		state.routes(handler, config.LocalLab)
 	}
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second}
 	defer func() { _ = server.Close() }()

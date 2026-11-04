@@ -34,6 +34,11 @@ func (s *Store) Handler(lab bool) http.Handler {
 	mux.Handle("POST /owner/sign-out", s.RequireOwner(http.HandlerFunc(s.signOut)))
 	mux.Handle("POST /api/v1/tokens", s.RequireOwner(http.HandlerFunc(s.createToken)))
 	mux.Handle("DELETE /api/v1/tokens/{id}", s.RequireOwner(http.HandlerFunc(s.revokeToken)))
+	return SecureHandler(lab, mux)
+}
+
+// SecureHandler applies the shared TLS and response safeguards to HTTP routes.
+func SecureHandler(lab bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Request-ID", rand.Text())
 		w.Header().Set("Cache-Control", "no-store")
@@ -43,15 +48,20 @@ func (s *Store) Handler(lab bool) http.Handler {
 			webError(w, http.StatusUpgradeRequired, "tls_required", "Use HTTPS.")
 			return
 		}
-		mux.ServeHTTP(w, r)
+		next.ServeHTTP(w, r)
 	})
 }
 
 func webError(w http.ResponseWriter, status int, code, message string) {
+	APIError(w, status, code, message, map[string]string{})
+}
+
+// APIError writes the shared error format with specific validation fields.
+func APIError(w http.ResponseWriter, status int, code, message string, fields map[string]string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{
-		"code": code, "message": message, "fields": map[string]string{}, "request_id": w.Header().Get("X-Request-ID"),
+		"code": code, "message": message, "fields": fields, "request_id": w.Header().Get("X-Request-ID"),
 	}})
 }
 

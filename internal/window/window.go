@@ -3,7 +3,6 @@ package window
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"strings"
 	"time"
@@ -17,18 +16,29 @@ type Input struct {
 	Expiration string `json:"expiration"`
 }
 
-// Validate checks content and supported serial-time boundaries.
+// ValidationError names the public field that requires correction.
+type ValidationError struct {
+	Field   string
+	Message string
+}
+
+func (e *ValidationError) Error() string { return e.Field + ": " + e.Message }
+
+// Validate returns a ValidationError for invalid content or unsupported serial-time boundaries.
 func (in Input) Validate(now time.Time) error {
 	if !utf8.ValidString(in.Content) || len(in.Content) > 512 {
-		return errors.New("content requires at most 512 UTF-8 bytes")
+		return &ValidationError{"content", "content requires at most 512 UTF-8 bytes"}
 	}
 	inception, expiration, err := in.boundaries()
 	if err != nil {
 		return err
 	}
-	for _, boundary := range []int64{inception.Unix(), expiration.Unix()} {
-		if distance := boundary - now.Unix(); distance <= -1<<31 || distance >= 1<<31 {
-			return errors.New("signature boundary exceeds the supported clock distance")
+	for _, boundary := range []struct {
+		field string
+		value int64
+	}{{"inception", inception.Unix()}, {"expiration", expiration.Unix()}} {
+		if distance := boundary.value - now.Unix(); distance <= -1<<31 || distance >= 1<<31 {
+			return &ValidationError{boundary.field, "signature boundary exceeds the supported clock distance"}
 		}
 	}
 	return nil
@@ -37,14 +47,14 @@ func (in Input) Validate(now time.Time) error {
 func (in Input) boundaries() (time.Time, time.Time, error) {
 	inception, err := parseUTC(in.Inception)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("inception: %w", err)
+		return time.Time{}, time.Time{}, &ValidationError{"inception", err.Error()}
 	}
 	expiration, err := parseUTC(in.Expiration)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("expiration: %w", err)
+		return time.Time{}, time.Time{}, &ValidationError{"expiration", err.Error()}
 	}
 	if duration := expiration.Unix() - inception.Unix(); duration <= 0 || duration >= 1<<31 {
-		return time.Time{}, time.Time{}, errors.New("expiration must follow inception by less than 2147483648 seconds")
+		return time.Time{}, time.Time{}, &ValidationError{"expiration", "expiration must follow inception by less than 2147483648 seconds"}
 	}
 	return inception, expiration, nil
 }

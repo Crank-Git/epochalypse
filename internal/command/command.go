@@ -20,6 +20,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return runOwner(args, stdout, stderr)
 		case "token":
 			return runToken(args, stdout, stderr)
+		case "window":
+			return runWindow(args, stdout, stderr)
 		case "status", "demo", "clean-demo":
 			return runFoundation(args, stdout, stderr)
 		case "server", "dns", "agent":
@@ -34,7 +36,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		}
 		return 2
 	}
-	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  help        Show command help\n  owner       Create or recover the local owner\n  token       Create a scoped token with host access\n  server      Start the web server\n  dns         Start the local DNS scaffold\n  agent       Start a local agent scaffold\n  status      Verify a deployed commit\n  demo        Create synthetic fixtures\n  clean-demo  Remove the explicit demo namespace"); err != nil {
+	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  help        Show command help\n  owner       Create or recover the local owner\n  token       Create a scoped token with host access\n  window      Create or inspect signed windows offline\n  server      Start the web server\n  dns         Start the local DNS scaffold\n  agent       Start a local agent scaffold\n  status      Verify a deployed commit\n  demo        Create synthetic fixtures\n  clean-demo  Remove the explicit demo namespace"); err != nil {
 		return 1
 	}
 	return 0
@@ -59,6 +61,10 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 	flags.BoolVar(&config.LocalLab, "local-lab", false, "Permit owner HTTP access on a loopback address")
 	flags.StringVar(&config.TLSCert, "tls-cert", "", "TLS certificate file")
 	flags.StringVar(&config.TLSKey, "tls-key", "", "TLS private key file")
+	flags.StringVar(&config.Zone, "zone", "", "Dedicated experimental zone")
+	flags.StringVar(&config.KeyFile, "key-file", os.Getenv("EPOCHALYPSE_KEY_FILE"), "Protected BIND private key file")
+	maxObjects := flags.String("max-objects", envDefault("EPOCHALYPSE_MAX_OBJECTS", "100"), "Maximum retained window documents")
+	maxBytes := flags.String("quota-bytes", envDefault("EPOCHALYPSE_QUOTA_BYTES", "1073741824"), "Maximum retained window JSON bytes")
 	if err := flags.Parse(args[1:]); err != nil {
 		return 2
 	}
@@ -66,9 +72,19 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 		_, _ = fmt.Fprintln(stderr, "service commands accept flags only")
 		return 2
 	}
-	if err := service.ReadConfig(*configPath); err != nil {
+	limits, err := parseWindowLimits(*maxObjects, *maxBytes)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 2
+	}
+	config.WindowLimits = &limits
+	settings, err := service.ReadSettings(*configPath)
+	if err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
+	}
+	if config.Zone == "" {
+		config.Zone = settings.Zone
 	}
 	if err := service.Serve(ctx, config, func(service.Addresses) {}); err != nil {
 		_, _ = fmt.Fprintln(stderr, err)

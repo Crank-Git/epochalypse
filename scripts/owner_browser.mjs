@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {readFile} from 'node:fs/promises';
+import {readFile, writeFile} from 'node:fs/promises';
 import {setTimeout as pause} from 'node:timers/promises';
 
-const [chrome, profile, origin] = process.argv.slice(2);
+const [chrome, profile, origin, windowResult] = process.argv.slice(2);
 const sandbox = process.getuid?.() === 0 ? ['--no-sandbox'] : [];
 const browser = spawn(chrome, ['--headless', '--no-first-run', '--no-default-browser-check', '--disable-breakpad', '--disable-crash-reporter',
   ...sandbox, `--user-data-dir=${profile}`, '--remote-debugging-port=0', 'about:blank'], {stdio: ['ignore', 'ignore', 'pipe']});
@@ -108,6 +108,22 @@ try {
     return {status: response.status, body: await response.text()};
   })()`);
   const csrf = await evaluate("document.querySelector('[name=csrf_token]').value");
+  const inception = new Date(Date.now() + 3600000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const expiration = new Date(Date.now() + 7200000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const windowBody = JSON.stringify({content: 'public browser experiment', inception, expiration});
+  assert.equal((await request('POST', '/api/v1/windows', windowBody)).status, 403);
+  assert.equal((await request('POST', '/api/v1/windows', windowBody, 'wrong')).status, 403);
+  const signedWindow = await request('POST', '/api/v1/windows', windowBody, csrf);
+  assert.equal(signedWindow.status, 201, signedWindow.body);
+  const windowRecord = JSON.parse(signedWindow.body);
+  assert.equal(windowRecord.content, 'public browser experiment');
+  assert.equal(windowRecord.inception, inception);
+  assert.equal(windowRecord.expiration, expiration);
+  assert.match(windowRecord.rrsig, /RRSIG\s+TXT 13 /);
+  await writeFile(windowResult, JSON.stringify(windowRecord), {mode: 0o600});
+  const invalidWindow = await request('POST', '/api/v1/windows', JSON.stringify({content: 'public', inception, expiration: inception}), csrf);
+  assert.equal(invalidWindow.status, 400);
+  assert.ok(JSON.parse(invalidWindow.body).error.fields.expiration);
   const dashboard = await request('GET', '/api/v1/dashboard?limit=1');
   assert.equal(dashboard.status, 200);
   const summary = JSON.parse(dashboard.body);
@@ -124,6 +140,7 @@ try {
   assert.equal(created.status, 201);
   const tokenID = JSON.parse(created.body).id;
   const readToken = JSON.parse(created.body).token;
+  assert.equal(await evaluate(`fetch('/api/v1/windows', {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: ${JSON.stringify(`Bearer ${readToken}`)}, 'X-CSRF-Token': ${JSON.stringify(csrf)}}, body: ${JSON.stringify(windowBody)}}).then(response => response.status)`), 401);
   const bearerDashboard = () => evaluate(`fetch('/api/v1/dashboard', {headers: {Authorization: ${JSON.stringify(`Bearer ${readToken}`)}}}).then(response => response.status)`);
   assert.equal(await bearerDashboard(), 200);
   assert.equal((await request('DELETE', `/api/v1/tokens/${tokenID}`)).status, 403);
@@ -136,6 +153,7 @@ try {
   await evaluate("document.querySelector('button').click()");
   await waitFor("document.querySelector('h1')?.textContent === 'Owner sign-in'");
   assert.equal((await request('GET', '/api/v1/dashboard')).status, 401);
+  assert.equal((await request('POST', '/api/v1/windows', windowBody, csrf)).status, 401);
   await evaluate("document.body.dataset.beforeReload = 'true'");
   await call('Page.reload');
   await waitFor("document.body.dataset.beforeReload !== 'true' && document.querySelector('h1')?.textContent === 'Owner sign-in'");
@@ -146,7 +164,7 @@ try {
   const cooldown = await request('POST', '/api/v1/session', JSON.stringify({password: 'synthetic-browser'}), bootstrap.csrf_token);
   assert.equal(cooldown.status, 429);
   assert.ok(!cooldown.body.includes('synthetic-browser'));
-  console.log('Browser: dashboard states, keyboard navigation, scoped summary access, CSRF proof, token administration, sign-in, sign-out, and cooldown pass');
+  console.log('Browser: signed windows, dashboard states, keyboard navigation, scoped summary access, CSRF proof, token administration, sign-in, sign-out, and cooldown pass');
 } finally {
   socket?.close();
   browser.kill('SIGTERM');

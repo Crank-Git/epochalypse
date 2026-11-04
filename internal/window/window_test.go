@@ -30,6 +30,7 @@ func TestInputRejectsInvalidBoundaries(t *testing.T) {
 		{"overflow serial time", func(in *Input) { in.Expiration = "2106-02-07T06:28:16Z" }},
 		{"ambiguous duration", func(in *Input) { in.Expiration = "2094-11-23T16:14:08Z" }},
 		{"ambiguous clock distance", func(in *Input) { in.Inception = "2095-01-01T00:00:00Z"; in.Expiration = "2095-01-01T01:00:00Z" }},
+		{"ambiguous expiration distance", func(in *Input) { in.Inception = "2094-01-01T00:00:00Z"; in.Expiration = "2095-01-01T00:00:00Z" }},
 	} {
 		t.Run(change.name, func(t *testing.T) {
 			in := validInput()
@@ -38,6 +39,15 @@ func TestInputRejectsInvalidBoundaries(t *testing.T) {
 				t.Fatal("invalid input passes validation")
 			}
 		})
+	}
+}
+
+func TestValidationErrorNamesTheField(t *testing.T) {
+	in := validInput()
+	in.Content = strings.Repeat("x", 513)
+	err := in.Validate(testNow)
+	if err == nil || err.Error() != "content: content requires at most 512 UTF-8 bytes" {
+		t.Fatal(err)
 	}
 }
 
