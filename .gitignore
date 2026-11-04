@@ -14,3 +14,4 @@ coverage.out
 coverage.html
 .test-artifacts/
 .DS_Store
+__pycache__/
