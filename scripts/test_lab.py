@@ -61,6 +61,10 @@ class LabTests(unittest.TestCase):
                 port = int(env["LAB_DNS_PORT"])
                 assert_authority(record, port=port)
                 assert_fallback(record, port=port)
+                verified = json.loads(compose("exec", "-T", "web", "epochalypse", "lab", "verify", "--zone", record["zone"], "--address", "127.0.0.1:1053", "--anchor-file", "/state/lab/window.key"))
+                self.assertEqual(verified["status"], "verified")
+                self.assertEqual(verified["trust_source"], "explicit-local-anchor")
+                self.assertIn("experimental TXT validity remain separate", verified["detail"])
                 services = [json.loads(line) for line in compose("ps", "--all", "--format", "json").splitlines()]
                 running = {item["Service"]: item for item in services if item["State"] == "running"}
                 self.assertEqual(set(running), {"web", "agent-1", "agent-2", "agent-3"})
