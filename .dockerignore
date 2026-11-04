@@ -1,0 +1,9 @@
+.git
+.worktrees
+var
+bin
+.test-artifacts
+.env*
+**/*.private
+**/*.key
+config/local.json
