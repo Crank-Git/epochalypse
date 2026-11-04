@@ -78,8 +78,9 @@ DNS: TXT, RRSIG, DNSKEY, DS, SOA, NS, and authenticated denial responses.
 Protocol sources: [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034.html), sections 3.1.4 and 3.1.5;
 [RFC 4035](https://www.rfc-editor.org/rfc/rfc4035.html), sections 4.7 and 5.3.1;
 [RFC 8914](https://www.rfc-editor.org/rfc/rfc8914.html), code 8.
-Candidate adapter: [miekg/dns v1.1.73](https://github.com/miekg/dns/tree/v1.1.73).
-Its upstream README recommends a successor. The compatibility spike decides the supported adapter before implementation.
+Selected adapter: [codeberg.org/miekg/dns v0.6.128](https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128).
+The isolated compatibility report retains miekg/dns v1.1.73 as a comparison dependency.
+ADR 0004 records the verified selection. Production integration remains separate.
 Resolver source: [Unbound 1.26.2 manual](https://unbound.docs.nlnetlabs.nl/en/latest/manpages/unbound.conf.html).
 The foundation pins actual resolver images after it verifies their version-specific manuals.
 

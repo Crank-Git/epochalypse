@@ -165,9 +165,10 @@ Use `cmd/epochalypse` for the executable and `internal/` for domain modules.
 Separate modules cover authentication, DNS, capsules, switches, agent state, content, and the clock.
 Use injected clocks for deterministic tests. Use monotonic durations for local scheduling, with explicit UTC release boundaries.
 
-Evaluate [miekg/dns v1.1.73](https://github.com/miekg/dns/tree/v1.1.73) through a compatibility spike.
-Its README describes DNSSEC support but directs new work toward a successor.
-The spike chooses a maintained adapter and records its exact version before product code uses it.
+Select [codeberg.org/miekg/dns v0.6.128](https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128) after the compatibility spike.
+Keep [miekg/dns v1.1.73](https://github.com/miekg/dns/tree/v1.1.73) as an isolated comparison dependency.
+The [compatibility report](../research/dns-compatibility.md) records real resolver evidence and API limits.
+ADR 0004 records the choice. Production integration remains separate.
 Use [tlock v1.2.0](https://github.com/drand/tlock/tree/v1.2.0) as the initial compatibility target.
 Verify quicknet configuration explicitly. Legacy examples contain conflicting network references.
 The durable store, password library, threshold library, and lint tools remain foundation decisions with version-specific documentation.
@@ -374,7 +375,7 @@ Keep provider selection and actual infrastructure cost outside this planning dec
 - Two colluding agents can disclose a secret early. V1 does not cover this attack.
 - Agent clock error can cause early or late release. The protocol review defines a measured bound and an unsafe-clock response.
 - A lost signing key can prevent renewal. Export and recovery procedures must state this consequence.
-- The DNS adapter requires a maintenance and compatibility decision.
+- The DNS adapter passes synthetic compatibility checks. Production integration and public delegation remain separate gates.
 - The tlock adapter requires an explicit verified network configuration and version check.
 - The maintained store, threshold library, password library, and lint tools require pinned documentation before code uses them.
 - The reference deployment needs independent endpoints and storage, not only three containers on one VPS.
@@ -384,6 +385,8 @@ Keep provider selection and actual infrastructure cost outside this planning dec
 No unanswered product question blocks the approved plan. Technical gates block the affected implementation or production claim.
 
 ## Changelog
+
+- 2026-11-04: Ship DNS compatibility research separately while owner access blocks production mutations. Select the verified successor adapter in ADR 0004.
 
 - 2026-11-04: Require each implemented feature to add its applicable tests. Keep unavailable future-suite targets explicit and fail-closed. See ADR 0002.
 
