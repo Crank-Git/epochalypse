@@ -22,10 +22,10 @@ def run(args):
             event = None
         if (
             not isinstance(event, dict)
-            or not event.get("Action")
+            or event.get("Action") not in ("start", "run", "pause", "cont", "pass", "bench", "fail", "output", "skip")
             or any(not isinstance(event.get(field, ""), str) for field in ("Action", "Test", "Output"))
         ):
-            print(f"Go tests: malformed event at line {number}. Inspect the output from go test -json. Require an Action string and optional Test and Output strings.", file=sys.stderr)
+            print(f"Go tests: malformed event at line {number}. Inspect the output from go test -json. Require a documented Action and optional Test and Output strings.", file=sys.stderr)
             return 1
         if "Output" in event:
             print(event["Output"], end="")

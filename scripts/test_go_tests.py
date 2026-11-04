@@ -30,15 +30,15 @@ class GoTestTests(unittest.TestCase):
         self.assertIn("Inspect", errors.getvalue())
 
     def test_rejects_malformed_events_through_the_cli(self):
-        for event in ("not json", "[]", '{"Test":"TestBehavior"}', '{"Action":"pass","Output":1}', '{"Action":1}', '{"Action":"pass","Test":1}'):
+        for event in ("not json", "[]", '{"Test":"TestBehavior"}', '{"Action":"pass","Output":1}', '{"Action":1}', '{"Action":"pass","Test":1}', '{"Action":"unexpected"}'):
             with self.subTest(event=event), tempfile.TemporaryDirectory() as directory:
                 go = Path(directory) / "go"
-                go.write_text(f"#!{sys.executable}\nprint({event!r})\n")
+                go.write_text(f"#!{sys.executable}\nprint('{{\"Test\":\"TestBehavior\",\"Action\":\"pass\"}}')\nprint({event!r})\n")
                 go.chmod(0o700)
                 result = subprocess.run([sys.executable, "scripts/go_tests.py", "./..."], env=dict(os.environ, PATH=directory), capture_output=True, text=True, timeout=5)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertNotIn("Traceback", result.stderr)
-                self.assertIn("malformed event at line 1", result.stderr)
+                self.assertIn("malformed event at line 2", result.stderr)
                 self.assertIn("go test -json", result.stderr)
 
     def test_requires_executed_tests(self):
