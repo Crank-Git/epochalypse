@@ -90,7 +90,19 @@ The experiment adds no cryptographic primitive.
 The first round tests fail against commit `fbcb194` with eight behavioral assertion failures.
 That commit retains the tests with a constant round implementation.
 The corrected helper passes those assertions with 100 percent statement coverage.
-The final verification record must also include the committed pre-patch check and full project checks.
+The committed pre-patch check removes the new helper from merge base `4a01e7a7c0b2211969ac2591d547815c979f9c5a`.
+The scoped tests fail because that helper does not exist at the merge base.
+The additional check restores the constant implementation from `fbcb194` while retaining the final tests.
+It produces nine behavioral assertion failures.
+Both checks restore the implementation and leave a clean Git status.
+
+The full `make check` passes with no required skips.
+It includes both Chromium runs, race checks, the bounded fuzz test, lint, and both Linux builds.
+Project coverage is `1063/1099` statements, or `96.7243` percent.
+The isolated race tests pass with 100 percent helper coverage.
+The isolated vet and lint checks report no findings.
+The combined coverage gate reports `1074/1110` statements, or `96.7568` percent.
+No browser flow changes, so this slice adds no browser E2E test.
 
 From the repository root, set repository-local Go caches as described in `docs/checks.md`.
 Run these commands:
