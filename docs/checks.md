@@ -17,6 +17,11 @@ The command requires every currently applicable check to pass:
 - Go format, vet, and configured lint checks.
 - Linux amd64 and arm64 builds.
 
+The Go test runner limits each command to 120 seconds.
+If a command exceeds this limit, the runner fails with the command to inspect.
+Malformed JSON events fail with the event line number and output requirements.
+Empty suites, skipped tests, and nonzero command results fail the check.
+
 Coverage combines unit tests and CLI executions.
 The CLI profile includes the executable entry point.
 The gate compares integer statement totals before it formats the percentage.
