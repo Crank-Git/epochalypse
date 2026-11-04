@@ -94,7 +94,7 @@ func releaseBoundary(state State) (int64, error) {
 
 func addSeconds(utc int64, seconds uint64) (int64, error) {
 	// Ordered unsigned values cover the full signed UTC range without signed overflow.
-	ordered := uint64(utc) ^ (uint64(1) << 63)
+	ordered := uint64(utc) ^ (uint64(1) << 63) // #nosec G115 -- The conversion preserves the signed UTC bit pattern.
 	if seconds > ^uint64(0)-ordered {
 		return 0, errors.New("UTC boundary overflows")
 	}
@@ -102,7 +102,7 @@ func addSeconds(utc int64, seconds uint64) (int64, error) {
 }
 
 func distance(a, b int64) uint64 {
-	x, y := uint64(a)^(uint64(1)<<63), uint64(b)^(uint64(1)<<63)
+	x, y := uint64(a)^(uint64(1)<<63), uint64(b)^(uint64(1)<<63) // #nosec G115 -- The conversions preserve signed UTC bit patterns.
 	if x > y {
 		return x - y
 	}

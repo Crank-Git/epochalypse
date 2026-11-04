@@ -47,9 +47,9 @@ func TestRejectsReplayStaleAndConflict(t *testing.T) {
 			t.Fatal("changes accepted state on rejection")
 		}
 	}
-	a, old := modelAgent(t, 100, 0)
+	_, old := modelAgent(t, 100, 0)
 	old.Sequence = math.MaxUint64
-	a, _ = NewModelAgent(old, ClockReading{UTC: 100, Safe: true}, 0)
+	a, _ := NewModelAgent(old, ClockReading{UTC: 100, Safe: true}, 0)
 	next := old
 	if err := a.CheckIn(next, ClockReading{UTC: 101, Elapsed: 1, Safe: true}); err == nil {
 		t.Fatal("wraps sequence")
@@ -57,12 +57,16 @@ func TestRejectsReplayStaleAndConflict(t *testing.T) {
 }
 
 func TestRejectsRenewalAtReleaseBoundary(t *testing.T) {
-	for _, utc := range []int64{109, 110, 111} {
+	for _, sample := range []struct {
+		utc     int64
+		elapsed uint64
+	}{{109, 9}, {110, 10}, {111, 11}} {
+		utc := sample.utc
 		a, old := modelAgent(t, 100, 0)
 		next := old
 		next.Sequence++
 		next.Deadline = 200
-		err := a.CheckIn(next, ClockReading{UTC: utc, Elapsed: uint64(utc - 100), Safe: true})
+		err := a.CheckIn(next, ClockReading{UTC: utc, Elapsed: sample.elapsed, Safe: true})
 		if (err == nil) != (utc < 110) {
 			t.Fatalf("boundary %d: %v", utc, err)
 		}
@@ -171,9 +175,13 @@ func TestPreservesFirstAcceptedConcurrentSequence(t *testing.T) {
 }
 
 func TestReportsLocalReleaseEligibility(t *testing.T) {
-	for _, utc := range []int64{109, 110, 111} {
+	for _, sample := range []struct {
+		utc     int64
+		elapsed uint64
+	}{{109, 9}, {110, 10}, {111, 11}} {
+		utc := sample.utc
 		a, _ := modelAgent(t, 100, 0)
-		eligible, err := a.ReleaseEligible(ClockReading{UTC: utc, Elapsed: uint64(utc - 100), Safe: true})
+		eligible, err := a.ReleaseEligible(ClockReading{UTC: utc, Elapsed: sample.elapsed, Safe: true})
 		if err != nil || eligible != (utc >= 110) {
 			t.Fatalf("eligibility at %d: %v, %v", utc, eligible, err)
 		}
