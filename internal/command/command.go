@@ -14,6 +14,9 @@ import (
 
 // Run returns the exit code for the command arguments.
 func Run(args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 && (args[0] == "status" || args[0] == "demo" || args[0] == "clean-demo") {
+		return runFoundation(args, stdout, stderr)
+	}
 	if len(args) > 0 && (args[0] == "server" || args[0] == "dns" || args[0] == "agent") {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -25,7 +28,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		}
 		return 2
 	}
-	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  help    Show command help\n  server  Start the web server\n  dns     Start the local DNS scaffold\n  agent   Start a local agent scaffold"); err != nil {
+	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  help        Show command help\n  server      Start the web server\n  dns         Start the local DNS scaffold\n  agent       Start a local agent scaffold\n  status      Verify a deployed commit\n  demo        Create synthetic fixtures\n  clean-demo  Remove the explicit demo namespace"); err != nil {
 		return 1
 	}
 	return 0
