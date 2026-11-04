@@ -153,3 +153,10 @@ Go suites report 337 passed tests and zero skips.
 Aggregate coverage is 1724 of 1781 statements, or 96.7996 percent.
 CLI, Chromium, Compose, race, fuzz, lint, vet, and both Linux builds pass.
 The required Compose flow runs in both the E2E and aggregate coverage stages.
+
+After commit `375d373`, the lab pre-patch check restores the baseline Compose file from `21ef129`.
+The new E2E test and build repair remain present.
+The old lab again fails because its main container lacks `/state/lab/tls.crt`.
+The test removes its own containers and volumes.
+The same shell call restores the current Compose file from `HEAD`.
+`git status --short` then returns no output.
