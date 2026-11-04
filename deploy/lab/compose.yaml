@@ -1,0 +1,51 @@
+name: epochalypse-lab
+x-process: &process
+  build:
+    context: ../..
+    dockerfile: deploy/lab/Dockerfile
+    args:
+      EPOCHALYPSE_BUILD_COMMIT: ${EPOCHALYPSE_BUILD_COMMIT:-unknown}
+  user: "65534:65534"
+  read_only: true
+  tmpfs:
+    - /tmp
+  environment:
+    EPOCHALYPSE_HTTP_ADDR: 0.0.0.0:8080
+    EPOCHALYPSE_STATE_DIR: /state
+  healthcheck:
+    test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/healthz]
+    interval: 1s
+    timeout: 2s
+    retries: 20
+services:
+  web:
+    <<: *process
+    command: [server]
+    volumes: [web-state:/state]
+    ports:
+      - "127.0.0.1:${LAB_HTTP_PORT:-8080}:8080"
+  dns:
+    <<: *process
+    command: [dns, --dns-addr, 0.0.0.0:1053]
+    volumes: [dns-state:/state]
+    ports:
+      - "127.0.0.1:${LAB_DNS_PORT:-1053}:1053/udp"
+      - "127.0.0.1:${LAB_DNS_PORT:-1053}:1053/tcp"
+  agent-1:
+    <<: *process
+    command: [agent, --agent-id, lab-agent-1]
+    volumes: [agent-1-state:/state]
+  agent-2:
+    <<: *process
+    command: [agent, --agent-id, lab-agent-2]
+    volumes: [agent-2-state:/state]
+  agent-3:
+    <<: *process
+    command: [agent, --agent-id, lab-agent-3]
+    volumes: [agent-3-state:/state]
+volumes:
+  web-state:
+  dns-state:
+  agent-1-state:
+  agent-2-state:
+  agent-3-state:

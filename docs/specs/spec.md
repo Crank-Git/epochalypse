@@ -385,6 +385,8 @@ No unanswered product question blocks the approved plan. Technical gates block t
 
 ## Changelog
 
+- 2026-11-04: Require each implemented feature to add its applicable tests. Keep unavailable future-suite targets explicit and fail-closed. See ADR 0002.
+
 - 2026-11-04: The owner approved nine epics and 41 sub-issues. Record complete coverage of 73 functional requirements.
 
 - 2026-11-04: Create the first draft after the product interview. Record public visibility and the dev-and-live branch model.
@@ -397,7 +399,7 @@ The owner approved issue creation on 2026-11-04. Each requirement has at least o
 
 | Feature | Epic | Sub-issues |
 |---|---|---|
-| foundation | [#1](https://github.com/Crank-Git/epochalypse/issues/1) | [#2](https://github.com/Crank-Git/epochalypse/issues/2), [#3](https://github.com/Crank-Git/epochalypse/issues/3), [#4](https://github.com/Crank-Git/epochalypse/issues/4), [#5](https://github.com/Crank-Git/epochalypse/issues/5) |
+| foundation | [#1](https://github.com/Crank-Git/epochalypse/issues/1) | [#2](https://github.com/Crank-Git/epochalypse/issues/2), [#3](https://github.com/Crank-Git/epochalypse/issues/3), [#4](https://github.com/Crank-Git/epochalypse/issues/4), [#5](https://github.com/Crank-Git/epochalypse/issues/5), [#57](https://github.com/Crank-Git/epochalypse/issues/57), [#58](https://github.com/Crank-Git/epochalypse/issues/58) |
 | dns-window | [#6](https://github.com/Crank-Git/epochalypse/issues/6) | [#7](https://github.com/Crank-Git/epochalypse/issues/7), [#8](https://github.com/Crank-Git/epochalypse/issues/8), [#9](https://github.com/Crank-Git/epochalypse/issues/9), [#10](https://github.com/Crank-Git/epochalypse/issues/10), [#11](https://github.com/Crank-Git/epochalypse/issues/11) |
 | owner | [#12](https://github.com/Crank-Git/epochalypse/issues/12) | [#13](https://github.com/Crank-Git/epochalypse/issues/13), [#14](https://github.com/Crank-Git/epochalypse/issues/14), [#15](https://github.com/Crank-Git/epochalypse/issues/15), [#16](https://github.com/Crank-Git/epochalypse/issues/16) |
 | capsules | [#17](https://github.com/Crank-Git/epochalypse/issues/17) | [#18](https://github.com/Crank-Git/epochalypse/issues/18), [#19](https://github.com/Crank-Git/epochalypse/issues/19), [#20](https://github.com/Crank-Git/epochalypse/issues/20), [#21](https://github.com/Crank-Git/epochalypse/issues/21), [#22](https://github.com/Crank-Git/epochalypse/issues/22) |
