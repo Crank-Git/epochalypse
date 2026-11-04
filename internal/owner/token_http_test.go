@@ -27,6 +27,7 @@ func TestScopedRequestsRejectEscalationAndRevokedTokens(t *testing.T) {
 	}{
 		{"switch:checkin", "Bearer " + grant.Token, false, 204},
 		{"switch:checkin", "bearer " + grant.Token, false, 204},
+		{"switch:checkin", "Bearer   " + grant.Token, false, 204},
 		{"switch:write", "Bearer " + grant.Token, false, 403},
 		{"read", "Bearer invalid", true, 401},
 		{"read", "Basic invalid", false, 401},
@@ -103,6 +104,7 @@ func TestTokenAPIRejectsInvalidBodies(t *testing.T) {
 		{`{"name":"test","scopes":["admin"],"expires_at":"2099-01-01T00:00:00Z"}`, "application/json", 400, false},
 		{strings.Repeat("x", 8193), "application/json", 413, false},
 		{`{"name":"` + strings.Repeat("x", 8193) + `"}`, "application/json", 413, true},
+		{`{"name":"test","scopes":["read"],"expires_at":"2099-01-01T00:00:00Z"}` + strings.Repeat(" ", 8193), "application/json", 413, true},
 	} {
 		r := httptest.NewRequest("POST", "/api/v1/tokens", strings.NewReader(test.body))
 		if test.chunked {

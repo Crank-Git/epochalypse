@@ -4,6 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -45,6 +49,29 @@ func TestTokenCommandCreatesAScopedCredential(t *testing.T) {
 	if diagnostic.Len() != 0 {
 		t.Fatal("success writes diagnostics")
 	}
+	server := httptest.NewServer(s.RequireScope("switch:checkin", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(204) })))
+	defer server.Close()
+	client := &http.Client{Timeout: time.Second}
+	for _, status := range []int{204, 401} {
+		request, err := http.NewRequest(http.MethodPost, server.URL, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request.Header.Set("Authorization", "Bearer "+grant.Token)
+		response, err := client.Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := response.Body.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if response.StatusCode != status {
+			t.Fatalf("scoped HTTP request: %d", response.StatusCode)
+		}
+		if err := s.RevokeToken(grant.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func TestTokenCommandRejectsInvalidArguments(t *testing.T) {
@@ -52,5 +79,35 @@ func TestTokenCommandRejectsInvalidArguments(t *testing.T) {
 		if code := Run(args, io.Discard, io.Discard); code != 2 {
 			t.Fatalf("%v exits %d", args, code)
 		}
+	}
+}
+
+func TestTokenCommandReportsStateAndOutputFailures(t *testing.T) {
+	args := []string{"token", "create", "--state-dir", t.TempDir(), "--name", "automation", "--scopes", "read", "--expires-at", "2099-01-01T00:00:00Z"}
+	if code := Run(args, io.Discard, io.Discard); code != 1 {
+		t.Fatal("missing owner permits token creation")
+	}
+	file := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(file, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	args[3] = file
+	if code := Run(args, io.Discard, io.Discard); code != 1 {
+		t.Fatal("invalid state permits token creation")
+	}
+	dir := t.TempDir()
+	s, err := owner.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Initialize([]byte("synthetic")); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	args[3] = dir
+	if code := Run(args, failedWriter{}, io.Discard); code != 1 {
+		t.Fatal("failed output reports success")
 	}
 }

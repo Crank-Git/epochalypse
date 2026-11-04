@@ -169,9 +169,6 @@ func (s *Store) AuthenticateToken(value, scope string, now time.Time) (string, e
 	if err != nil {
 		return "", err
 	}
-	if ownerID == "" {
-		return "", ErrCredentials
-	}
 	return ownerID, nil
 }
 

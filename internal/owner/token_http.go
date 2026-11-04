@@ -42,12 +42,12 @@ func (s *Store) RequireScope(scope string, next http.Handler) http.Handler {
 			s.RequireOwner(next).ServeHTTP(w, r)
 			return
 		}
-		fields := strings.Split(r.Header.Get("Authorization"), " ")
-		if len(r.Header.Values("Authorization")) != 1 || len(fields) != 2 || !strings.EqualFold(fields[0], "Bearer") {
+		scheme, value, found := strings.Cut(r.Header.Get("Authorization"), " ")
+		if len(r.Header.Values("Authorization")) != 1 || !found || !strings.EqualFold(scheme, "Bearer") {
 			authorizationError(w, ErrCredentials)
 			return
 		}
-		if _, err := s.AuthenticateToken(fields[1], scope, time.Now()); err != nil {
+		if _, err := s.AuthenticateToken(strings.TrimLeft(value, " "), scope, time.Now()); err != nil {
 			authorizationError(w, err)
 			return
 		}
@@ -85,6 +85,9 @@ func tokenBody(w http.ResponseWriter, r *http.Request) (TokenRequest, error) {
 		return body, err
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err != nil {
+			return body, err
+		}
 		return body, ErrTokenRequest
 	}
 	return body, nil
