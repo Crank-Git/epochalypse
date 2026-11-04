@@ -1,0 +1,16 @@
+# issue-flow
+.worktrees/
+.issue-flow.local.json
+# local state and secrets
+var/
+config/local.json
+.env
+.env.*
+!.env.example
+*.key
+# build and checks
+bin/
+coverage.out
+coverage.html
+.test-artifacts/
+.DS_Store
