@@ -2,8 +2,8 @@
 id: operations
 feature: "Deployment and recovery"
 epic: "Epic 7: Deployment and recovery"
-status: planned
-issues: []
+status: issued
+issues: [39, 40, 41, 42, 43, 44]
 mockups: []
 ---
 

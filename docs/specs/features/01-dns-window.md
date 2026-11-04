@@ -2,8 +2,8 @@
 id: dns-window
 feature: "DNSSEC signature windows"
 epic: "Epic 1: DNSSEC lab"
-status: planned
-issues: []
+status: issued
+issues: [6, 7, 8, 9, 10, 11]
 mockups: [mockups/dns-window.html]
 ---
 

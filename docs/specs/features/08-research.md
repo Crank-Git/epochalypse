@@ -2,8 +2,8 @@
 id: research
 feature: "External release research"
 epic: "Epic 8: External release research"
-status: planned
-issues: []
+status: issued
+issues: [45, 46, 47, 48, 49, 50]
 mockups: []
 ---
 

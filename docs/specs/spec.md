@@ -385,6 +385,102 @@ No unanswered product question blocks the approved plan. Technical gates block t
 
 ## Changelog
 
+- 2026-11-04: The owner approved nine epics and 41 sub-issues. Record complete coverage of 73 functional requirements.
+
 - 2026-11-04: Create the first draft after the product interview. Record public visibility and the dev-and-live branch model.
 
 - 2026-11-04: The owner approved the spec, release tradeoffs, scaffold, and Git initialization. Technical gates remain in force.
+
+## Issue map
+
+The owner approved issue creation on 2026-11-04. Each requirement has at least one sub-issue.
+
+| Feature | Epic | Sub-issues |
+|---|---|---|
+| foundation | [#1](https://github.com/Crank-Git/epochalypse/issues/1) | [#2](https://github.com/Crank-Git/epochalypse/issues/2), [#3](https://github.com/Crank-Git/epochalypse/issues/3), [#4](https://github.com/Crank-Git/epochalypse/issues/4), [#5](https://github.com/Crank-Git/epochalypse/issues/5) |
+| dns-window | [#6](https://github.com/Crank-Git/epochalypse/issues/6) | [#7](https://github.com/Crank-Git/epochalypse/issues/7), [#8](https://github.com/Crank-Git/epochalypse/issues/8), [#9](https://github.com/Crank-Git/epochalypse/issues/9), [#10](https://github.com/Crank-Git/epochalypse/issues/10), [#11](https://github.com/Crank-Git/epochalypse/issues/11) |
+| owner | [#12](https://github.com/Crank-Git/epochalypse/issues/12) | [#13](https://github.com/Crank-Git/epochalypse/issues/13), [#14](https://github.com/Crank-Git/epochalypse/issues/14), [#15](https://github.com/Crank-Git/epochalypse/issues/15), [#16](https://github.com/Crank-Git/epochalypse/issues/16) |
+| capsules | [#17](https://github.com/Crank-Git/epochalypse/issues/17) | [#18](https://github.com/Crank-Git/epochalypse/issues/18), [#19](https://github.com/Crank-Git/epochalypse/issues/19), [#20](https://github.com/Crank-Git/epochalypse/issues/20), [#21](https://github.com/Crank-Git/epochalypse/issues/21), [#22](https://github.com/Crank-Git/epochalypse/issues/22) |
+| switch-protocol | [#23](https://github.com/Crank-Git/epochalypse/issues/23) | [#24](https://github.com/Crank-Git/epochalypse/issues/24), [#25](https://github.com/Crank-Git/epochalypse/issues/25), [#26](https://github.com/Crank-Git/epochalypse/issues/26), [#27](https://github.com/Crank-Git/epochalypse/issues/27), [#28](https://github.com/Crank-Git/epochalypse/issues/28) |
+| switches | [#29](https://github.com/Crank-Git/epochalypse/issues/29) | [#30](https://github.com/Crank-Git/epochalypse/issues/30), [#31](https://github.com/Crank-Git/epochalypse/issues/31), [#32](https://github.com/Crank-Git/epochalypse/issues/32), [#33](https://github.com/Crank-Git/epochalypse/issues/33), [#34](https://github.com/Crank-Git/epochalypse/issues/34) |
+| countdowns | [#35](https://github.com/Crank-Git/epochalypse/issues/35) | [#36](https://github.com/Crank-Git/epochalypse/issues/36), [#37](https://github.com/Crank-Git/epochalypse/issues/37), [#38](https://github.com/Crank-Git/epochalypse/issues/38) |
+| operations | [#39](https://github.com/Crank-Git/epochalypse/issues/39) | [#40](https://github.com/Crank-Git/epochalypse/issues/40), [#41](https://github.com/Crank-Git/epochalypse/issues/41), [#42](https://github.com/Crank-Git/epochalypse/issues/42), [#43](https://github.com/Crank-Git/epochalypse/issues/43), [#44](https://github.com/Crank-Git/epochalypse/issues/44) |
+| research | [#45](https://github.com/Crank-Git/epochalypse/issues/45) | [#46](https://github.com/Crank-Git/epochalypse/issues/46), [#47](https://github.com/Crank-Git/epochalypse/issues/47), [#48](https://github.com/Crank-Git/epochalypse/issues/48), [#49](https://github.com/Crank-Git/epochalypse/issues/49), [#50](https://github.com/Crank-Git/epochalypse/issues/50) |
+
+### Requirement coverage
+
+| Requirement | Sub-issues |
+|---|---|
+| FR-foundation-1 | [#2](https://github.com/Crank-Git/epochalypse/issues/2) |
+| FR-foundation-2 | [#2](https://github.com/Crank-Git/epochalypse/issues/2) |
+| FR-foundation-3 | [#2](https://github.com/Crank-Git/epochalypse/issues/2) |
+| FR-foundation-4 | [#3](https://github.com/Crank-Git/epochalypse/issues/3) |
+| FR-foundation-5 | [#3](https://github.com/Crank-Git/epochalypse/issues/3) |
+| FR-foundation-6 | [#4](https://github.com/Crank-Git/epochalypse/issues/4) |
+| FR-foundation-7 | [#4](https://github.com/Crank-Git/epochalypse/issues/4) |
+| FR-foundation-8 | [#5](https://github.com/Crank-Git/epochalypse/issues/5) |
+| FR-foundation-9 | [#5](https://github.com/Crank-Git/epochalypse/issues/5) |
+| FR-dns-window-1 | [#7](https://github.com/Crank-Git/epochalypse/issues/7), [#8](https://github.com/Crank-Git/epochalypse/issues/8) |
+| FR-dns-window-2 | [#7](https://github.com/Crank-Git/epochalypse/issues/7), [#8](https://github.com/Crank-Git/epochalypse/issues/8) |
+| FR-dns-window-3 | [#7](https://github.com/Crank-Git/epochalypse/issues/7), [#9](https://github.com/Crank-Git/epochalypse/issues/9) |
+| FR-dns-window-4 | [#9](https://github.com/Crank-Git/epochalypse/issues/9) |
+| FR-dns-window-5 | [#9](https://github.com/Crank-Git/epochalypse/issues/9) |
+| FR-dns-window-6 | [#10](https://github.com/Crank-Git/epochalypse/issues/10) |
+| FR-dns-window-7 | [#10](https://github.com/Crank-Git/epochalypse/issues/10) |
+| FR-dns-window-8 | [#9](https://github.com/Crank-Git/epochalypse/issues/9) |
+| FR-dns-window-9 | [#7](https://github.com/Crank-Git/epochalypse/issues/7), [#11](https://github.com/Crank-Git/epochalypse/issues/11) |
+| FR-owner-1 | [#13](https://github.com/Crank-Git/epochalypse/issues/13) |
+| FR-owner-2 | [#13](https://github.com/Crank-Git/epochalypse/issues/13) |
+| FR-owner-3 | [#14](https://github.com/Crank-Git/epochalypse/issues/14) |
+| FR-owner-4 | [#14](https://github.com/Crank-Git/epochalypse/issues/14) |
+| FR-owner-5 | [#15](https://github.com/Crank-Git/epochalypse/issues/15) |
+| FR-owner-6 | [#15](https://github.com/Crank-Git/epochalypse/issues/15) |
+| FR-owner-7 | [#16](https://github.com/Crank-Git/epochalypse/issues/16) |
+| FR-owner-8 | [#16](https://github.com/Crank-Git/epochalypse/issues/16) |
+| FR-capsules-1 | [#18](https://github.com/Crank-Git/epochalypse/issues/18), [#20](https://github.com/Crank-Git/epochalypse/issues/20) |
+| FR-capsules-2 | [#18](https://github.com/Crank-Git/epochalypse/issues/18) |
+| FR-capsules-3 | [#18](https://github.com/Crank-Git/epochalypse/issues/18) |
+| FR-capsules-4 | [#19](https://github.com/Crank-Git/epochalypse/issues/19), [#20](https://github.com/Crank-Git/epochalypse/issues/20) |
+| FR-capsules-5 | [#21](https://github.com/Crank-Git/epochalypse/issues/21) |
+| FR-capsules-6 | [#22](https://github.com/Crank-Git/epochalypse/issues/22) |
+| FR-capsules-7 | [#21](https://github.com/Crank-Git/epochalypse/issues/21) |
+| FR-capsules-8 | [#22](https://github.com/Crank-Git/epochalypse/issues/22) |
+| FR-capsules-9 | [#18](https://github.com/Crank-Git/epochalypse/issues/18), [#21](https://github.com/Crank-Git/epochalypse/issues/21) |
+| FR-switch-protocol-1 | [#24](https://github.com/Crank-Git/epochalypse/issues/24) |
+| FR-switch-protocol-2 | [#24](https://github.com/Crank-Git/epochalypse/issues/24) |
+| FR-switch-protocol-3 | [#25](https://github.com/Crank-Git/epochalypse/issues/25) |
+| FR-switch-protocol-4 | [#25](https://github.com/Crank-Git/epochalypse/issues/25) |
+| FR-switch-protocol-5 | [#26](https://github.com/Crank-Git/epochalypse/issues/26) |
+| FR-switch-protocol-6 | [#26](https://github.com/Crank-Git/epochalypse/issues/26) |
+| FR-switch-protocol-7 | [#27](https://github.com/Crank-Git/epochalypse/issues/27) |
+| FR-switch-protocol-8 | [#28](https://github.com/Crank-Git/epochalypse/issues/28) |
+| FR-switches-1 | [#30](https://github.com/Crank-Git/epochalypse/issues/30) |
+| FR-switches-2 | [#31](https://github.com/Crank-Git/epochalypse/issues/31) |
+| FR-switches-3 | [#32](https://github.com/Crank-Git/epochalypse/issues/32) |
+| FR-switches-4 | [#32](https://github.com/Crank-Git/epochalypse/issues/32) |
+| FR-switches-5 | [#33](https://github.com/Crank-Git/epochalypse/issues/33) |
+| FR-switches-6 | [#33](https://github.com/Crank-Git/epochalypse/issues/33) |
+| FR-switches-7 | [#33](https://github.com/Crank-Git/epochalypse/issues/33) |
+| FR-switches-8 | [#32](https://github.com/Crank-Git/epochalypse/issues/32) |
+| FR-switches-9 | [#31](https://github.com/Crank-Git/epochalypse/issues/31) |
+| FR-switches-10 | [#34](https://github.com/Crank-Git/epochalypse/issues/34) |
+| FR-countdowns-1 | [#36](https://github.com/Crank-Git/epochalypse/issues/36) |
+| FR-countdowns-2 | [#37](https://github.com/Crank-Git/epochalypse/issues/37) |
+| FR-countdowns-3 | [#36](https://github.com/Crank-Git/epochalypse/issues/36) |
+| FR-countdowns-4 | [#38](https://github.com/Crank-Git/epochalypse/issues/38) |
+| FR-countdowns-5 | [#38](https://github.com/Crank-Git/epochalypse/issues/38) |
+| FR-countdowns-6 | [#38](https://github.com/Crank-Git/epochalypse/issues/38) |
+| FR-operations-1 | [#40](https://github.com/Crank-Git/epochalypse/issues/40) |
+| FR-operations-2 | [#41](https://github.com/Crank-Git/epochalypse/issues/41) |
+| FR-operations-3 | [#42](https://github.com/Crank-Git/epochalypse/issues/42) |
+| FR-operations-4 | [#43](https://github.com/Crank-Git/epochalypse/issues/43) |
+| FR-operations-5 | [#44](https://github.com/Crank-Git/epochalypse/issues/44) |
+| FR-operations-6 | [#44](https://github.com/Crank-Git/epochalypse/issues/44) |
+| FR-operations-7 | [#40](https://github.com/Crank-Git/epochalypse/issues/40) |
+| FR-operations-8 | [#41](https://github.com/Crank-Git/epochalypse/issues/41) |
+| FR-research-1 | [#46](https://github.com/Crank-Git/epochalypse/issues/46) |
+| FR-research-2 | [#47](https://github.com/Crank-Git/epochalypse/issues/47) |
+| FR-research-3 | [#48](https://github.com/Crank-Git/epochalypse/issues/48) |
+| FR-research-4 | [#49](https://github.com/Crank-Git/epochalypse/issues/49) |
+| FR-research-5 | [#50](https://github.com/Crank-Git/epochalypse/issues/50) |
+| FR-research-6 | [#50](https://github.com/Crank-Git/epochalypse/issues/50) |

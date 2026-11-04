@@ -2,8 +2,8 @@
 id: switches
 feature: "Dead man’s switches"
 epic: "Epic 5: Dead man’s switches"
-status: planned
-issues: []
+status: issued
+issues: [29, 30, 31, 32, 33, 34]
 mockups: [mockups/switches.html]
 ---
 
