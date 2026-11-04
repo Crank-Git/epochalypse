@@ -2,6 +2,7 @@
 .NOTPARALLEL:
 
 export GOCACHE ?= $(CURDIR)/var/cache/go-build
+export GOPATH ?= $(CURDIR)/var/gopath
 export GOMODCACHE ?= $(CURDIR)/var/cache/go-mod
 export GOTMPDIR ?= $(CURDIR)/var/tmp
 export GOLANGCI_LINT_CACHE ?= $(CURDIR)/var/cache/golangci-lint
