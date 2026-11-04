@@ -98,7 +98,7 @@ func addSeconds(utc int64, seconds uint64) (int64, error) {
 	if seconds > ^uint64(0)-ordered {
 		return 0, errors.New("UTC boundary overflows")
 	}
-	return int64((ordered + seconds) ^ (uint64(1) << 63)), nil
+	return int64((ordered + seconds) ^ (uint64(1) << 63)), nil // #nosec G115 -- The conversion restores the signed UTC bit pattern.
 }
 
 func distance(a, b int64) uint64 {
