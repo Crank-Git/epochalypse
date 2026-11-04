@@ -385,6 +385,8 @@ No unanswered product question blocks the approved plan. Technical gates block t
 
 ## Changelog
 
+- 2026-11-04: Require each implemented feature to add its applicable tests. Keep unavailable future-suite targets explicit and fail-closed. See ADR 0002.
+
 - 2026-11-04: The owner approved nine epics and 41 sub-issues. Record complete coverage of 73 functional requirements.
 
 - 2026-11-04: Create the first draft after the product interview. Record public visibility and the dev-and-live branch model.
