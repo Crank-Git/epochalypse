@@ -3,6 +3,8 @@ x-process: &process
   build:
     context: ../..
     dockerfile: deploy/lab/Dockerfile
+    args:
+      EPOCHALYPSE_BUILD_COMMIT: ${EPOCHALYPSE_BUILD_COMMIT:-unknown}
   user: "65534:65534"
   read_only: true
   tmpfs:

@@ -3,7 +3,8 @@ WORKDIR /src
 COPY go.mod ./
 COPY cmd ./cmd
 COPY internal ./internal
-RUN CGO_ENABLED=0 go build -trimpath -o /epochalypse ./cmd/epochalypse
+ARG EPOCHALYPSE_BUILD_COMMIT=unknown
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-X github.com/Crank-Git/epochalypse/internal/version.Commit=${EPOCHALYPSE_BUILD_COMMIT}" -o /epochalypse ./cmd/epochalypse
 
 FROM alpine:3.22.2@sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412
 WORKDIR /app

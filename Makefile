@@ -6,6 +6,8 @@ export GOMODCACHE ?= $(CURDIR)/var/cache/go-mod
 export GOTMPDIR ?= $(CURDIR)/var/tmp
 export GOLANGCI_LINT_CACHE ?= $(CURDIR)/var/cache/golangci-lint
 export BUILDX_CONFIG ?= $(CURDIR)/var/cache/buildx
+export EPOCHALYPSE_BUILD_COMMIT := $(shell scripts/build-commit.sh)
+VERSION_FLAGS = -X github.com/Crank-Git/epochalypse/internal/version.Commit=$(EPOCHALYPSE_BUILD_COMMIT)
 
 $(shell mkdir -p "$(GOCACHE)" "$(GOMODCACHE)" "$(GOTMPDIR)" "$(GOLANGCI_LINT_CACHE)" "$(BUILDX_CONFIG)")
 
@@ -52,11 +54,18 @@ lint: check-tools
 
 build:
 	mkdir -p bin
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o bin/epochalypse-linux-amd64 ./cmd/epochalypse
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o bin/epochalypse-linux-arm64 ./cmd/epochalypse
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags '$(VERSION_FLAGS)' -o bin/epochalypse-linux-amd64 ./cmd/epochalypse
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags '$(VERSION_FLAGS)' -o bin/epochalypse-linux-arm64 ./cmd/epochalypse
 
 run:
-	go run ./cmd/epochalypse server --config "$${EPOCHALYPSE_CONFIG:-config/local.example.json}"
+	go run -ldflags '$(VERSION_FLAGS)' ./cmd/epochalypse server --config "$${EPOCHALYPSE_CONFIG:-config/local.example.json}"
 
 lab:
 	docker compose -f deploy/lab/compose.yaml up --build --detach --wait --wait-timeout 60
+
+.PHONY: demo clean-demo
+demo:
+	go run ./cmd/epochalypse demo
+
+clean-demo:
+	go run ./cmd/epochalypse clean-demo --namespace "$(NAMESPACE)"
