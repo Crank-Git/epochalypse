@@ -67,6 +67,9 @@ func (s *Store) initialize(tx *bolt.Tx) error {
 	if _, err := tx.CreateBucketIfNotExists(windowBucket); err != nil {
 		return err
 	}
+	if _, err := tx.CreateBucketIfNotExists(observationBucket); err != nil {
+		return err
+	}
 	config, err := tx.CreateBucketIfNotExists(configurationBucket)
 	if err != nil {
 		return err
@@ -95,7 +98,7 @@ func (s *Store) Create(in Input, now time.Time) (Window, error) {
 	}
 	if err := s.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(windowBucket)
-		if err := s.limits.admits(bucket, len(encoded)); err != nil {
+		if err := s.limits.admits(tx, len(encoded)); err != nil {
 			return err
 		}
 		if bucket.Get([]byte(w.ID)) != nil {

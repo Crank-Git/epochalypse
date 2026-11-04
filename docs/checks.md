@@ -14,6 +14,7 @@ The command requires every currently applicable check to pass:
 - CLI E2E tests through an instrumented executable.
 - Browser dashboard states, keyboard access, scoped summary access, sign-in, sign-out, CSRF rejection, token administration, and cooldown tests through Chromium.
 - A TLS Compose lab with immediate signed UDP/TCP records, explicit fallback, a new executable process, four independent volumes, and three healthy agents.
+- The pinned default Unbound, strict Unbound, and BIND matrix with real failure-cache transitions across inception.
 - Go race checks.
 - Aggregate coverage across every first-party Go package.
 - A 30-second command-parser fuzz test.
@@ -36,8 +37,13 @@ The foundation test in `make test-integration` starts five local listeners and v
 Its standalone DNS scaffold refuses queries over UDP and TCP.
 Signed-window service tests instead exercise the cohost authority through real HTTP, UDP, TCP, and restart.
 The CLI E2E suite verifies process startup, configuration errors, occupied ports, and signal shutdown.
-`make test-resolvers` fails with an explicit unavailable message until the resolver-observation slice supplies its suite.
-The DNS feature supplies tests against the three pinned resolver configurations.
+`make test-resolvers` runs the three pinned resolver configurations against the production window store and authority.
+Each configuration validates a current-signature positive control before it compares future and expired signatures.
+The test primes warm caches before inception. Cold caches first query the same record after inception.
+The test records the different responses and strict Unbound's later recovery.
+The check writes public fixture records and timestamped results to `.test-artifacts/resolvers.json`.
+Docker supplies Linux arm64 and amd64 containers. The test removes only its own containers and network.
+The [observation guide](observations.md) describes metadata provenance and the retained-state schema.
 `scripts/test_browser.py` runs the required browser flow. A missing Docker daemon or a failed browser fails the check.
 The browser test uses synthetic owner state and a temporary profile.
 The dashboard checks verify the empty feature lists, the switch production block, and unavailable agent observations.
