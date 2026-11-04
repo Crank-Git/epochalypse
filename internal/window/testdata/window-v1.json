@@ -1,0 +1,12 @@
+{
+  "content": "public fixture",
+  "dnskey": "windows.example.\t60\tIN\tDNSKEY\t257 3 13 ljx7QXPhFRdXM1hg9Bl2YmOUtgYplr7nQ5UygWGEgQKI3sIBSI4RhoRTBoK4aikb7SXPOGstxOK2h0dXhaQRfg==",
+  "expiration": "2026-11-04T14:00:00Z",
+  "id": "0123456789abcdef0123456789abcdef",
+  "inception": "2026-11-04T13:00:00Z",
+  "name": "w0123456789abcdef0123456789abcdef.windows.example.",
+  "rrsig": "w0123456789abcdef0123456789abcdef.windows.example.\t60\tIN\tRRSIG\tTXT 13 3 60 20261104140000 20261104130000 42507 windows.example. /mCVkHcjF2FvSQuW58VruTLjThlIFapAHoRFnYjeAsMSd/NOtnvOEC/3feAr/i2SOApQFrxYgXCONWV61oOuMw==",
+  "txt": "w0123456789abcdef0123456789abcdef.windows.example.\t60\tIN\tTXT\t\"public fixture\"",
+  "version": 1,
+  "zone": "windows.example."
+}
