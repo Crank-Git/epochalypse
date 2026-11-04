@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/Crank-Git/epochalypse/internal/owner"
 	"github.com/Crank-Git/epochalypse/internal/version"
 )
 
@@ -62,9 +63,27 @@ func Serve(ctx context.Context, config Config, ready func(Addresses)) error {
 		go func() { results <- dns.serveUDP() }()
 		go func() { results <- dns.serveTCP() }()
 	}
-	server := &http.Server{Handler: Handler(), ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second}
+	handler := Handler()
+	if config.Mode == "server" {
+		store, err := owner.Open(config.StateDir)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = store.Close() }()
+		ownerHandler := store.Handler(config.LocalLab)
+		for _, path := range []string{"/owner", "/owner/", "/api/v1/session"} {
+			handler.Handle(path, ownerHandler)
+		}
+	}
+	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second}
 	defer func() { _ = server.Close() }()
-	go func() { results <- server.Serve(httpListener) }()
+	go func() {
+		if config.TLSCert != "" {
+			results <- server.ServeTLS(httpListener, config.TLSCert, config.TLSKey)
+			return
+		}
+		results <- server.Serve(httpListener)
+	}()
 	ready(addresses)
 	select {
 	case <-ctx.Done():

@@ -14,13 +14,17 @@ import (
 
 // Run returns the exit code for the command arguments.
 func Run(args []string, stdout, stderr io.Writer) int {
-	if len(args) > 0 && (args[0] == "status" || args[0] == "demo" || args[0] == "clean-demo") {
-		return runFoundation(args, stdout, stderr)
-	}
-	if len(args) > 0 && (args[0] == "server" || args[0] == "dns" || args[0] == "agent") {
-		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-		defer stop()
-		return runService(ctx, args, stderr)
+	if len(args) > 0 {
+		switch args[0] {
+		case "owner":
+			return runOwner(args, stdout, stderr)
+		case "status", "demo", "clean-demo":
+			return runFoundation(args, stdout, stderr)
+		case "server", "dns", "agent":
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+			return runService(ctx, args, stderr)
+		}
 	}
 	if len(args) > 1 || (len(args) == 1 && args[0] != "help" && args[0] != "-h" && args[0] != "--help") {
 		if _, err := fmt.Fprintln(stderr, "invalid command: use epochalypse help"); err != nil {
@@ -50,6 +54,9 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 	flags.StringVar(&config.DNSAddr, "dns-addr", envDefault("EPOCHALYPSE_DNS_ADDR", "127.0.0.1:1053"), "TCP and UDP DNS listen address")
 	flags.StringVar(&config.StateDir, "state-dir", envDefault("EPOCHALYPSE_STATE_DIR", "var/state"), "State directory")
 	flags.StringVar(&config.AgentID, "agent-id", os.Getenv("EPOCHALYPSE_AGENT_ID"), "Local agent identity")
+	flags.BoolVar(&config.LocalLab, "local-lab", false, "Permit owner HTTP access on a loopback address")
+	flags.StringVar(&config.TLSCert, "tls-cert", "", "TLS certificate file")
+	flags.StringVar(&config.TLSKey, "tls-key", "", "TLS private key file")
 	if err := flags.Parse(args[1:]); err != nil {
 		return 2
 	}
