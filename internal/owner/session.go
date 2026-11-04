@@ -80,6 +80,10 @@ func sessionKey(token string) ([]byte, error) {
 // Authenticate returns the owner ID and renews the idle deadline.
 // The caller supplies its trusted clock value. Expired sessions return ErrCredentials.
 func (s *Store) Authenticate(token string, now time.Time) (string, error) {
+	return s.authenticateSession(token, now, true)
+}
+
+func (s *Store) authenticateSession(token string, now time.Time, renew bool) (string, error) {
 	key, err := sessionKey(token)
 	if err != nil {
 		return "", err
@@ -106,6 +110,9 @@ func (s *Store) Authenticate(token string, now time.Time) (string, error) {
 		}
 		if record.OwnerID != identity.ID {
 			return ErrCredentials
+		}
+		if !renew {
+			return nil
 		}
 		record.Seen = now.UTC()
 		encoded, err := json.Marshal(record)

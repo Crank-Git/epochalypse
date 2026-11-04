@@ -124,6 +124,10 @@ Token routes use the same TLS and error safeguards as session routes.
 For API route authors, use `Store.RequireScope(scope, next)` inside the owner handler's TLS and response safeguards.
 The guard admits a matching API token or a valid owner session with CSRF proof for mutations.
 Use `Store.RequireOwner(next)` for credential administration.
+The owner guard validates the session before it checks CSRF proof and origin.
+It renews the idle deadline only after those request checks pass.
+Rejected CSRF proof or origin preserves the previous idle deadline.
+The guard rechecks durable session state before renewal to detect concurrent revocation or recovery.
 The store methods require a trusted clock. They do not replace route authorization.
 
 ## Owner dashboard
