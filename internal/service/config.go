@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os"
 )
 
@@ -14,6 +15,9 @@ type Config struct {
 	DNSAddr  string
 	StateDir string
 	AgentID  string
+	LocalLab bool
+	TLSCert  string
+	TLSKey   string
 }
 
 // Validate rejects incomplete process configuration.
@@ -29,6 +33,15 @@ func (c Config) Validate() error {
 	}
 	if c.Mode == "agent" && c.AgentID == "" {
 		return fmt.Errorf("set EPOCHALYPSE_AGENT_ID for agent mode")
+	}
+	if (c.TLSCert == "") != (c.TLSKey == "") {
+		return fmt.Errorf("set both TLS certificate and key")
+	}
+	if c.LocalLab {
+		host, _, err := net.SplitHostPort(c.HTTPAddr)
+		if err != nil || !net.ParseIP(host).IsLoopback() {
+			return fmt.Errorf("local lab requires a loopback HTTP address")
+		}
 	}
 	return nil
 }

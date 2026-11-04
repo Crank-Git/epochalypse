@@ -28,6 +28,7 @@ test-unit:
 
 test-e2e:
 	python3 -m unittest discover -s scripts -p 'test_e2e.py'
+	python3 -m unittest discover -s scripts -p 'test_browser.py'
 
 test-integration:
 	python3 scripts/go_tests.py -count=1 ./tests/integration
@@ -41,9 +42,9 @@ test-race:
 
 coverage:
 	mkdir -p .test-artifacts
-	python3 scripts/go_tests.py -count=1 -coverpkg=./... -covermode=atomic -coverprofile=.test-artifacts/unit.out ./...
+	python3 scripts/go_tests.py -count=1 -coverpkg=github.com/Crank-Git/epochalypse/... -covermode=atomic -coverprofile=.test-artifacts/unit.out ./...
 	$(MAKE) test-e2e
-	python3 scripts/coverage_gate.py .test-artifacts/unit.out .test-artifacts/cli.out
+	python3 scripts/coverage_gate.py .test-artifacts/unit.out .test-artifacts/cli.out .test-artifacts/browser.out
 
 fuzz-smoke:
 	go test ./internal/command -run='^$$' -fuzz=FuzzRun -fuzztime=30s -parallel=2

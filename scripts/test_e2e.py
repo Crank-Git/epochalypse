@@ -16,7 +16,7 @@ class CLITests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=".test-artifacts") as directory:
             binary = str(Path(directory) / "epochalypse")
             self.commit = "a" * 40
-            subprocess.run(["go", "build", "-cover", "-coverpkg=./...", "-ldflags", f"-X github.com/Crank-Git/epochalypse/internal/version.Commit={self.commit}", "-o", binary, "./cmd/epochalypse"], check=True)
+            subprocess.run(["go", "build", "-cover", "-coverpkg=github.com/Crank-Git/epochalypse/...", "-ldflags", f"-X github.com/Crank-Git/epochalypse/internal/version.Commit={self.commit}", "-o", binary, "./cmd/epochalypse"], check=True)
             coverdir = Path(directory) / "coverage"
             coverdir.mkdir()
             env = dict(os.environ, GOCOVERDIR=str(coverdir.resolve()))
@@ -43,7 +43,7 @@ class CLITests(unittest.TestCase):
                     reservation.bind(("127.0.0.1", 0))
                     dns_port = reservation.getsockname()[1]
                 process_env = dict(env, EPOCHALYPSE_CONFIG=str(config), EPOCHALYPSE_HTTP_ADDR=f"127.0.0.1:{port}", EPOCHALYPSE_DNS_ADDR=f"127.0.0.1:{dns_port}", EPOCHALYPSE_STATE_DIR=str(state), EPOCHALYPSE_AGENT_ID="lab-agent", EPOCHALYPSE_BUILD_COMMIT="b" * 40)
-                process = subprocess.Popen([binary, mode], env=process_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                process = subprocess.Popen([binary, mode, "--local-lab"], env=process_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 try:
                     self.wait_for_health(process, port)
                     if mode == "dns":

@@ -111,9 +111,7 @@ func (s *Store) setPassword(password []byte, recoverOwner bool) error {
 				return ErrExists
 			}
 			id := make([]byte, 16)
-			if _, err := rand.Read(id); err != nil {
-				return fmt.Errorf("create owner identity: %w", err)
-			}
+			_, _ = rand.Read(id)
 			identity = Identity{Version: 1, ID: hex.EncodeToString(id), CreatedAt: time.Now().UTC()}
 		}
 		identity.Password = hash

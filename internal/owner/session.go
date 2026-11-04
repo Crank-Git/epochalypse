@@ -30,10 +30,12 @@ func (s *Store) SignIn(password []byte, now time.Time) (string, error) {
 	if !identity.Password.matches(password) {
 		return "", ErrCredentials
 	}
+	return s.persistSession(identity, now)
+}
+
+func (s *Store) persistSession(identity Identity, now time.Time) (string, error) {
 	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
-		return "", fmt.Errorf("create session identifier: %w", err)
-	}
+	_, _ = rand.Read(raw)
 	token := base64.RawURLEncoding.EncodeToString(raw)
 	key := sha256.Sum256(raw)
 	encoded, err := json.Marshal(session{1, identity.ID, now.UTC(), now.UTC()})

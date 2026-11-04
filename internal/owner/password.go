@@ -35,9 +35,7 @@ func newPassword(password []byte) (Password, error) {
 		return Password{}, errors.New("password requires 1 to 1024 bytes")
 	}
 	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
-		return Password{}, errors.New("create password salt")
-	}
+	_, _ = rand.Read(salt)
 	return Password{"argon2id", argon2.Version, 64 * 1024, 3, 4, base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(derive(password, salt))}, nil
 }
 

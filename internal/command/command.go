@@ -54,6 +54,9 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 	flags.StringVar(&config.DNSAddr, "dns-addr", envDefault("EPOCHALYPSE_DNS_ADDR", "127.0.0.1:1053"), "TCP and UDP DNS listen address")
 	flags.StringVar(&config.StateDir, "state-dir", envDefault("EPOCHALYPSE_STATE_DIR", "var/state"), "State directory")
 	flags.StringVar(&config.AgentID, "agent-id", os.Getenv("EPOCHALYPSE_AGENT_ID"), "Local agent identity")
+	flags.BoolVar(&config.LocalLab, "local-lab", false, "Permit owner HTTP access on a loopback address")
+	flags.StringVar(&config.TLSCert, "tls-cert", "", "TLS certificate file")
+	flags.StringVar(&config.TLSKey, "tls-key", "", "TLS private key file")
 	if err := flags.Parse(args[1:]); err != nil {
 		return 2
 	}

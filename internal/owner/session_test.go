@@ -36,6 +36,23 @@ func TestSessionStoresOnlyTheIdentifierHash(t *testing.T) {
 	}
 }
 
+func TestRecoveryRejectsAnEarlierPasswordCheck(t *testing.T) {
+	s := sessionStore(t)
+	var checked Identity
+	if err := s.db.View(func(tx *bolt.Tx) error { var err error; checked, err = readIdentity(tx); return err }); err != nil {
+		t.Fatal(err)
+	}
+	if !checked.Password.matches([]byte("synthetic")) {
+		t.Fatal("password check fails")
+	}
+	if err := s.Recover([]byte("replacement")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.persistSession(checked, time.Now()); !errors.Is(err, ErrCredentials) {
+		t.Fatalf("earlier password check creates session: %v", err)
+	}
+}
+
 func TestSessionDoesNotReviveAfterExpiry(t *testing.T) {
 	s := sessionStore(t)
 	now := time.Now().UTC()
