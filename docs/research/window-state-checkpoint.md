@@ -84,6 +84,12 @@ Its Go suites report 292 passed tests and zero skips.
 Aggregate coverage is 1427 of 1473 statements, or 96.8771 percent.
 The full check includes Chromium creation, executable inspection, race, fuzz, lint, vet, and both Linux builds.
 
+After commit `691d1a8`, a second pre-patch check restores only the public dispatchers from the baseline.
+The check retains the new tests and supporting domain contracts.
+The two integration assertions again fail with 404 and `invalid command`, as quoted above.
+The same shell call restores both dispatchers from `HEAD`.
+`git status --short` then returns no output.
+
 ## Remaining work
 
 Co-host authoritative UDP/TCP listeners with the main HTTP process.
