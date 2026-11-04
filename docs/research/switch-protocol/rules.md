@@ -38,7 +38,7 @@ Create one observer per content key. Retain it across renewals.
 
 `State.Deadline` uses signed UTC seconds from the Unix epoch.
 `State.Grace` uses unsigned seconds.
-Issue #25 owns sequence validation, clock checks, boundary arithmetic, and agent transitions.
+[Candidate check-in boundaries](boundaries.md) defines sequence validation, clock checks, boundary arithmetic, and model agent transitions.
 These predicates compare supplied evidence. They do not validate owner authorization or state eligibility.
 The caller must provide authenticated identities and valid shares.
 The durability flag asserts a model fact. It does not prove persistence across a real restart.
