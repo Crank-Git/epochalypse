@@ -18,6 +18,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		switch args[0] {
 		case "owner":
 			return runOwner(args, stdout, stderr)
+		case "token":
+			return runToken(args, stdout, stderr)
 		case "status", "demo", "clean-demo":
 			return runFoundation(args, stdout, stderr)
 		case "server", "dns", "agent":
@@ -32,7 +34,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		}
 		return 2
 	}
-	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  help        Show command help\n  server      Start the web server\n  dns         Start the local DNS scaffold\n  agent       Start a local agent scaffold\n  status      Verify a deployed commit\n  demo        Create synthetic fixtures\n  clean-demo  Remove the explicit demo namespace"); err != nil {
+	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  help        Show command help\n  owner       Create or recover the local owner\n  token       Create a scoped token with host access\n  server      Start the web server\n  dns         Start the local DNS scaffold\n  agent       Start a local agent scaffold\n  status      Verify a deployed commit\n  demo        Create synthetic fixtures\n  clean-demo  Remove the explicit demo namespace"); err != nil {
 		return 1
 	}
 	return 0

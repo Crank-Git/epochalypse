@@ -32,4 +32,60 @@ Forwarded headers do not establish TLS for owner access.
 Malformed credentials return 400. Invalid credentials return 401. An unavailable owner store returns 503.
 Errors use the shared JSON error format and exclude credential values.
 
-The complete owner epic adds scoped tokens, CSRF checks, failed sign-in limits, and the dashboard before integration into `dev`.
+## Scoped tokens
+
+For local token creation, stop the server to release the database lock.
+Run the following command with host access:
+
+```sh
+epochalypse token create --state-dir var/state --name automation \
+  --scopes read,switch:checkin --expires-at 2027-01-01T00:00:00Z
+```
+
+The command writes JSON with `id` and `token` to standard output once.
+Save the token in protected storage. The database stores only its SHA-256 digest and access metadata.
+Restart the server after local token creation. A concurrent local command fails after the database lock timeout.
+
+For token creation while the server runs, use the authenticated owner session:
+
+```http
+POST /api/v1/tokens
+Content-Type: application/json
+Cookie: __Host-epochalypse-session=<session>
+
+{"name":"automation","scopes":["read"],"expires_at":"2027-01-01T00:00:00Z"}
+```
+
+Success returns 201 with `{id,token}`. The response uses `Cache-Control: no-store`.
+The token contains 256 random bits. Its separate identifier contains 128 random bits.
+The API does not return the token again.
+The name contains 1 to 128 UTF-8 bytes and includes a non-space character.
+Supply at least one unique scope and a future RFC 3339 expiry.
+The supported scopes are:
+
+- `read`
+- `capsule:write`
+- `switch:write`
+- `switch:checkin`
+- `countdown:write`
+
+For scoped API requests, send `Authorization: Bearer <token>` over HTTPS.
+Each request checks the exact scope, expiry, and current durable state.
+The `switch:checkin` scope does not permit `switch:write` operations.
+Token use does not extend expiry. The server rejects a token at its expiry boundary.
+An invalid token returns 401. A missing scope returns 403 with a `WWW-Authenticate` bearer challenge.
+Token values in query parameters do not authorize requests.
+
+`DELETE /api/v1/tokens/{id}` requires the owner session and returns 204.
+Repeated revocation returns 204. Revocation takes effect on subsequent requests without a restart.
+Revocation survives a restart. Password recovery revokes sessions and preserves scoped tokens.
+API tokens cannot create or revoke tokens. An explicit bearer header prevents fallback to an owner session.
+Malformed requests return 400. Bodies over 8192 bytes return 413.
+Token routes use the same TLS and error safeguards as session routes.
+
+For API route authors, use `Store.RequireScope(scope, next)` inside the owner handler's TLS and response safeguards.
+The guard admits a matching API token or a valid owner session.
+Use `Store.RequireOwner(next)` for credential administration.
+The store methods require a trusted clock. They do not replace route authorization.
+
+The complete owner epic adds CSRF checks, failed sign-in limits, and the dashboard before integration into `dev`.

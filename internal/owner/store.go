@@ -56,7 +56,7 @@ func Open(stateDir string) (*Store, error) {
 	}
 	s := &Store{db: db}
 	if err := db.Update(func(tx *bolt.Tx) error {
-		for _, name := range [][]byte{stateBucket, sessionBucket} {
+		for _, name := range [][]byte{stateBucket, sessionBucket, tokenBucket} {
 			if _, err := tx.CreateBucketIfNotExists(name); err != nil {
 				return err
 			}
