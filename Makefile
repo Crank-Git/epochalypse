@@ -1,15 +1,16 @@
-.PHONY: check check-tools test-unit test-e2e test-integration test-resolvers test-race coverage fuzz-smoke lint build
+.PHONY: check check-tools test-unit test-e2e test-integration test-resolvers test-race coverage fuzz-smoke lint build run lab
 .NOTPARALLEL:
 
 export GOCACHE ?= $(CURDIR)/var/cache/go-build
 export GOMODCACHE ?= $(CURDIR)/var/cache/go-mod
 export GOTMPDIR ?= $(CURDIR)/var/tmp
 export GOLANGCI_LINT_CACHE ?= $(CURDIR)/var/cache/golangci-lint
+export BUILDX_CONFIG ?= $(CURDIR)/var/cache/buildx
 
-$(shell mkdir -p "$(GOCACHE)" "$(GOMODCACHE)" "$(GOTMPDIR)" "$(GOLANGCI_LINT_CACHE)")
+$(shell mkdir -p "$(GOCACHE)" "$(GOMODCACHE)" "$(GOTMPDIR)" "$(GOLANGCI_LINT_CACHE)" "$(BUILDX_CONFIG)")
 
 check: check-tools
-	$(MAKE) test-unit test-e2e test-race coverage fuzz-smoke lint build
+	$(MAKE) test-unit test-integration test-e2e test-race coverage fuzz-smoke lint build
 
 check-tools:
 	@test "$$(go version | awk '{print $$3}')" = go1.27.3 || { echo 'Install Go 1.27.3.' >&2; exit 1; }
@@ -25,7 +26,10 @@ test-unit:
 test-e2e:
 	python3 -m unittest discover -s scripts -p 'test_e2e.py'
 
-test-integration test-resolvers:
+test-integration:
+	python3 scripts/go_tests.py -count=1 ./tests/integration
+
+test-resolvers:
 	@echo '$@: unavailable until the service or resolver feature supplies its suite. See docs/checks.md.' >&2
 	@exit 1
 
@@ -50,3 +54,9 @@ build:
 	mkdir -p bin
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o bin/epochalypse-linux-amd64 ./cmd/epochalypse
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o bin/epochalypse-linux-arm64 ./cmd/epochalypse
+
+run:
+	go run ./cmd/epochalypse server --config "$${EPOCHALYPSE_CONFIG:-config/local.example.json}"
+
+lab:
+	docker compose -f deploy/lab/compose.yaml up --build --detach --wait --wait-timeout 60

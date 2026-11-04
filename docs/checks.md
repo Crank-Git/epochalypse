@@ -9,6 +9,7 @@ Run `make check` from the repository root.
 The command requires every currently applicable check to pass:
 
 - Go unit tests and check-script tests.
+- Live HTTP and DNS listener tests with three agent instances.
 - CLI E2E tests through an instrumented executable.
 - Go race checks.
 - Aggregate coverage across every first-party Go package.
@@ -22,16 +23,18 @@ The gate compares integer statement totals before it formats the percentage.
 An absent, empty, malformed, or insufficient profile fails the gate.
 Use `python3 scripts/coverage_gate.py <profile> [<profile> ...]` to validate profiles directly.
 
-The current scaffold has no service, browser interface, or resolver lab.
-`make test-integration` and `make test-resolvers` fail with an explicit unavailable message.
-These targets enter `make check` when their features supply real suites.
-The service issue supplies listener tests.
+`make test-integration` starts five local listeners and verifies HTTP health.
+The DNS listener refuses queries over UDP and TCP.
+The CLI E2E suite verifies process startup, configuration errors, occupied ports, and signal shutdown.
+`make test-resolvers` fails with an explicit unavailable message until the DNS feature supplies its suite.
 The DNS feature supplies tests against the three pinned resolver configurations.
 The current CLI E2E suite does not claim browser coverage.
 
 Make exports repository-local cache paths under `var/`.
 These paths keep local checks inside the workspace.
 Set `GOCACHE`, `GOMODCACHE`, `GOTMPDIR`, or `GOLANGCI_LINT_CACHE` to override a path.
+Make exports `BUILDX_CONFIG` under `var/cache/buildx` for Docker build state.
+Set `BUILDX_CONFIG` to override that path.
 The repository ignores these caches.
 Build output uses `bin/`.
 Test artifacts use `.test-artifacts/`.
@@ -46,3 +49,5 @@ Verified interfaces, retrieved 2026-11-04:
 
 The installed Go help documents the test, fuzz, race, and build flags.
 The installed linter help documents `golangci-lint run`.
+
+See [the local lab](lab.md) for container startup and smoke checks.
