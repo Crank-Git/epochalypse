@@ -40,7 +40,7 @@ try {
     socket.send(JSON.stringify({id, method, params}));
   });
   const evaluate = async expression => {
-    const reply = await call('Runtime.evaluate', {expression, returnByValue: true});
+    const reply = await call('Runtime.evaluate', {expression, returnByValue: true, awaitPromise: true});
     if (reply.exceptionDetails) throw new Error('Browser expression fails');
     return reply.result.value;
   };
@@ -55,6 +55,28 @@ try {
   await waitFor("document.querySelector('h1')?.textContent === 'Owner sign-in'");
   assert.equal(await evaluate("document.querySelector('label').htmlFor"), 'password');
   assert.equal(await evaluate("document.querySelector('#password').type"), 'password');
+  assert.equal(await evaluate('document.cookie'), '');
+  for (const proof of ['missing', 'wrong']) {
+    await evaluate(`document.querySelector('[name=csrf_token]').value = ${JSON.stringify(proof === 'missing' ? '' : 'wrong')}; document.querySelector('#password').value = 'synthetic-browser'; document.querySelector('button').click()`);
+    await waitFor("document.body.textContent.includes('invalid_csrf')");
+    await call('Page.navigate', {url: `${origin}/owner`});
+    await waitFor("document.querySelector('h1')?.textContent === 'Owner sign-in'");
+  }
+  const proof = await evaluate("document.querySelector('[name=csrf_token]').value");
+  const foreignOrigin = origin.replace('127.0.0.1', 'localhost');
+  await call('Page.navigate', {url: `${foreignOrigin}/healthz`});
+  await waitFor(`location.origin === ${JSON.stringify(foreignOrigin)} && document.readyState === 'complete'`);
+  await evaluate(`{
+    const form = document.createElement('form');
+    form.method = 'POST'; form.action = ${JSON.stringify(`${origin}/owner/sign-in`)};
+    for (const [name, value] of Object.entries({password: 'synthetic-browser', csrf_token: ${JSON.stringify(proof)}})) {
+      const input = document.createElement('input'); input.name = name; input.value = value; form.append(input);
+    }
+    document.body.append(form); form.submit();
+  }`);
+  await waitFor("document.body.textContent.includes('invalid_csrf')");
+  await call('Page.navigate', {url: `${origin}/owner`});
+  await waitFor("document.querySelector('h1')?.textContent === 'Owner sign-in'");
   await evaluate("document.querySelector('#password').value = 'wrong'; document.querySelector('button').click()");
   await waitFor("document.querySelector('[role=alert]') !== null");
   assert.equal(await evaluate("document.querySelector('#password').value"), '');
@@ -64,12 +86,41 @@ try {
   await evaluate("document.body.dataset.beforeReload = 'true'");
   await call('Page.reload');
   await waitFor("document.body.dataset.beforeReload !== 'true' && document.querySelector('h1')?.textContent === 'Signed in'");
+  const request = async (method, path, body, token) => evaluate(`(async () => {
+    const response = await fetch(${JSON.stringify(path)}, {method: ${JSON.stringify(method)},
+      headers: {'Content-Type': 'application/json', ${token ? `'X-CSRF-Token': ${JSON.stringify(token)}` : ''}},
+      ${body ? `body: ${JSON.stringify(body)},` : ''}
+      credentials: 'same-origin'});
+    return {status: response.status, body: await response.text()};
+  })()`);
+  const csrf = await evaluate("document.querySelector('[name=csrf_token]').value");
+  const tokenBody = JSON.stringify({name: 'browser', scopes: ['read'], expires_at: '2099-01-01T00:00:00Z'});
+  for (const token of [undefined, 'wrong']) {
+    assert.equal((await request('DELETE', '/api/v1/session', undefined, token)).status, 403);
+    assert.equal((await request('POST', '/api/v1/tokens', tokenBody, token)).status, 403);
+  }
+  const created = await request('POST', '/api/v1/tokens', tokenBody, csrf);
+  assert.equal(created.status, 201);
+  const tokenID = JSON.parse(created.body).id;
+  assert.equal((await request('DELETE', `/api/v1/tokens/${tokenID}`)).status, 403);
+  assert.equal((await request('DELETE', `/api/v1/tokens/${tokenID}`, undefined, csrf)).status, 204);
+  await evaluate("document.querySelector('[name=csrf_token]').remove(); document.querySelector('button').click()");
+  await waitFor("document.body.textContent.includes('invalid_csrf')");
+  await call('Page.navigate', {url: `${origin}/owner`});
+  await waitFor("document.querySelector('h1')?.textContent === 'Signed in'");
   await evaluate("document.querySelector('button').click()");
   await waitFor("document.querySelector('h1')?.textContent === 'Owner sign-in'");
   await evaluate("document.body.dataset.beforeReload = 'true'");
   await call('Page.reload');
   await waitFor("document.body.dataset.beforeReload !== 'true' && document.querySelector('h1')?.textContent === 'Owner sign-in'");
-  console.log('Browser: credential error, sign-in, HttpOnly cookie, reload, and sign-out pass');
+  const bootstrap = await evaluate("fetch('/api/v1/csrf').then(response => response.json())");
+  for (let attempt = 0; attempt < 4; attempt++) {
+    assert.equal((await request('POST', '/api/v1/session', JSON.stringify({password: 'wrong'}), bootstrap.csrf_token)).status, 401);
+  }
+  const cooldown = await request('POST', '/api/v1/session', JSON.stringify({password: 'synthetic-browser'}), bootstrap.csrf_token);
+  assert.equal(cooldown.status, 429);
+  assert.ok(!cooldown.body.includes('synthetic-browser'));
+  console.log('Browser: CSRF proof, cross-origin rejection, token administration, sign-in, sign-out, and cooldown pass');
 } finally {
   socket?.close();
   browser.kill('SIGTERM');

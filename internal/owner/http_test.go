@@ -16,6 +16,7 @@ func TestWebSignsInAndRevokesTheSession(t *testing.T) {
 	request := httptest.NewRequest("POST", "https://localhost/api/v1/session", strings.NewReader(`{"password":"synthetic"}`))
 	request.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
+	addCSRF(t, s, request)
 	h.ServeHTTP(w, request)
 	if w.Code != 204 || len(w.Result().Cookies()) != 1 {
 		t.Fatalf("sign in: %d %s", w.Code, w.Body)
@@ -36,6 +37,7 @@ func TestWebSignsInAndRevokesTheSession(t *testing.T) {
 		r := httptest.NewRequest(step.method, "https://localhost"+step.path, nil)
 		r.AddCookie(cookie)
 		w = httptest.NewRecorder()
+		addCSRF(t, s, r)
 		h.ServeHTTP(w, r)
 		if w.Code != step.code || !strings.Contains(w.Body.String(), step.contains) {
 			t.Fatalf("%s: %d %s", step.path, w.Code, w.Body)
@@ -52,6 +54,7 @@ func TestWebRejectsMalformedCredentials(t *testing.T) {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("POST", "https://localhost/api/v1/session", strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
+		addCSRF(t, s, r)
 		s.Handler(false).ServeHTTP(w, r)
 		expected := 400
 		if body == `{}` {
@@ -68,6 +71,7 @@ func TestWebRejectsMalformedCredentials(t *testing.T) {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("POST", "https://localhost/api/v1/session", strings.NewReader(`{"password":"synthetic"}`))
 		r.Header.Set("Content-Type", media)
+		addCSRF(t, s, r)
 		s.Handler(false).ServeHTTP(w, r)
 		if w.Code != 400 {
 			t.Fatal(w.Code)
@@ -76,6 +80,7 @@ func TestWebRejectsMalformedCredentials(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("POST", "https://localhost/owner/sign-in", strings.NewReader("password=%zz"))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addCSRF(t, s, r)
 	s.Handler(false).ServeHTTP(w, r)
 	if w.Code != 400 {
 		t.Fatal(w.Code)
@@ -97,6 +102,7 @@ func TestWebFormsRedirectAfterSignInAndSignOut(t *testing.T) {
 		if cookie != nil {
 			r.AddCookie(cookie)
 		}
+		addCSRF(t, s, r)
 		s.Handler(false).ServeHTTP(w, r)
 		if w.Code != step.code {
 			t.Fatalf("%s: %d %s", step.path, w.Code, w.Body)
@@ -126,6 +132,7 @@ func TestWebRejectsInvalidAndExpiredSessions(t *testing.T) {
 		if value != "" {
 			r.Header.Set("Cookie", cookieName+"="+value)
 		}
+		addCSRF(t, s, r)
 		s.Handler(false).ServeHTTP(w, r)
 		if w.Code != 200 || strings.Contains(w.Body.String(), "Signed in") {
 			t.Fatal("invalid session permits access")
@@ -137,6 +144,7 @@ func TestWebRejectsInvalidAndExpiredSessions(t *testing.T) {
 		if value != "" {
 			r.Header.Set("Cookie", cookieName+"="+value)
 		}
+		addCSRF(t, s, r)
 		s.Handler(false).ServeHTTP(w, r)
 		if w.Code != 401 {
 			t.Fatal(w.Code)
@@ -161,6 +169,7 @@ func TestWebFailsClosedWhenTheStoreCloses(t *testing.T) {
 		r := httptest.NewRequest(method, "https://localhost"+path, strings.NewReader(`{"password":"synthetic"}`))
 		r.Header.Set("Content-Type", "application/json")
 		r.Header.Set("Cookie", cookieName+"="+strings.Repeat("A", 43))
+		addCSRF(t, s, r)
 		s.Handler(false).ServeHTTP(w, r)
 		if w.Code != 503 || strings.Contains(w.Body.String(), "synthetic") {
 			t.Fatalf("closed store: %d %s", w.Code, w.Body)
@@ -191,6 +200,7 @@ func TestWebUsesGenericCredentialErrors(t *testing.T) {
 		r := httptest.NewRequest("POST", "https://localhost/api/v1/session", strings.NewReader(body))
 		r.TLS = &tls.ConnectionState{}
 		r.Header.Set("Content-Type", "application/json")
+		addCSRF(t, s, r)
 		s.Handler(false).ServeHTTP(w, r)
 		if w.Code != 401 || !strings.Contains(w.Body.String(), `"code":"invalid_credentials"`) || strings.Contains(w.Body.String(), "wrong-secret") || len(w.Result().Cookies()) != 0 {
 			t.Fatalf("credentials: %d %s", w.Code, w.Body)
@@ -205,6 +215,7 @@ func TestWebCorrelatesErrorsWithARequestID(t *testing.T) {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("POST", "https://localhost/api/v1/session", strings.NewReader(`{"password":"wrong"}`))
 		r.Header.Set("Content-Type", "application/json")
+		addCSRF(t, s, r)
 		s.Handler(false).ServeHTTP(w, r)
 		var body struct {
 			Error struct {

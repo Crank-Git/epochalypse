@@ -30,7 +30,11 @@ type Identity struct {
 }
 
 // Store owns the synced local database.
-type Store struct{ db *bolt.DB }
+type Store struct {
+	db     *bolt.DB
+	login  loginLimiter
+	webNow func() time.Time
+}
 
 // Open opens version 1 owner state with owner-only filesystem access.
 func Open(stateDir string) (*Store, error) {
@@ -54,7 +58,7 @@ func Open(stateDir string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open owner database: %w", err)
 	}
-	s := &Store{db: db}
+	s := &Store{db: db, webNow: time.Now}
 	if err := db.Update(func(tx *bolt.Tx) error {
 		for _, name := range [][]byte{stateBucket, sessionBucket, tokenBucket} {
 			if _, err := tx.CreateBucketIfNotExists(name); err != nil {

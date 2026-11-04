@@ -94,12 +94,16 @@ class CLITests(unittest.TestCase):
             result = subprocess.run(args, env=env, capture_output=True, text=True, timeout=5)
             self.assertEqual(result.returncode, 1)
             self.assertNotIn(grant["token"], result.stdout + result.stderr)
-            request = urllib.request.Request(origin + "/api/v1/session", data=json.dumps({"password": "synthetic-token-password"}).encode(), headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(origin + "/api/v1/csrf", timeout=2) as response:
+                csrf_cookie = response.headers["Set-Cookie"].split(";", 1)[0]
+                csrf_token = json.load(response)["csrf_token"]
+            headers = {"Content-Type": "application/json", "Cookie": csrf_cookie, "X-CSRF-Token": csrf_token}
+            request = urllib.request.Request(origin + "/api/v1/session", data=json.dumps({"password": "synthetic-token-password"}).encode(), headers=headers)
             with urllib.request.urlopen(request, timeout=2) as response:
                 self.assertEqual(response.status, 204)
-                cookie = response.headers["Set-Cookie"].split(";", 1)[0]
+                cookie = csrf_cookie + "; " + response.headers["Set-Cookie"].split(";", 1)[0]
             body = json.dumps({"name": "api", "scopes": ["read"], "expires_at": "2099-01-01T00:00:00Z"}).encode()
-            request = urllib.request.Request(origin + "/api/v1/tokens", data=body, headers={"Content-Type": "application/json", "Cookie": cookie})
+            request = urllib.request.Request(origin + "/api/v1/tokens", data=body, headers={"Content-Type": "application/json", "Cookie": cookie, "X-CSRF-Token": csrf_token})
             with urllib.request.urlopen(request, timeout=2) as response:
                 self.assertEqual(response.status, 201)
                 created = json.load(response)
@@ -111,7 +115,7 @@ class CLITests(unittest.TestCase):
                 with rejected.exception as response:
                     self.assertEqual(response.code, 401)
                     self.assertNotIn(item["token"], response.read().decode())
-                request = urllib.request.Request(origin + "/api/v1/tokens/" + item["id"], method="DELETE", headers={"Cookie": cookie})
+                request = urllib.request.Request(origin + "/api/v1/tokens/" + item["id"], method="DELETE", headers={"Cookie": cookie, "X-CSRF-Token": csrf_token})
                 with urllib.request.urlopen(request, timeout=2) as response:
                     self.assertEqual(response.status, 204)
                     self.assertEqual(response.read(), b"")
