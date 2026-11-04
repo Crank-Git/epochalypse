@@ -124,3 +124,9 @@ The final authority `make check` passes on 2026-11-04.
 It reports 337 Go tests, zero skips, and 1724 of 1781 covered statements: 96.7996 percent.
 Race, Chromium, CLI, fuzz, lint, vet, and both Linux builds pass.
 The final run includes the raw-wire regression fix.
+
+After commit `b60e49a`, the authority pre-patch check restores the service dispatcher from checkpoint `94da218`.
+The new tests and authority implementation remain present.
+The live test creates its window through authenticated HTTP, then fails with `main server does not bind authoritative DNS`.
+The same shell call restores the dispatcher from `HEAD`.
+`git status --short` then returns no output.
