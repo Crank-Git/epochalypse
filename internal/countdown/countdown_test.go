@@ -15,6 +15,12 @@ import (
 
 var testNow = time.Date(2026, 11, 5, 12, 0, 0, 500000000, time.UTC)
 
+func TestSnapshotValidationRejectsMissingTransaction(t *testing.T) {
+	if err := ValidateSnapshot(nil); err == nil {
+		t.Fatal("snapshot accepts a missing transaction")
+	}
+}
+
 func validInput() Input {
 	return Input{Title: "Synthetic event", EventAt: testNow.Add(time.Hour).Truncate(time.Second).Format(time.RFC3339)}
 }

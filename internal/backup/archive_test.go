@@ -220,6 +220,30 @@ func testLimits(t *testing.T) Limits {
 	return Limits{MaxBytes: DefaultMaxBytes, TempDir: t.TempDir()}
 }
 
+func TestArchiveRejectsEmptyAuthenticatedPayload(t *testing.T) {
+	identity, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var encrypted bytes.Buffer
+	writer, err := age.Encrypt(&encrypted, identity.Recipient())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	limits := testLimits(t)
+	archive, err := Open(context.Background(), &encrypted, identity, limits)
+	if err == nil || !strings.Contains(err.Error(), "plaintext is empty") || len(archive.Files) != 0 {
+		t.Fatalf("empty authenticated payload exposes an archive: %v", err)
+	}
+	entries, err := os.ReadDir(limits.TempDir)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("empty payload leaves private files: %v", err)
+	}
+}
+
 func setContent(t *testing.T, file *File, data []byte) {
 	t.Helper()
 	if err := os.WriteFile(file.SourcePath, data, 0600); err != nil {

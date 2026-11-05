@@ -153,9 +153,42 @@ A later DNS assertion detects the missing DNSSEC OK bit in the test client's que
 The client now sends an EDNS OPT record with that bit. The complete exercise then passes.
 The service implementation does not change in response to those harness failures.
 The focused command and backup race suites pass.
-The final full suite and aggregate coverage gate remain pending at this checkpoint.
+The focused checkpoint precedes the final required checks below.
 The earlier unit-only measurement is 4497 of 4767 statements. It predates the refreshed integration baseline and is not a final aggregate result.
 This exercise makes no live-agent, switch-recovery, public delegation, real-host, or production-promotion claim.
+
+## Final backup checks
+
+The final production source is `91188a8453eacb23150993ef70571cbeefa72236`.
+The final additions change tests and this verification record only.
+Every production Go file remains identical to that source.
+
+`make check` passes these stages before the aggregate coverage gate:
+
+- 823 Go unit tests, with zero skips.
+- Six coverage-script tests, two check-script tests, and three test-runner tests.
+- One integration test and five resolver tests, with zero skips.
+- One CLI exercise, three Chromium flows, one Compose lab, and one isolated Linux backup exercise.
+- 823 Go race tests, with zero skips.
+- The instrumented unit suite and a second complete E2E run, with zero skips.
+
+The isolated Linux backup exercises pass in 22.816 and 31.465 seconds.
+Both use the retained full source commit above.
+The first aggregate gate fails at 4692 of 4955 statements, or 94.6922 percent.
+Additional tests cover retained observation context, unsupported configuration, unpaired capsule keys, validator inputs, and empty authenticated archive cleanup.
+An intermediate measurement reaches 4707 of 4955 statements and still fails the gate.
+The final instrumented unit suite passes 834 tests with zero skips.
+The final aggregate covers 4708 of 4955 statements, or 95.0151 percent.
+The gate retains every first-party production path and adds no exclusion.
+It combines the new unit profile with the CLI, browser, and backup profiles from the same production source.
+The supplemental tests do not change those source maps or runtime behavior.
+
+The remaining required stages run separately after the coverage correction.
+The supplemental race check passes 337 tests across the five changed packages, with zero skips.
+The 30-second command fuzz check passes after 488674 executions.
+Go format, vet, and configured lint pass. The linter reports zero issues.
+Linux amd64 and arm64 builds pass with the test-only worktree marked dirty in their version metadata.
+The integration pull request still requires its own complete check at its final commit.
 
 Verified interfaces, retrieved 2026-11-05:
 

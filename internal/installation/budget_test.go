@@ -213,6 +213,12 @@ func TestBudgetAdmitsOnlyOneConcurrentCreation(t *testing.T) {
 	}
 }
 
+func TestSnapshotLayoutRejectsMissingTransaction(t *testing.T) {
+	if err := ValidateSnapshotLayout(nil); err == nil {
+		t.Fatal("snapshot layout accepts a missing transaction")
+	}
+}
+
 func TestInstallationPreservesLegacyBytesAfterRestart(t *testing.T) {
 	directory := t.TempDir()
 	s, err := Open(directory, DefaultLimits())
