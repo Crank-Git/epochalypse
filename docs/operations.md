@@ -214,6 +214,21 @@ Exclude `owner.initialized`, synthetic passwords, setup metadata, and the countd
 The `owner.initialized` marker controls fresh lab setup only. It does not authenticate or validate an owner database.
 Include the effective configuration and limits, rather than assuming defaults on restore.
 
+The internal archive codec uses age v1 encryption with a separate X25519 recipient.
+Its plaintext contains an eight-byte manifest length, one version 1 JSON manifest, and the declared file payloads in manifest order.
+The manifest has a 64 KiB limit. File payloads use bounded streams instead of JSON byte arrays.
+The codec requires an explicit positive byte limit for the complete plaintext, including the manifest.
+The suggested default is 4 GiB. This permits the default 1 GiB retained installation plus database overhead.
+Select a larger finite limit when the complete databases and required files exceed that limit.
+Private temporary disk holds up to twice the selected plaintext limit during restore.
+The codec uses mode 0700 for temporary directories and mode 0600 for temporary files.
+It authenticates the complete age stream before it parses the manifest or exposes restored file paths.
+It removes temporary plaintext after failure. The caller removes successful temporary state through the archive's `Close` method.
+The codec does not yet provide a backup CLI, a coherent snapshot, or a validated installation.
+
+Verified interface: [age v1.3.2 source](https://github.com/FiloSottile/age/blob/v1.3.2/age.go), retrieved 2026-11-05.
+`Encrypt` requires the caller to close its writer. `Decrypt` returns a plaintext stream that authenticates through its final chunk.
+
 For a coherent snapshot, block external access and stop the main process with SIGTERM through its service manager.
 Wait for process exit and database lock release. Stop all offline CLI writers before copying either database.
 Copy both complete databases and all referenced configuration and key files while they remain unchanged.
