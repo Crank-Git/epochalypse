@@ -17,8 +17,41 @@ export async function checkSwitches(call, evaluate, waitFor, origin) {
   assert.equal(record.deadline, undefined); assert.equal(record.release_boundary, undefined);
   await call('Page.reload');
   await waitFor("document.querySelector('#switch-fields')?.disabled === false");
-  assert.ok(await evaluate("document.querySelector('#switch-list').textContent.includes('unarmed and unreplicated')"));
+  assert.ok(await evaluate("document.querySelector('#switch-list').textContent.includes('Draft — no arm evidence reported. Remote agent state is unknown.')"));
   assert.ok(await evaluate("document.querySelector('#switch-list').textContent.includes('Grace: 0 seconds')"));
+  const query = new URLSearchParams({id, interval_seconds: String(record.interval_seconds), grace_seconds: String(record.grace_seconds), created_at: record.created_at});
+  const fixture = await fetch('http://127.0.0.1:8082/fixture/switch-evidence?' + query, {headers: {Origin: origin}});
+  assert.equal(fixture.status, 200, 'The durable agent fixture succeeds');
+  const evidence = await fixture.json();
+  const csrf = await evaluate("fetch('/api/v1/csrf').then(response => response.json()).then(result => result.csrf_token)");
+  const submitEvidence = value => evaluate(`(async () => {
+    const id = document.querySelector('#switch-list li').dataset.id;
+    const response = await fetch('/api/v1/switches/' + id + '/arm', {
+      method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': ${JSON.stringify(csrf)}},
+      body: ${JSON.stringify(JSON.stringify(value))}, credentials: 'same-origin'});
+    return {status: response.status, body: await response.text()};
+  })()`);
+  const uncertainEvidence = {...evidence, armed: evidence.armed.slice(0, 2)};
+  const uncertain = await submitEvidence(uncertainEvidence);
+  assert.equal(uncertain.status, 202, uncertain.body);
+  assert.equal(JSON.parse(uncertain.body).state, 'uncertain');
+  await call('Page.reload');
+  await waitFor("document.querySelector('#switch-list').textContent.includes('Uncertain outcome — the owner issues an arm request')");
+  assert.ok(await evaluate("document.querySelector('#switch-list').textContent.includes('Armed receipts: 2 of 3.')"));
+  const invalidEvidence = structuredClone(evidence);
+  invalidEvidence.armed[2].signature = 'AA==';
+  const rejected = await submitEvidence(invalidEvidence);
+  assert.equal(rejected.status, 400, rejected.body);
+  const retained = await evaluate(`fetch('/api/v1/switches/' + document.querySelector('#switch-list li').dataset.id).then(response => response.json())`);
+  assert.equal(retained.state, 'uncertain');
+  assert.equal(retained.arm.armed.length, 2);
+  assert.ok(await evaluate("document.querySelector('#switch-list').textContent.includes('Uncertain outcome — the owner issues an arm request')"));
+  const armed = await submitEvidence(evidence);
+  assert.equal(armed.status, 200, armed.body);
+  assert.equal(JSON.parse(armed.body).state, 'armed');
+  await call('Page.reload');
+  await waitFor("document.querySelector('#switch-list').textContent.includes('Armed — three matching durable receipts')");
+  assert.ok(await evaluate("document.querySelector('#switch-list').textContent.includes('Armed receipts: 3 of 3.')"));
   await call('Page.navigate', {url: origin + '/owner'});
   await waitFor("document.querySelector('h1')?.textContent === 'Signed in'");
 }

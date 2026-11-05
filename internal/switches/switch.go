@@ -1,4 +1,4 @@
-// Package switches stores unarmed switch drafts.
+// Package switches stores switch configuration and public arm evidence.
 package switches
 
 import (
@@ -15,6 +15,9 @@ const (
 	MaxIntervalSeconds     int64 = 365 * 24 * 60 * 60
 	MaxGraceSeconds        int64 = 30 * 24 * 60 * 60
 	StateDraft                   = "draft"
+	StateUncertain               = "uncertain"
+	StateArmed                   = "armed"
+	MaxRecordBytes               = 64 << 10
 )
 
 var (
@@ -47,23 +50,34 @@ func (in Input) durations() (int64, int64, error) {
 
 // Record contains versioned configuration without an authoritative deadline.
 type Record struct {
-	Version         int       `json:"version"`
-	ID              string    `json:"id"`
-	IntervalSeconds int64     `json:"interval_seconds"`
-	GraceSeconds    int64     `json:"grace_seconds"`
-	CreatedAt       time.Time `json:"created_at"`
-	State           string    `json:"state"`
+	Version         int          `json:"version"`
+	ID              string       `json:"id"`
+	IntervalSeconds int64        `json:"interval_seconds"`
+	GraceSeconds    int64        `json:"grace_seconds"`
+	CreatedAt       time.Time    `json:"created_at"`
+	State           string       `json:"state"`
+	Arm             *ArmEvidence `json:"arm,omitempty"`
 }
 
-// ValidateRecord validates the stable persisted draft contract.
+// ValidateRecord validates version-one drafts and their public arm evidence.
 func ValidateRecord(record Record) error {
-	if record.Version != 1 || !validID(record.ID) || record.State != StateDraft ||
-		record.IntervalSeconds < MinIntervalSeconds || record.IntervalSeconds > MaxIntervalSeconds ||
-		record.GraceSeconds < 0 || record.GraceSeconds > MaxGraceSeconds || record.CreatedAt.IsZero() ||
-		record.CreatedAt.Location() != time.UTC || record.CreatedAt.Nanosecond() != 0 {
+	if !validConfiguration(record) {
+		return ErrIntegrity
+	}
+	if record.State == StateDraft && record.Arm == nil {
+		return nil
+	}
+	if record.Arm == nil || ValidateArmEvidence(record, *record.Arm) != nil || record.State != evidenceState(*record.Arm) {
 		return ErrIntegrity
 	}
 	return nil
+}
+
+func validConfiguration(record Record) bool {
+	return record.Version == 1 && validID(record.ID) &&
+		record.IntervalSeconds >= MinIntervalSeconds && record.IntervalSeconds <= MaxIntervalSeconds &&
+		record.GraceSeconds >= 0 && record.GraceSeconds <= MaxGraceSeconds && !record.CreatedAt.IsZero() &&
+		record.CreatedAt.Location() == time.UTC && record.CreatedAt.Nanosecond() == 0
 }
 
 func validID(id string) bool {

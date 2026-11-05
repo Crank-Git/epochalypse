@@ -11,6 +11,9 @@ import urllib.request
 
 
 class CLITests(unittest.TestCase):
+    def test_switch_arm_uses_three_durable_tls_agents(self):
+        subprocess.run(["python3", "scripts/test_switch_arm.py"], check=True, timeout=180)
+
     def test_cli_reports_help_and_errors(self):
         Path(".test-artifacts").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir=".test-artifacts") as directory:

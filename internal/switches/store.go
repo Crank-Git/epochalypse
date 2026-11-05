@@ -126,7 +126,7 @@ func decode(id string, data []byte) (Record, error) {
 	if data == nil {
 		return Record{}, ErrNotFound
 	}
-	if len(data) > 4096 {
+	if len(data) > MaxRecordBytes {
 		return Record{}, ErrIntegrity
 	}
 	var record Record

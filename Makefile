@@ -45,7 +45,7 @@ coverage:
 	mkdir -p .test-artifacts
 	python3 scripts/go_tests.py -count=1 -coverpkg=github.com/Crank-Git/epochalypse/... -covermode=atomic -coverprofile=.test-artifacts/unit.out ./...
 	$(MAKE) test-e2e
-	python3 scripts/coverage_gate.py .test-artifacts/unit.out .test-artifacts/cli.out .test-artifacts/browser.out .test-artifacts/backup.out
+	python3 scripts/coverage_gate.py .test-artifacts/unit.out .test-artifacts/cli.out .test-artifacts/browser.out .test-artifacts/backup.out .test-artifacts/switch-arm.out
 
 fuzz-smoke:
 	go test ./internal/command -run='^$$' -fuzz=FuzzRun -fuzztime=30s -parallel=2
