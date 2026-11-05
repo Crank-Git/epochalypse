@@ -1,7 +1,6 @@
 # Capsule foundation
 
-The current foundation provides public and server-held domain operations and HTTP interfaces.
-The CLI and web controls remain incomplete in this checkpoint of #18.
+The current foundation provides public and server-held domain operations, HTTP interfaces, CLI commands, and owner controls.
 Tlock preparation remains unavailable until #20 supplies its verified adapter.
 
 ## Content and trust
@@ -144,3 +143,36 @@ Cancellation before preparation retains no draft. A mutation that already commit
 
 The public recovery bundle, page, attachment, and export interfaces remain with the later capsule slices.
 The key-free `Record` is a ciphertext producer. It is not a self-contained recovery bundle.
+
+## Owner controls
+
+Open `/owner/capsules` from the owner dashboard after sign-in.
+Review the content and trust disclosures before upload. Choose a supported mode, requested release time, and text or a file.
+Select **Create draft**. Review the returned metadata, then select **Publish capsule**.
+The controls show the configured plaintext limit. The server enforces the limit independently of browser checks.
+The controls clear the content fields after successful preparation. They render metadata as text.
+Owner sessions authorize both the page and script. Mutations use the shared CSRF proof and existing HTTP work bounds.
+Tlock remains unavailable until #20. These controls do not offer the later public page or recovery bundle.
+
+## Local CLI
+
+Stop the main server before a local capsule command. Host access authorizes these offline commands.
+Preparation reads a regular file on the owner's machine. It sends no plaintext over a network.
+Set the same installation limits that the server uses. Both commands retain the shared installation budget.
+
+```sh
+epochalypse capsule create --state-dir var/state --mode server-held \
+  --kind text --content-file capsule.txt --title "Synthetic capsule" \
+  --release-at 2099-01-01T00:00:00Z
+epochalypse capsule publish --state-dir var/state --id <capsule-id>
+```
+
+Use `--kind file` for opaque bytes. Use `--plaintext-limit` to set the allowance for new content.
+The default remains 10 MiB. Both commands return manifest JSON without content or keys.
+Publication in public mode exposes its key immediately. The requested date remains advisory.
+Server-held publication preserves the requested release boundary and operator trust.
+Export, local open, deletion, and tlock preparation remain with later slices.
+
+Verified against Go 1.27.3 shipped documentation for `os.Open`, `flag.FlagSet.Int`, `time.Parse`, and `filepath.Base`.
+The browser adapters use the documented [FormData interface](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest_API/Using_FormData_Objects)
+and [Fetch interface](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch), retrieved 2026-11-05 UTC.

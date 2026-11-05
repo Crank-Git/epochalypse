@@ -23,6 +23,7 @@ type capsuleAPI struct {
 }
 
 func (api *capsuleAPI) routes(mux *http.ServeMux, owners *owner.Store, lab bool) {
+	api.ownerControls(mux, owners, lab)
 	for _, route := range []struct {
 		path, method string
 		serve        http.HandlerFunc

@@ -40,6 +40,9 @@ func TestDashboardReturnsCurrentFeatureStates(t *testing.T) {
 		if section == "agents" && list.State != "unavailable" {
 			t.Fatal("agent health claims an observation")
 		}
+		if section == "capsules" && list.State != "available" {
+			t.Fatal("capsule controls are unavailable")
+		}
 	}
 }
 

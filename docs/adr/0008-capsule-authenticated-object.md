@@ -94,4 +94,4 @@ The fuzz target exercises malformed input through the bounded public content ada
 Consumers must preserve the exact protected-header profile. They cannot add parameters without a format change.
 The content object authenticates content and capsule identity. Public manifest fields require their own validation.
 The shared store must protect retained keys independently of public content.
-The upload, store, publication, and release interfaces remain separate work in #18.
+The upload, store, publication, and release interfaces use this profile through the shared capsule producer.

@@ -9,6 +9,9 @@ Keep the existing `v1/windows.db` path and version 1 window and observation docu
 `installation.Open` owns one bbolt handle for retained content. Attached domain handles share its transactions and configured limits.
 The main service owns this handle even when DNS remains disabled.
 Offline commands use the same database and fixed layout. A second process must acquire the same database lock.
+Use a local filesystem that enforces advisory file locks for installation state.
+Docker Desktop bind mounts do not satisfy this constraint in the tested environment.
+The Chromium fixture uses container-local Linux state and verifies rejection of a second process.
 
 Closing a domain handle stops new operations for that domain. It preserves access through other domain handles.
 Shutdown stops domain users before it closes the installation handle.
