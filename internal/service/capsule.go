@@ -8,6 +8,8 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/Crank-Git/epochalypse/internal/capsule"
@@ -32,7 +34,7 @@ func (api *capsuleAPI) routes(mux *http.ServeMux, owners *owner.Store, lab bool)
 	}{
 		{"/api/v1/capsules", "POST", api.create},
 		{"/api/v1/capsules/prepared", "POST", api.importPrepared},
-		{"/api/v1/capsules/{id}", "GET", api.metadata},
+		{"/api/v1/capsules/{id}", "GET, DELETE", api.resource},
 		{"/api/v1/capsules/{id}/publish", "POST", api.publish},
 	} {
 		mux.Handle(route.path, owner.SecureHandler(lab, owners.RequireScope("capsule:write", api.route(route.method, route.serve))))
@@ -42,12 +44,12 @@ func (api *capsuleAPI) routes(mux *http.ServeMux, owners *owner.Store, lab bool)
 
 func (api *capsuleAPI) route(method string, next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != method {
+		if !slices.Contains(strings.Split(method, ", "), r.Method) {
 			w.Header().Set("Allow", method)
 			capsuleError(w, 405, "method_not_allowed", "Use "+method+".")
 			return
 		}
-		if r.URL.RawQuery != "" || (method == "GET" && (r.ContentLength != 0 || len(r.TransferEncoding) != 0)) {
+		if r.URL.RawQuery != "" || (r.Method == "GET" && (r.ContentLength != 0 || len(r.TransferEncoding) != 0)) {
 			capsuleRequestError(w, capsule.ErrInput)
 			return
 		}
