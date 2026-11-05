@@ -44,6 +44,12 @@ The test records the different responses and strict Unbound's later recovery.
 The check writes public fixture records and timestamped results to `.test-artifacts/resolvers.json`.
 Docker supplies Linux arm64 or amd64 containers. BIND and the authority helper use the daemon architecture.
 The pinned Unbound image uses Linux amd64. An arm64 daemon requires amd64 container support. The test removes only its own containers and network.
+Resolver fixture processes use the host user's numeric user and group identifiers.
+Linux bind mounts preserve those identifiers. The pinned BIND image's default user cannot read another user's owner-only fixture files.
+Each fixture container drops all capabilities and disables privilege escalation.
+The ownership regression checks the process identity and the protected file modes.
+It also rejects access from another Linux user to container-local private files and directories.
+Container-local files exercise Linux access rules even when Docker Desktop translates bind-mount access.
 The [observation guide](observations.md) describes metadata provenance and the retained-state schema.
 `scripts/test_browser.py` runs the required browser flow. A missing Docker daemon or a failed browser fails the check.
 The browser test uses synthetic owner state and a temporary profile.
