@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Crank-Git/epochalypse/internal/owner"
 	"github.com/Crank-Git/epochalypse/internal/version"
 )
 
@@ -52,28 +51,29 @@ func Serve(ctx context.Context, config Config, ready func(Addresses)) error {
 	defer func() { _ = httpListener.Close() }()
 	addresses := Addresses{HTTP: httpListener.Addr().String()}
 	results := make(chan error, 3)
-	var dns *dnsListeners
-	if config.Mode == "dns" {
-		dns, err = openDNS(ctx, config.DNSAddr)
+	handler := Handler()
+	var respond func([]byte, bool) []byte
+	var state *mainState
+	if config.Mode == "server" {
+		state, err = openMainState(config)
+		if err != nil {
+			return err
+		}
+		defer state.close()
+		state.routes(handler, config.LocalLab)
+		respond = state.dnsResponder()
+	}
+	if config.Mode == "dns" || respond != nil {
+		dns, err := openDNS(ctx, config.DNSAddr)
 		if err != nil {
 			return err
 		}
 		defer dns.close()
+		dns.respond = respond
 		addresses.DNS = dns.tcp.Addr().String()
+		state.setDirectAddress(dns.tcp.Addr())
 		go func() { results <- dns.serveUDP() }()
 		go func() { results <- dns.serveTCP() }()
-	}
-	handler := Handler()
-	if config.Mode == "server" {
-		store, err := owner.Open(config.StateDir)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = store.Close() }()
-		ownerHandler := store.Handler(config.LocalLab)
-		for _, path := range []string{"/owner", "/owner/", "/api/v1/csrf", "/api/v1/session", "/api/v1/tokens", "/api/v1/tokens/", "/api/v1/dashboard"} {
-			handler.Handle(path, ownerHandler)
-		}
 	}
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second}
 	defer func() { _ = server.Close() }()

@@ -13,7 +13,7 @@ VERSION_FLAGS = -X github.com/Crank-Git/epochalypse/internal/version.Commit=$(EP
 $(shell mkdir -p "$(GOCACHE)" "$(GOMODCACHE)" "$(GOTMPDIR)" "$(GOLANGCI_LINT_CACHE)" "$(BUILDX_CONFIG)")
 
 check: check-tools
-	$(MAKE) test-unit test-integration test-e2e test-race coverage fuzz-smoke lint build
+	$(MAKE) test-unit test-integration test-e2e test-resolvers test-race coverage fuzz-smoke lint build
 
 check-tools:
 	@test "$$(go version | awk '{print $$3}')" = go1.27.3 || { echo 'Install Go 1.27.3.' >&2; exit 1; }
@@ -29,13 +29,13 @@ test-unit:
 test-e2e:
 	python3 -m unittest discover -s scripts -p 'test_e2e.py'
 	python3 -m unittest discover -s scripts -p 'test_browser.py'
+	python3 -m unittest discover -s scripts -p 'test_lab.py'
 
 test-integration:
 	python3 scripts/go_tests.py -count=1 ./tests/integration
 
 test-resolvers:
-	@echo '$@: unavailable until the service or resolver feature supplies its suite. See docs/checks.md.' >&2
-	@exit 1
+	python3 scripts/go_tests.py -tags=resolvers -count=1 ./tests/resolvers
 
 test-race:
 	python3 scripts/go_tests.py -race -count=1 ./...

@@ -13,6 +13,8 @@ The command requires every currently applicable check to pass:
 - Live HTTP and DNS listener tests with three agent instances.
 - CLI E2E tests through an instrumented executable.
 - Browser dashboard states, keyboard access, scoped summary access, sign-in, sign-out, CSRF rejection, token administration, and cooldown tests through Chromium.
+- A TLS Compose lab with immediate signed UDP/TCP records, explicit fallback, a new executable process, four independent volumes, and three healthy agents.
+- The pinned default Unbound, strict Unbound, and BIND matrix with real failure-cache transitions across inception.
 - Go race checks.
 - Aggregate coverage across every first-party Go package.
 - A 30-second command-parser fuzz test.
@@ -31,11 +33,25 @@ The gate compares integer statement totals before it formats the percentage.
 An absent, empty, malformed, or insufficient profile fails the gate.
 Use `python3 scripts/coverage_gate.py <profile> [<profile> ...]` to validate profiles directly.
 
-`make test-integration` starts five local listeners and verifies HTTP health.
-The DNS listener refuses queries over UDP and TCP.
+The foundation test in `make test-integration` starts five local listeners and verifies HTTP health.
+Its standalone DNS scaffold refuses queries over UDP and TCP.
+Signed-window service tests instead exercise the cohost authority through real HTTP, UDP, TCP, and restart.
 The CLI E2E suite verifies process startup, configuration errors, occupied ports, and signal shutdown.
-`make test-resolvers` fails with an explicit unavailable message until the DNS feature supplies its suite.
-The DNS feature supplies tests against the three pinned resolver configurations.
+`make test-resolvers` runs the three pinned resolver configurations against the production window store and authority.
+Each configuration validates a current-signature positive control before it compares future and expired signatures.
+The test primes warm caches before inception. Cold caches first query the same record after inception.
+The test records the different responses and strict Unbound's later recovery.
+The check writes public fixture records and timestamped results to `.test-artifacts/resolvers.json`.
+Docker supplies Linux arm64 or amd64 containers. BIND and the authority helper use the daemon architecture.
+The pinned Unbound image uses Linux amd64. An arm64 daemon requires amd64 container support. The test removes only its own containers and network.
+Resolver fixture processes use the host user's numeric user and group identifiers.
+Linux bind mounts preserve those identifiers. The pinned BIND image's default user cannot read another user's owner-only fixture files.
+Each fixture container drops all capabilities and disables privilege escalation.
+The ownership regression checks the process identity and the protected file modes.
+It requires `ip_unprivileged_port_start=0` in the container network namespace for DNS port 53 without capabilities.
+It also rejects access from another Linux user to container-local private files and directories.
+Container-local files exercise Linux access rules even when Docker Desktop translates bind-mount access.
+The [observation guide](observations.md) describes metadata provenance and the retained-state schema.
 `scripts/test_browser.py` runs the required browser flow. A missing Docker daemon or a failed browser fails the check.
 The browser test uses synthetic owner state and a temporary profile.
 The dashboard checks verify the empty feature lists, the switch production block, and unavailable agent observations.
