@@ -96,6 +96,17 @@ func TestSnapshotRejectsIncompatibleOwnerRecords(t *testing.T) {
 		"invalid JSON": func(tx *bolt.Tx) error {
 			return tx.Bucket(sessionBucket).Put(bytes.Repeat([]byte{1}, 32), []byte(`secret-invalid`))
 		},
+		"empty document": func(tx *bolt.Tx) error {
+			return tx.Bucket(sessionBucket).Put(bytes.Repeat([]byte{1}, 32), nil)
+		},
+		"oversized document": func(tx *bolt.Tx) error {
+			return tx.Bucket(sessionBucket).Put(bytes.Repeat([]byte{1}, 32), bytes.Repeat([]byte("x"), 16385))
+		},
+		"extra document": func(tx *bolt.Tx) error {
+			return tx.Bucket(sessionBucket).Put(bytes.Repeat([]byte{1}, 32), []byte(`{} {}`))
+		},
+		"token JSON": func(tx *bolt.Tx) error { return tx.Bucket(tokenBucket).Put([]byte("key"), []byte(`invalid`)) },
+		"audit JSON": func(tx *bolt.Tx) error { return tx.Bucket(auditBucket).Put([]byte("key"), []byte(`invalid`)) },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -142,20 +153,6 @@ func changeSnapshotKey(tx *bolt.Tx, name, replacement []byte) error {
 		return err
 	}
 	return b.Put(replacement, copy)
-}
-
-func TestSnapshotRecordValidatorsRejectMalformedDocuments(t *testing.T) {
-	for _, data := range [][]byte{nil, bytes.Repeat([]byte("x"), 16385), []byte(`{} {}`)} {
-		if err := snapshotDocument(data, &session{}); err == nil {
-			t.Fatal("snapshot accepts an invalid record document")
-		}
-	}
-	if err := validateSnapshotToken(nil, []byte(`invalid`), "owner"); err == nil {
-		t.Fatal("snapshot accepts invalid token JSON")
-	}
-	if err := validateSnapshotAudit(nil, []byte(`invalid`), 0); err == nil {
-		t.Fatal("snapshot accepts invalid audit JSON")
-	}
 }
 
 func TestSnapshotPreservesExpiredCredentials(t *testing.T) {
