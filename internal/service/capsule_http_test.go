@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Crank-Git/epochalypse/internal/capsule"
+	"github.com/Crank-Git/epochalypse/internal/installation"
 	"github.com/Crank-Git/epochalypse/internal/owner"
 )
 
@@ -135,6 +136,47 @@ func TestCapsuleHTTPCreatesAndPublishesTimelockCeilingRound(t *testing.T) {
 	}
 	if w := h.key(draft.ID); w.Code != 425 {
 		t.Fatalf("early key: %d %s", w.Code, w.Body)
+	}
+}
+
+func TestCapsuleHTTPImportsLocalPreparedDraft(t *testing.T) {
+	h := newCapsuleHTTP(t)
+	local, err := capsule.Open(t.TempDir(), installation.DefaultLimits(), 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = local.Close() }()
+	draft, err := local.Create(capsule.Input{Mode: capsule.Tlock, Kind: capsule.Text, ReleaseAt: h.clock.Add(time.Hour)}, strings.NewReader("1234"), *h.clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := json.Marshal(draft)
+	request := func() *http.Request {
+		r := httptest.NewRequest("POST", "https://localhost/api/v1/capsules/prepared", bytes.NewReader(data))
+		r.Header.Set("Content-Type", "application/json")
+		return r
+	}
+	if w := h.send(request()); w.Code != 401 {
+		t.Fatalf("anonymous import: %d", w.Code)
+	}
+	r := request()
+	r.AddCookie(&http.Cookie{Name: "__Host-epochalypse-session", Value: h.session})
+	if w := h.send(r); w.Code != 403 {
+		t.Fatalf("import without CSRF: %d", w.Code)
+	}
+	r = request()
+	r.Header.Set("Authorization", "Bearer "+h.bearer)
+	w := h.send(r)
+	if w.Code != 201 || strings.Contains(w.Body.String(), `"object"`) || strings.Contains(w.Body.String(), `"key"`) {
+		t.Fatalf("import: %d %s", w.Code, w.Body)
+	}
+	if w := h.publish(draft.ID); w.Code != 200 {
+		t.Fatalf("publish import: %d %s", w.Code, w.Body)
+	}
+	r = request()
+	r.Header.Set("Authorization", "Bearer "+h.bearer)
+	if w := h.send(r); w.Code != 503 {
+		t.Fatalf("duplicate import: %d", w.Code)
 	}
 }
 
