@@ -6,7 +6,7 @@ import {generateKeyPairSync} from 'node:crypto';
 
 const directory = '/state';
 await writeFile(`${directory}/password`, 'synthetic-browser', {mode: 0o600});
-await writeFile(`${directory}/config.json`, '{"version":1}');
+await writeFile(`${directory}/config.json`, JSON.stringify({version: 1, resolvers: [{id: 'unavailable', address: '127.0.0.1:1', version: 'unknown', version_source: 'unknown', clock: {source: 'unknown', offset_nanoseconds: null}}]}));
 await mkdir(`${directory}/coverage`);
 // Each browser run uses a separate synthetic DNSSEC key.
 const key = generateKeyPairSync('ec', {namedCurve: 'prime256v1'}).privateKey.export({format: 'jwk'});

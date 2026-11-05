@@ -66,7 +66,7 @@ Errors use `{error:{code,message,fields,request_id}}`.
 | 400 | The JSON document or a named window field is invalid. |
 | 401 | The owner session fails. A bearer credential also fails. |
 | 403 | The CSRF proof or origin fails. |
-| 409 | The retained window quota rejects creation. |
+| 409 | The shared installation quota rejects creation. |
 | 413 | The request exceeds 8192 bytes. |
 | 426 | Owner access requires HTTPS. |
 | 503 | The signer or store is unavailable. |

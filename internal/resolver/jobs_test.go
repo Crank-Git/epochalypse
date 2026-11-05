@@ -177,3 +177,43 @@ func TestJobsCopyConfiguredClockOffsets(t *testing.T) {
 		t.Fatal("caller mutation changes the configured clock metadata")
 	}
 }
+
+func TestJobsUsePrivateTargetsAfterAdmissionReturns(t *testing.T) {
+	store, w, targets := jobsFixture(t)
+	second := targets[0]
+	second.ID = "second"
+	second.Address = "127.0.0.1:2"
+	targets = append(targets, second)
+	jobs, err := NewJobs(store, targets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(jobs.Close)
+	entered, release := make(chan struct{}), make(chan struct{})
+	seen := make(chan string, 1)
+	jobs.query = func(ctx context.Context, name string, target observation.Target) observation.Result {
+		if target.ID == "strict" {
+			close(entered)
+			<-release
+		} else {
+			seen <- target.Address
+		}
+		canceled, cancel := context.WithCancel(ctx)
+		cancel()
+		return Observe(canceled, name, target)
+	}
+	run, err := jobs.Start(w.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-entered
+	run.Results[1].Resolver.Address = "127.0.0.1:3"
+	close(release)
+	jobs.wg.Wait()
+	if address := <-seen; address != second.Address {
+		t.Fatalf("caller mutation changes a configured target to %s", address)
+	}
+	if !jobs.Available() {
+		t.Fatal("caller mutation invalidates durable completion")
+	}
+}

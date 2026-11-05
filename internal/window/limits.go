@@ -12,7 +12,7 @@ type Limits struct {
 }
 
 // ErrQuota identifies a rejected creation that exceeds the retained-state budget.
-var ErrQuota = errors.New("window retention quota exceeded")
+var ErrQuota = errors.New("retained state quota exceeded")
 
 // DefaultLimits returns the installation defaults for retained public documents.
 func DefaultLimits() Limits { return Limits{MaxObjects: 100, MaxBytes: 1 << 30} }

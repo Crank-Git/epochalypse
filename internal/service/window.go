@@ -34,7 +34,7 @@ func windowHandler(store *window.Store, now func() time.Time) http.Handler {
 		}
 		record, err := store.Create(input, at)
 		if errors.Is(err, window.ErrQuota) {
-			owner.APIError(w, 409, "quota_exceeded", "The retained window quota is full.", map[string]string{})
+			owner.APIError(w, 409, "quota_exceeded", "The retained state quota is full.", map[string]string{})
 			return
 		}
 		if err != nil {

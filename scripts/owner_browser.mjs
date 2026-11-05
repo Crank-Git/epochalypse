@@ -120,6 +120,33 @@ try {
   assert.equal(windowRecord.inception, inception);
   assert.equal(windowRecord.expiration, expiration);
   assert.match(windowRecord.rrsig, /RRSIG\s+TXT 13 /);
+  const observationPath = `/api/v1/windows/${windowRecord.id}/observations`;
+  assert.equal((await request('POST', observationPath, '{}')).status, 403);
+  assert.equal((await request('POST', observationPath, '{}', 'wrong')).status, 403);
+  assert.equal((await request('POST', observationPath, JSON.stringify({resolver_url: 'http://169.254.169.254/'}), csrf)).status, 400);
+  const acceptedRun = await request('POST', observationPath, '{}', csrf);
+  assert.equal(acceptedRun.status, 202, acceptedRun.body);
+  const runID = JSON.parse(acceptedRun.body).id;
+  let observed;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const result = await request('GET', observationPath);
+    assert.equal(result.status, 200, result.body);
+    const page = JSON.parse(result.body);
+    assert.equal(page.version, 1);
+    assert.equal(page.poll_after_seconds, 1);
+    assert.equal(page.next_cursor, '');
+    assert.equal(page.runs.length, 1);
+    observed = page.runs.find(run => run.id === runID);
+    if (observed?.state !== 'pending') break;
+    await pause(50);
+  }
+  assert.equal(observed.state, 'partial');
+  assert.equal(observed.results[0].error, 'resolver_unavailable');
+  assert.equal(observed.results[0].resolver.address, undefined);
+  assert.equal(observed.results[0].resolver.version, 'unknown');
+  assert.equal(observed.results[0].resolver.clock.offset_nanoseconds, null);
+  assert.equal(observed.results[0].rcode, null);
+  assert.equal(observed.results[0].flags, null);
   await writeFile(windowResult, JSON.stringify(windowRecord), {mode: 0o600});
   const invalidWindow = await request('POST', '/api/v1/windows', JSON.stringify({content: 'public', inception, expiration: inception}), csrf);
   assert.equal(invalidWindow.status, 400);
@@ -154,6 +181,8 @@ try {
   await waitFor("document.querySelector('h1')?.textContent === 'Owner sign-in'");
   assert.equal((await request('GET', '/api/v1/dashboard')).status, 401);
   assert.equal((await request('POST', '/api/v1/windows', windowBody, csrf)).status, 401);
+  assert.equal((await request('POST', observationPath, '{}', csrf)).status, 401);
+  assert.equal((await request('GET', observationPath)).status, 200);
   await evaluate("document.body.dataset.beforeReload = 'true'");
   await call('Page.reload');
   await waitFor("document.body.dataset.beforeReload !== 'true' && document.querySelector('h1')?.textContent === 'Owner sign-in'");
@@ -164,7 +193,7 @@ try {
   const cooldown = await request('POST', '/api/v1/session', JSON.stringify({password: 'synthetic-browser'}), bootstrap.csrf_token);
   assert.equal(cooldown.status, 429);
   assert.ok(!cooldown.body.includes('synthetic-browser'));
-  console.log('Browser: signed windows, dashboard states, keyboard navigation, scoped summary access, CSRF proof, token administration, sign-in, sign-out, and cooldown pass');
+  console.log('Browser: signed windows, resolver observations, public reads, dashboard states, keyboard navigation, scoped summary access, CSRF proof, token administration, sign-in, sign-out, and cooldown pass');
 } finally {
   socket?.close();
   browser.kill('SIGTERM');

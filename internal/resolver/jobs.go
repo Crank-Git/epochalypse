@@ -71,9 +71,9 @@ func (j *Jobs) Start(id string) (observation.Run, error) {
 
 func (j *Jobs) execute(run observation.Run) {
 	defer j.release()
-	results := make([]observation.Result, len(run.Results))
-	for i, result := range run.Results {
-		results[i] = j.query(j.ctx, run.Name, result.Resolver)
+	results := make([]observation.Result, len(j.targets))
+	for i, target := range j.targets {
+		results[i] = j.query(j.ctx, run.Name, target)
 	}
 	if _, err := j.store.CompleteRun(run.WindowID, run.ID, results, time.Now()); err != nil {
 		// A failed durable completion must remain unavailable until recovery.

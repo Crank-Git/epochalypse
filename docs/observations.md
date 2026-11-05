@@ -1,13 +1,90 @@
 # Resolver observations
 
-This slice supplies bounded queries, durable run records, and the real resolver matrix.
-The configured job runner and observation API remain incomplete in issue #9.
+The main process supplies bounded jobs, durable run records, and the observation API.
+The resolver matrix compares the three pinned configurations against production signed windows.
 
 `resolver.Observe` queries one trusted configured resolver for a public TXT record.
 It uses `authority.Query` for the two-second UDP/TCP bound and explicit TCP fallback.
 Each result records UTC start and completion times, transport, response code, and available DNS flags.
 An unavailable resolver supplies an error code with no response code or flags.
 The result preserves resolver identity, exact version, and metadata provenance.
+
+## Service configuration
+
+Add one to three trusted resolver targets to the version 1 configuration file:
+
+```json
+{
+  "version": 1,
+  "zone": "windows.example.net.",
+  "nameserver": "ns.operator.example.org.",
+  "public_url": "https://admin.example.net",
+  "resolvers": [{
+    "id": "unbound-strict",
+    "address": "127.0.0.1:5353",
+    "version": "1.22.0",
+    "version_source": "configured",
+    "clock": {"source": "unknown", "offset_nanoseconds": null}
+  }]
+}
+```
+
+Replace the example values with the installation's zone, nameserver, public origin, and reachable resolver targets.
+The operator configures the resolver's delegation or local trust anchor separately.
+The service sends DNS queries. It does not create resolver containers or change resolver settings.
+Targets require distinct identifiers and explicit metadata provenance.
+Version and clock provenance permit `configured` or `unknown`.
+An unknown version uses `"version":"unknown"`. An unknown clock offset uses JSON `null`.
+A configured offset records the operator's value. It does not measure the remote resolver clock.
+The configuration cannot claim an executable or clock measurement from the main process.
+An absent target list disables new jobs and preserves public reads of retained runs.
+
+## Observation API
+
+Send `POST /api/v1/windows/{id}/observations` to start a run.
+Use an authenticated owner session, the current CSRF proof, and HTTPS outside the loopback lab.
+An empty body or an empty JSON object is valid.
+The body permits at most 1024 bytes. A nonempty body requires `application/json`.
+Unknown fields and POST query parameters fail. Requests cannot supply resolver targets.
+Bearer tokens cannot start a run or fall back to an owner session.
+
+A successful request returns 202 with the durable pending run.
+The `Location` header identifies the observation collection for that window.
+The main process admits at most four active jobs. Each job queries at most three configured targets.
+Each query has one absolute two-second bound across UDP and TCP fallback.
+Cancellation closes the owned connection. Shutdown drains accepted work before the window store closes.
+A failed durable completion disables the job service until restart and recovery.
+
+`GET /api/v1/windows/{id}/observations` permits public reads.
+Both methods use the shared TLS, error, and response safeguards.
+Public responses omit configured resolver addresses.
+
+```json
+{"version":1,"runs":[],"next_cursor":"","poll_after_seconds":1}
+```
+
+Each page contains at most fifty runs.
+If `next_cursor` is nonempty, request the next page with `?after=<next_cursor>`.
+Identifiers define page order. They do not define chronological order.
+Keep the run identifier from the POST response.
+Poll from the first page at intervals of at least one second. Follow cursors until you find that run.
+Continue while its state is `pending`. Display every result when the state becomes `complete` or `partial`.
+A complete run can record SERVFAIL. The state means that all resolver queries return a response.
+A partial run records unavailable or interrupted work with absent response fields.
+Public data and validation flags do not establish confidentiality.
+
+| Status | Result |
+|---|---|
+| 400 | An identifier, cursor, or request body is invalid. |
+| 401 | The owner session fails, or a POST uses a bearer credential. |
+| 403 | The POST CSRF proof or origin fails. |
+| 404 | The window does not exist. |
+| 405 | The request uses a method other than GET or POST. |
+| 409 | The shared installation quota rejects the run reservation. |
+| 413 | The POST body exceeds 1024 bytes. |
+| 426 | Access requires HTTPS. |
+| 429 | Four jobs are active. `Retry-After: 1` supplies the retry interval. |
+| 503 | The signer, store, configured job service, or durable completion is unavailable. |
 
 A configured clock offset does not establish a measured clock offset.
 The test records configured zero offset and an interval from a Docker clock sample.
@@ -64,7 +141,7 @@ Run states are `pending`, `complete`, and `partial`.
 An unavailable resolver produces a partial run with absent response fields.
 A second completion fails because terminal records are immutable.
 `Store.RecoverRuns` marks interrupted pending jobs partial after a process restart.
-The service must call this method before it accepts new jobs.
+The service calls this method before it accepts new jobs.
 It preserves completed runs and explicit unknown clock offsets.
 UTC readings can move backward when the clock changes. The store preserves those readings.
 
@@ -74,6 +151,8 @@ A nonempty cursor requests the next page. An empty next cursor identifies the fi
 Verified interfaces, retrieved 2026-11-04:
 
 - [Successor v0.6.128 message types](https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128#Msg) define the response fields.
+- [Successor v0.6.128 client](https://codeberg.org/miekg/dns/src/tag/v0.6.128/client.go) defines `ExchangeWithConn` and its fixed read timeout.
+- [Go context cancellation](https://pkg.go.dev/context#AfterFunc) closes owned connections when the shared query context ends.
 - [Unbound 1.22.0 configuration](https://github.com/NLnetLabs/unbound/blob/release-1.22.0/doc/example.conf.in) defines the anchor, stub zone, and zero-skew controls.
 - [BIND 9.20.24 reference](https://bind9.readthedocs.io/en/v9.20.24/reference.html) defines the static stub and trust anchor.
 - [Docker bridge networks](https://docs.docker.com/engine/network/drivers/bridge/) define container isolation and published ports.
