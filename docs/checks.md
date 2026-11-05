@@ -55,6 +55,9 @@ The [observation guide](observations.md) describes metadata provenance and the r
 `scripts/test_browser.py` runs the required browser flow. A missing Docker daemon or a failed browser fails the check.
 The browser test uses synthetic owner state and a temporary profile.
 The dashboard checks verify the empty feature lists, the switch production block, and unavailable agent observations.
+The dashboard reload waits for its new document and resources before it checks computed styles.
+A second Chromium flow disables the cache and delays the dashboard stylesheet by 1500 milliseconds.
+Both flows require the dashboard grid and the existing security assertions.
 The browser checks the section links with real Tab and Enter key events.
 The container has no external network access. The server listens on loopback inside the container.
 The test mounts the repository read-only and its own temporary directory with write access.
