@@ -56,22 +56,22 @@ Confirm the provider's metering and invoice before any purchase.
 | --- | --- |
 | Content | 50 objects, each with 10 MiB of plaintext: 10,485,760 bytes. |
 | Wire format | Compact JWE for C1 content. The accounting allowance includes its encoded content and public metadata. No C2–C4 wire format receives approval. |
-| Complete object allowance L | `ceil(4 * plaintext_bytes / 3) + 1024 + 16 + 22 + 4 + 8192` = 13,990,272 bytes. |
-| Format limits | The first 1024 bytes cover the protected header. The next terms cover the initialization vector, authentication tag, and separators. The final 8192 bytes reserve metadata. |
+| Complete object allowance L | `EncodedObjectLimit(10 MiB) + 8192 + 256` = 13,990,528 bytes. |
+| Format limits | `EncodedObjectLimit` includes encoded content, the protected header, the initialization vector, the authentication tag, and separators. The bundle adds 8192 metadata bytes and 256 envelope bytes. |
 | Scope of L | Use the existing bounds in `internal/capsule/object.go` and `docs/capsules.md`. Count the complete stored or transmitted allowance, including the key wrapper and manifest reserve. |
 | Actual format evidence | L is a budget, not an observed serialization length. A proof must measure its actual bundle and separately add any excess, container overhead, or client archive. |
-| One complete copy S | `50 * L` = 699,513,600 bytes, or 0.6995136 decimal GB. One installation remains below 100 objects and 1 GiB. |
+| One complete copy S | `50 * L` = 699,526,400 bytes, or 0.6995264 decimal GB. One installation remains below 100 objects and 1 GiB. |
 | Retention | Constant storage for twelve 30-day periods. The synthetic latest possible boundary is day 330. Recovery lasts 30 days. |
 | Allowance E | Unpriced and unresolved. The twelve-period budget suffices only if `Bmax + E + recovery_period <= day 360`. Extend the budget otherwise. |
 | Visitors | 100 complete downloads per object per month, plus one retry per initial download: 10,000 object reads. |
 | Probes | One complete download per object per day for 30 days: 1,500 additional reads per copy. |
-| Transfer Q | 11,500 complete reads per copy per month: 160,888,128,000 bytes, or 160.888128 decimal GB. |
+| Transfer Q | 11,500 complete reads per copy per month: 160,891,072,000 bytes, or 160.891072 decimal GB. |
 | Writes | 50 initial object uploads per copy in month one. No replacements, repair, or extra versions in this baseline. Add their full bytes and requests when they occur. |
 | Client and discovery | A visitor retains a compatible client, authenticated manifest, immutable locators, and verification inputs outside owner hosts. Distribution and upkeep have no quote here. |
 | Custody and transactions | P1–P3 price ciphertext only. They include no private custody, executor, renewal transactions, or release transactions. Add the candidate-specific costs separately. |
 
 The encoded allowance prevents the mistaken assumption that 100 objects of 10 MiB fit the default 1 GiB quota.
-A hundred such allowances require 1,399,027,200 bytes before additional installation state.
+A hundred such allowances require 1,399,052,800 bytes before additional installation state.
 The scenario uses no compression or provider-side deduplication discount.
 The twelve-period scenario does not promise indefinite retention or establish a numeric E.
 An issued Bmax can exceed B0 without a receipt. Price retention through Bmax, E, and the recovery period, as V4 requires.
@@ -105,9 +105,12 @@ Neither subtotal includes an independent operator or a retention commitment.
 B2 lists storage from $6.95 per TB per 30 days, based on byte-hours [K2].
 Its published example uses U.S. West rates. It lists free transactions and direct egress up to three times average monthly storage [K2].
 Additional egress costs $0.01 per GB [K2]. No partner-transfer discount enters this scenario.
-At those rates, P2's B2 storage subtotal is `$6.95*S/10^12 = $0.004861619520` per period.
-Its egress subtotal is `$0.01*max(0,Q-3*S)/10^9 = $1.587895872` per period.
-Twelve periods total $19.113089898240 before invoice rounding, allowances, or other charges.
+B2 includes the first 10 GB of storage free [K2].
+If that allowance remains available, P2's B2 storage subtotal is $0.
+Its egress subtotal is `$0.01*max(0,Q-3*S)/10^9 = $1.587924928` per period.
+Twelve periods total $19.055099136 for storage and egress before invoice rounding or other charges.
+If other account usage consumes the storage allowance, the gross storage subtotal is `$6.95*S/10^12 = $0.004861708480` per period.
+That gross illustration totals $19.113439637760 across twelve periods, including the same egress subtotal.
 These are arithmetic subtotals, not an invoice prediction or a binding provider offer.
 P2 combines that subtotal with the applicable R2 subtotal. It still excludes custody, client distribution, labor, and independent access guarantees.
 
@@ -134,11 +137,13 @@ Its private registry needs no registry-management gas; its public registry uses 
 Neither choice establishes free workflow execution or private custody.
 CLI v1.39.0 supplies a dated component reference [K5]. The reviewed documentation supplies no verified complete tariff for this workload.
 Obtain execution, quota, custody, and payment-continuity terms before a total C4 estimate.
-Automation v2.1's 2026-07-31 sunset makes its historical tariffs unsuitable for a current CRE estimate [K6].
+The documentation dates Automation v2.1's sunset to 2026-07-31 [K6].
+That date precedes this audit. Its historical tariffs cannot establish a current CRE estimate.
 The documented CRE schedule interval does not bound inclusion, finality, private release, or retrieval; see D5–D8.
 
 C3 has no defensible current custody quote. The historical TACo client remains at the audited 0.6.0 snapshot [K7].
 Its inactive notice and prospective relaunch do not establish a supported successor service or a renewable release contract.
+The TACo documentation plans a Q3 2026 relaunch. That quarter ends before this audit; no successor deployment has verification here [K12].
 Lit v3 retains runtime and key-service dependencies. Its operator can pause access [K8].
 Its documented authority does not verify C3's threshold independence or this project's release path.
 Current capability evidence must precede a price comparison between either provider and C2.
@@ -204,7 +209,7 @@ The source audit checks capability and price separately. Reachable documentation
 | ID | Primary source and exact version or snapshot | Evidence |
 | --- | --- | --- |
 | K1 | [R2 Standard rates](https://developers.cloudflare.com/r2/pricing/), page updated 2026-10-30. | Rates, allowances, billing-unit rounding, and direct egress distinction. |
-| K2 | [B2 rates](https://www.backblaze.com/cloud-storage/pricing), dated snapshot. | $6.95/TB/30-days, byte-hours, U.S. West example, transaction statement, and excess egress. |
+| K2 | [B2 rates](https://www.backblaze.com/cloud-storage/pricing), dated snapshot. | $6.95/TB/30-days, first 10 GB free, byte-hours, U.S. West example, transactions, and excess egress. |
 | K3 | [Ethereum gas](https://ethereum.org/developers/docs/gas/), page updated 2026-10-23. | Variable fees, gas use, and failed execution cost. No client or contract version selected. |
 | K4 | [CRE deployment](https://docs.chain.link/cre/guides/operations/deploying-workflows), dated snapshot. | Deployment access and private versus public registry cost boundaries. |
 | K5 | [CRE release notes](https://docs.chain.link/cre/release-notes), CLI v1.39.0, 2026-10-21. | Component version only; no runtime adoption or full-workload tariff. |
@@ -214,6 +219,7 @@ The source audit checks capability and price separately. Reachable documentation
 | K9 | [drand timelock](https://docs.drand.love/docs/timelock-encryption/), dated snapshot; [tlock source](https://github.com/drand/tlock/blob/v1.2.0/tlock.go), v1.2.0. | Fixed-round behavior, threshold compromise, and network shutdown limits. |
 | K10 | [IPFS pins](https://docs.ipfs.tech/how-to/pin-files/), dated snapshot; no Kubo version selected. | Complete pin and operator dependency. No retention tariff. |
 | K11 | [S3 Object Lock](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html), dated snapshot. | Protection applies to object versions. No retrieval or provider-independence guarantee. |
+| K12 | [TACo documentation](https://raw.githubusercontent.com/nucypher/taco-docs/d489debc58d93c0c5c2d28b8a62b215697ae9e55/README.md), commit matching D9. | Planned Q3 2026 relaunch; the elapsed date supplies no deployment evidence. |
 
 ## Reproducible review and verification
 
@@ -222,14 +228,31 @@ Run this arithmetic check from the repository root:
 ```sh
 python3 - <<'PY'
 from decimal import Decimal as D
+from pathlib import Path
+import re
 plaintext = 10 * 2**20
-length = (plaintext * 8 + 5)//6 + 1024 + 16 + 22 + 4 + 8192
+source = Path('internal/capsule/object.go').read_text()
+assert 'const protectedHeaderLimit = 1024' in source
+assert 'const overhead = protectedHeaderLimit + 16 + 22 + 4' in source
+assert 'return encodedLength(limit) + overhead, nil' in source
+assert 'return size/3*4 + (size%3*8+5)/6' in source
+guide = Path('docs/capsules.md').read_text()
+reserves = re.search(r'`EncodedObjectLimit\(limit\)`, (\d+) metadata bytes, and (\d+) envelope bytes', guide)
+assert reserves is not None
+metadata, envelope = map(int, reserves.groups())
+assert (metadata, envelope) == (8192, 256)
+encoded_object_limit = (plaintext * 8 + 5)//6 + 1024 + 16 + 22 + 4
+length = encoded_object_limit + metadata + envelope
 stored = 50 * length
 transfer = (10000 + 1500) * length
-assert (length, stored, transfer) == (13990272, 699513600, 160888128000)
+assert (length, stored, transfer) == (13990528, 699526400, 160891072000)
 assert stored < 2**30 < 100 * length
-b2 = D('6.95') * stored / 10**12 + D('.01') * (transfer - 3*stored) / 10**9
-assert b2 * 12 == D('19.113089898240')
+egress = D('.01') * (transfer - 3*stored) / 10**9
+gross_storage = D('6.95') * stored / 10**12
+net_storage = D('6.95') * max(0, stored - 10*10**9) / 10**12
+assert net_storage == 0
+assert (net_storage + egress) * 12 == D('19.055099136')
+assert (gross_storage + egress) * 12 == D('19.113439637760')
 assert D('.015') * 12 + D('4.50') + D('.36') * 12 == D('9.000')
 assert D('.03') * 12 + D('4.50') + D('.36') * 12 == D('9.18')
 assert 1 + 50 + 30*50 + 50 == 1601
@@ -238,7 +261,7 @@ PY
 ```
 
 Review P1–P3 against A1–A9 and V1–V10. Review each candidate against F1–F6 and D-R1–D-R6.
-Recheck K1–K11 before a maintainer decision. Verify local links and whitespace in this document.
+Recheck K1–K12 before a maintainer decision. Verify local links and whitespace in this document.
 The record contains explicit assumptions, source versions, arithmetic, fault consequences, and unresolved contracts.
 No product behavior, test, public interface, dependency, or user interface changes.
 Behavior TDD, pre-patch behavior tests, and product E2E tests do not apply to this research-only change.
