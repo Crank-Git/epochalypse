@@ -1,13 +1,14 @@
 # Recovery after main-server loss
 
-Issue #27 tests FR-switch-protocol-7 with synthetic recovery schedules.
+Issue #27 tests FR-switch-protocol-7 with synthetic recovery schedules under ADR 0012.
 Production switch use remains disabled until #28 records an accepted review.
-The candidate supports baseline recovery under the assumptions below.
-It fails recovery at the owner's confirmed release boundary after some partial renewals.
-AC-switch-protocol-7 therefore remains unmet as a supported outage guarantee.
-Successful tests detect that failure. They do not approve the protocol.
+The revised model supplies recovery material by Bmax plus E under explicit synthetic assumptions.
+The old experiment still fails recovery at the owner's confirmed release boundary after some partial renewals.
+Its original assertion was: "AC-switch-protocol-7 therefore remains unmet as a supported outage guarantee."
+That assertion concerns the former B0-only requirement. ADR 0012 supersedes that requirement.
+The old traces and tests remain unchanged. The revised predicates have separate tests below.
 
-## Experiment contract
+## Former experiment contract
 
 `ExploreRecoveryFaults` consumes the `FaultModel` transitions from #26.
 It repeats all 64 renewal schedules with each of the three agents unavailable.
@@ -44,7 +45,7 @@ The experiment does not infer publication from a receipt or a changed deadline.
 The observer retains earlier public shares across renewals, model restarts, and agent outages.
 An unavailable agent's earlier public share can still contribute to the threshold.
 
-## Baseline evidence
+## Former baseline evidence
 
 The initial state has sequence 2, deadline 100, and grace 10.
 Clock samples use exact UTC with zero tolerance.
@@ -59,7 +60,7 @@ It confirms the new release boundary of 210.
 Each one-agent outage permits recovery at UTC 210, but not at UTC 209.
 Tests also check one second after both boundaries.
 
-## Partial-renewal counterexample
+## Former partial-renewal counterexample
 
 The renewal proposes sequence 3, deadline 200, and grace 10 at UTC 101.
 At UTC 110, 141 schedules retain owner deadline 100 without sufficient recovery material.
@@ -88,7 +89,7 @@ This later observation proves no bound relative to the old confirmed boundary.
 A test changes the proposed deadline to 1000000 and preserves the same failure at UTC 110.
 The candidate imposes no maximum proposed deadline.
 
-## Assumptions and limits
+## Former assumptions and limits
 
 The experiment assumes honest agents and authenticated inputs.
 Two colluding agents can disclose content early.
@@ -106,13 +107,93 @@ They do not prove real storage durability or process restart behavior.
 The stale-backup counterexample in [faults.md](faults.md) remains unresolved.
 This experiment excludes Byzantine tolerance and loss of every agent.
 
+## Revised uncertainty model
+
+`ClientJournal` stores complete synthetic durable values before transmission.
+Each `SignedIntent` contains the exact signed bytes and their decoded state.
+The caller asserts authentication and the association between those values.
+The model supplies no signature, canonical encoding, transport, or disk store.
+An unsuccessful persistence step leaves no intent available for transmission.
+An issued intent contributes to Bmax even when no agent receives it.
+`Restart` copies the complete journal and receipt evidence into a new client instance.
+`Retry` returns an independent copy of the original bytes, sequence, deadline, and boundary.
+The model rejects empty bytes, a different content identity, nonincreasing sequences, and decreasing boundaries.
+The model rejects boundary arithmetic overflow.
+
+`UncertainModel` applies the journal to the existing local agent transitions.
+Its executable schedules reside in the same package as the model state.
+Each delivery separates volatile acceptance, durable state, and receipt delivery.
+A receipt requires persistence first. A lost receipt changes no confirmed client evidence.
+Three distinct matching durable receipts advance B0.
+Later issued intents keep the outcome uncertain until their matching receipts arrive.
+An exact retry can obtain a lost receipt without extending its signed deadline.
+A delayed older sequence cannot overwrite a later accepted sequence.
+A changed byte or deadline cannot use a journal entry as transmission authority.
+`Transmit` retains an exact synthetic network copy before permanent client loss.
+An in-flight request can still reach an agent after that loss. Its receipt cannot recreate the client.
+The model rejects a new transmission after client loss.
+
+The complete-acceptance test covers all eight receipt-delivery subsets.
+Seven subsets report B0=110 through Bmax=210 with `Confirmed=false`.
+All three delivered receipts report B0=Bmax=210 with `Confirmed=true`.
+The agent states remain identical across those receipt outcomes.
+An unsent durable intent also reports 110 through 210.
+With no delivery, two survivors can publish at B0.
+These outcomes explain why an incomplete response proves neither success nor definitive failure.
+
+## Revised outage evidence
+
+`TestReleasesEveryTwoIntentScheduleByBmaxPlusAllowance` enumerates 12,288 schedules.
+Each schedule combines two independent 64-state renewal experiments and one of three permanent agent outages.
+The client issues deadlines 200 and 300 after the initial deadline 100, with grace 10.
+Each request can disappear, lose volatile acceptance, lose its durable receipt, or deliver its durable receipt at each agent.
+Every stage includes an agent crash and a new live instance from the complete durable value.
+The client then disappears permanently. The main server supplies no operation or recovery material.
+Each surviving agent has an independent ciphertext copy.
+The observer obtains two shares by Bmax plus the assumed allowance in every schedule.
+
+Let C bound local clock lag, and let P bound publication work after local eligibility.
+The conditional argument uses these assumptions:
+
+- Each reachable honest agent retains its complete accepted state and release history.
+- Each accepted release boundary is at most the greatest durably issued boundary, Bmax.
+- Each agent reaches that local boundary by real time Bmax+C.
+- Each agent completes public share availability within P after eligibility.
+- Two surviving endpoints supply shares and at least one authenticated ciphertext copy without owner or main-server access.
+
+Under these assumptions, E=C+P bounds completion at Bmax+E.
+`Allowance.ReleaseBy` checks the arithmetic without a production numeric value.
+The finite experiment instantiates C and P with synthetic values from zero through two seconds.
+These values vary with the schedule. They do not enumerate every possible clock or network history.
+The samples keep a fixed clock lag and a continuous synthetic elapsed timeline.
+The observer receives publication at the assumed completion time.
+This construction checks the deadline predicate; it does not establish a real publication bound.
+The model does not prove the conditional argument for every possible implementation.
+Issue #28 owns review of clock limits and publication bounds under AC-switch-protocol-11.
+
+## Irreversible history and quarantine
+
+Publication persists the release latch before the observer receives a share.
+An agent that ever publishes refuses every later renewal for that content key.
+The same rule applies after ordinary restart and at a renewal/release race.
+Cancellation stops local renewal attempts. It does not recall shares or prevent eventual disclosure from remaining copies.
+The observer retains shares after release, restart, cancellation, quarantine, and later renewal attempts.
+One retained share can combine with a later share even when no current endpoint displays the first share.
+
+`RestartAgent` quarantines a snapshot that the caller identifies as stale.
+Quarantine blocks new renewal and publication. It preserves observer evidence.
+The model assumes an external rollback detector; it implements no detector or trusted hardware.
+The original undetected-rollback counterexample remains in [faults.md](faults.md).
+Unsafe clocks and stale-state quarantine can defeat availability outside the intact-state and reviewed-clock assumptions.
+Synthetic snapshots establish neither disk durability nor real process restart behavior.
+The model cannot verify ciphertext authentication, key reconstruction, failure independence, or transport availability.
+
 ## Maintainer decision
 
-The maintainer must decide how to revise the protocol to meet the confirmed-boundary guarantee.
-The tentative-update and global-decision proposal in [faults.md](faults.md) remains a research direction.
-Its delivery, maximum uncertainty, and rollback rules require a new model and independent review.
-This report neither changes the promise nor implements that proposal.
-Issue #28 must retain the failed property and the production restriction in its decision.
+ADR 0012 accepts bounded uncertainty and supersedes the former exact-confirmation requirement.
+It does not approve a production protocol.
+Issue #28 owns independent review, AC-switch-protocol-8, AC-switch-protocol-11, and the explicit maintainer decision.
+That review must retain the old failed property, the revised evidence, and the production restriction.
 
 ## Reproduce the evidence
 
@@ -126,3 +207,14 @@ Run `go test ./internal/switchprotocol -count=1 -cover`.
 `TestRejectsInvalidRecoveryScenarios` checks rejected clocks, sequences, and public evidence.
 The initial stub fails the schedule-count and invalid-evidence assertions before implementation.
 This pure model adds no user interface or browser flow.
+
+`TestJournalIncludesDurableIntentBeforeTransmission` fails against the initial stub with Bmax=110 instead of 210.
+`TestRestartRetriesExactJournaledBytes` checks exact retry values and independent byte copies.
+`TestRetriesPreserveSignedDeadlineAcrossArrivalAndRestart` checks delayed arrival, duplicate receipt retrieval, and UTC 209/210/211.
+`TestLostFinalReceiptsReportUncertaintyAfterCompleteAcceptance` checks all final-receipt subsets.
+`TestIncludesUnsentIntentAndPermitsReleaseAtB0` checks durable unsent intent and early disclosure within the uncertainty interval.
+`TestRetainsReleasedSharesAfterRestartCancelAndRenewal` checks public history and the release latch.
+`TestQuarantinesStaleRestartWithoutRecallingObserverShares` checks external quarantine and retained evidence.
+`TestRejectsDelayedOlderIntentAfterLaterAcceptance` checks out-of-order sequence delivery.
+`TestRenewalAndReleaseRaceKeepsIrreversibleBoundary` checks both serialized orders at the release boundary.
+The rejection tests cover conflicting bytes, missing persistence, unavailable agents, absent intents, unsafe initial clocks, and overflow.
