@@ -13,7 +13,7 @@ import (
 func TestResolverFixtureAccessProcess(t *testing.T) {
 	if os.Getenv("EPOCHALYPSE_FIXTURE_DENY") == "1" {
 		for _, path := range []string{"/tmp/resolver-owner/synthetic.private", "/tmp/resolver-owner.private"} {
-			if _, err := os.ReadFile(path); !errors.Is(err, os.ErrPermission) {
+			if _, err := os.ReadFile(path); !errors.Is(err, os.ErrPermission) { // #nosec G304 -- The test supplies both fixed private paths.
 				t.Fatalf("another user reads the private fixture: %v", err)
 			}
 		}
@@ -43,7 +43,7 @@ func TestResolverFixtureAccessProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, path := range []string{"/tmp/resolver-owner/synthetic.private", "/tmp/resolver-owner.private"} {
-		if err := os.WriteFile(path, private, 0600); err != nil {
+		if err := os.WriteFile(path, private, 0600); err != nil { // #nosec G703 -- The test supplies both fixed private destinations.
 			t.Fatal(err)
 		}
 	}
@@ -52,7 +52,7 @@ func TestResolverFixtureAccessProcess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile("/tmp/resolver-access.test", binary, 0755); err != nil { // #nosec G306 -- The public test executable needs cross-user access.
+	if err := os.WriteFile("/tmp/resolver-access.test", binary, 0755); err != nil { // #nosec G303 G306 G703 -- The isolated container exposes this public test executable at a fixed path.
 		t.Fatal(err)
 	}
 }

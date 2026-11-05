@@ -76,6 +76,10 @@ type resolverLab struct {
 func newResolverLab(t *testing.T) resolverLab {
 	t.Helper()
 	directory := t.TempDir()
+	// The bind mount needs its own protection without the host temporary parent.
+	if err := os.Chmod(directory, 0700); err != nil { // #nosec G302 -- Restrict this fixture directory to its owner.
+		t.Fatal(err)
+	}
 	architecture := docker(t, "version", "--format", "{{.Server.Arch}}")
 	if architecture != "amd64" && architecture != "arm64" {
 		t.Fatalf("unsupported Docker architecture %q", architecture)
