@@ -22,6 +22,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return runToken(args, stdout, stderr)
 		case "window":
 			return runWindow(args, stdout, stderr)
+		case "countdown":
+			return runCountdown(args, stdout, stderr)
 		case "capsule":
 			return runCapsule(args, stdout, stderr)
 		case "lab":

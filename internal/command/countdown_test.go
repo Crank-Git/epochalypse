@@ -17,9 +17,9 @@ func TestCountdownCommandPreservesAbsoluteEventAfterRestart(t *testing.T) {
 		t.Fatalf("create exit=%d: %s", code, &diagnostic)
 	}
 	var created struct {
-		ID string `json:"id"`
+		ID      string `json:"id"`
 		EventAt string `json:"event_at"`
-		Name string `json:"name"`
+		Name    string `json:"name"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &created); err != nil {
 		t.Fatal(err)

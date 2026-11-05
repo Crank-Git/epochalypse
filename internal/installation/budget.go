@@ -58,7 +58,7 @@ func (s *Store) Admit(tx *bolt.Tx, objects int, size int64) error {
 }
 
 func contentBucket(name string) bool {
-	return name == WindowsBucket || name == ObservationsBucket || name == CapsulesBucket || name == CapsuleKeysBucket
+	return name == WindowsBucket || name == ObservationsBucket || name == CapsulesBucket || name == CapsuleKeysBucket || name == CountdownsBucket
 }
 
 func charge(remaining *Limits, name string, value []byte) error {

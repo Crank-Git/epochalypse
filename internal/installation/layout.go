@@ -6,5 +6,6 @@ const (
 	ObservationsBucket  = "observations-v1"
 	CapsulesBucket      = "capsules-v1"
 	CapsuleKeysBucket   = "capsule-keys-v1"
+	CountdownsBucket    = "countdowns-v1"
 	ConfigurationBucket = "configuration-v1"
 )
