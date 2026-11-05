@@ -41,14 +41,7 @@ func TestInputUsesDefaultsAndRejectsUnsupportedDurations(t *testing.T) {
 
 func TestStoreCreatesVersionedDraftAndReadsItAfterRestart(t *testing.T) {
 	dir := t.TempDir()
-	shared, err := installation.Open(dir, installation.DefaultLimits())
-	if err != nil {
-		t.Fatal(err)
-	}
-	s, err := Attach(shared)
-	if err != nil {
-		t.Fatal(err)
-	}
+	shared, s := newDraftStore(t, dir)
 	input := Input{IntervalSeconds: ptrInt64(7200), GraceSeconds: ptrInt64(0)}
 	record, err := s.Create(context.Background(), input, switchTestNow)
 	if err != nil {
@@ -64,16 +57,7 @@ func TestStoreCreatesVersionedDraftAndReadsItAfterRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	shared, err = installation.Open(dir, installation.DefaultLimits())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = shared.Close() }()
-	s, err = Attach(shared)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = s.Close() }()
+	_, s = newDraftStore(t, dir)
 	got, err := s.Get(record.ID)
 	if err != nil || got != record {
 		t.Fatalf("get=%+v err=%v", got, err)
@@ -270,4 +254,19 @@ func TestStoreRejectsClosedDatabaseAndUnknownRecordFields(t *testing.T) {
 		t.Fatal("closed installation returns a list")
 	}
 	_ = s.Close()
+}
+
+func newDraftStore(t *testing.T, directory string) (*installation.Store, *Store) {
+	t.Helper()
+	shared, err := installation.Open(directory, installation.DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := Attach(shared)
+	if err != nil {
+		_ = shared.Close()
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close(); _ = shared.Close() })
+	return shared, store
 }

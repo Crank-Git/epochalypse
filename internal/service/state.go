@@ -44,21 +44,10 @@ func openMainState(config Config) (*mainState, error) {
 		state.close()
 		return nil, err
 	}
-	state.capsules, err = capsule.Attach(state.content, config.capsuleLimit())
-	if err != nil {
+	if err := state.attachContent(config); err != nil {
 		state.close()
 		return nil, err
 	}
-	if err := state.attachCountdowns(config); err != nil {
-		state.close()
-		return nil, err
-	}
-	state.switches, err = switches.Attach(state.content)
-	if err != nil {
-		state.close()
-		return nil, err
-	}
-	state.switchSlots = make(chan struct{}, 4)
 	if config.Zone == "" {
 		return state, nil
 	}
@@ -97,6 +86,23 @@ func openMainState(config Config) (*mainState, error) {
 		}
 	}
 	return state, nil
+}
+
+func (s *mainState) attachContent(config Config) error {
+	var err error
+	s.capsules, err = capsule.Attach(s.content, config.capsuleLimit())
+	if err != nil {
+		return err
+	}
+	if err := s.attachCountdowns(config); err != nil {
+		return err
+	}
+	s.switches, err = switches.Attach(s.content)
+	if err != nil {
+		return err
+	}
+	s.switchSlots = make(chan struct{}, 4)
+	return nil
 }
 
 func (s *mainState) close() {

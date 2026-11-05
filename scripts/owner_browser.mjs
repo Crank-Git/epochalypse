@@ -98,6 +98,8 @@ try {
   assert.equal(await evaluate("document.querySelector('#agents').textContent.includes('no verified agent observations')"), true);
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.sections')).display"), 'grid');
   assert.equal(await evaluate("document.querySelector('nav').getAttribute('aria-label')"), 'Dashboard sections');
+  assert.equal(await evaluate("document.querySelector('[href=\"/owner/switches\"]')?.textContent"), 'Configure a switch draft');
+  assert.equal(await evaluate("document.querySelector('#switches').textContent.includes('unarmed and unreplicated switch drafts')"), true);
   await checkSwitches(call, evaluate, waitFor, origin);
   await checkCapsules(call, evaluate, waitFor, origin, await readFile(preparedPath, 'utf8'));
   await writeFile(countdownResult, JSON.stringify(await checkCountdowns(call, evaluate, waitFor, origin)), {mode: 0o600});
