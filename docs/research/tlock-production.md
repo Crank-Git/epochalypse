@@ -5,23 +5,29 @@ The production service still rejects tlock creation. This checkpoint does not co
 
 ## Dependency review
 
-The root module pins tlock v1.2.0 and its drand v2.0.2 cryptographic interfaces.
-The root module selects age v1.2.1 instead of the release's age v1.1.1 dependency.
+The root module pins tlock v1.2.0 with drand v2.1.8 cryptographic interfaces.
+The root module selects age v1.3.2 instead of the release's age v1.1.1 dependency.
 The age patch fixes [GHSA-32gq-x56h-299c](https://github.com/FiloSottile/age/security/advisories/GHSA-32gq-x56h-299c).
 The advisory concerns attacker-controlled plugin names that can execute a binary.
 The adapter supplies only the tlock identity. Its dependency graph excludes `filippo.io/age/plugin`.
 The patched dependency provides another safeguard without a format change.
 
-`TestPreservesLegacyAgeCompatibility` decrypts the saved age v1.1.1 fixture through the root module's age v1.2.1 dependency.
+`TestPreservesLegacyAgeCompatibility` decrypts the saved age v1.1.1 fixture through the root module's age v1.3.2 dependency.
 `TestWrapsFreshKeyForPinnedRound` verifies a new wrapper with the selected production dependencies.
 The separate research module retains its original pins for reproduction.
+
+The drand security policy supports the most recent minor version. The selected v2.1.8 belongs to that supported line at this review.
+The age v1.3.2 release adds parser bounds and other hardening. The adapter's independent 2048-byte wrapper limit remains stricter.
+The complete capsule race suite passes with both updates and their selected cryptographic dependencies.
+These compatibility results support the minor updates instead of retaining unsupported drand v2.0.2 interfaces.
+They do not approve a drand node deployment or guarantee future dependency support.
 
 The [drand post-mortem](https://docs.drand.love/blog/2025/03/21/drand-v2-0-postmortem/) describes node control commands exposed through a private RPC interface.
 Drand v2.1.0 separates the control and public DKG interfaces.
 The adapter imports the `common` and `crypto` packages. It starts no node or RPC listener.
 `go list -deps ./internal/capsule` includes no drand node-control or internal network implementation.
 The module graph includes RPC dependencies through upstream common types. That fact does not expose an RPC service.
-This reachability result does not approve a drand v2.0.2 node.
+This reachability result does not approve a drand node.
 
 The vendor advisory feeds for tlock and drand return empty arrays at this review.
 The age feed lists the plugin advisory above. The selected age version includes its fix.
@@ -33,6 +39,9 @@ Verified against these primary interfaces on 2026-11-05 UTC:
 - [tlock v1.2.0 source](https://github.com/drand/tlock/blob/v1.2.0/tlock.go): `Network`, `Strict`, `Encrypt`, `Decrypt`, and local `TimeUnlock` verification.
 - [tlock v1.2.0 identity](https://github.com/drand/tlock/blob/v1.2.0/tlock_age.go): fixed-chain behavior and signature-error conversion.
 - [age v1.2.1 release](https://github.com/FiloSottile/age/releases/tag/v1.2.1): plugin security fix.
+- [age v1.3.2 release](https://github.com/FiloSottile/age/releases/tag/v1.3.2): parser hardening and current compatibility candidate.
+- [drand v2.1.8 security policy](https://github.com/drand/drand/blob/v2.1.8/SECURITY.md): supported minor line.
+- [drand v2.1.8 scheme interfaces](https://github.com/drand/drand/blob/v2.1.8/crypto/schemes.go): local beacon verification.
 - [tlock advisory feed](https://api.github.com/repos/drand/tlock/security-advisories).
 - [drand advisory feed](https://api.github.com/repos/drand/drand/security-advisories).
 - [age advisory feed](https://api.github.com/repos/FiloSottile/age/security-advisories).
