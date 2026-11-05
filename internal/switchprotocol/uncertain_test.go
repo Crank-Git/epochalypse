@@ -5,6 +5,16 @@ import (
 	"testing"
 )
 
+func TestConservativePolicyRejectsFastClockEarlyPublication(t *testing.T) {
+	rules, s := faultScenario(t)
+	m, err := NewUncertainModel(rules, s.Initial, s.Start, 1)
+	requireFaultStep(t, err)
+	requireFaultStep(t, m.faults.Publish(0, ClockReading{UTC: 110, Elapsed: 9, Safe: true}))
+	if m.faults.observer.public != 0 {
+		t.Fatal("fast clock publishes at real UTC 109 before B0 110")
+	}
+}
+
 func uncertainFixture(t *testing.T) (*UncertainModel, FaultScenario, SignedIntent) {
 	t.Helper()
 	rules, s := faultScenario(t)
@@ -83,23 +93,34 @@ func TestReleasesEveryTwoIntentScheduleByBmaxPlusAllowance(t *testing.T) {
 	for first := uint8(0); first < 64; first++ {
 		for second := uint8(0); second < 64; second++ {
 			for outage := 0; outage < 3; outage++ {
-				checkTwoIntentRecovery(t, rules, s, first, second, outage)
-				count++
+				count += checkSymmetricOffsets(t, rules, s, first, second, outage)
 			}
 		}
 	}
-	if count != 12288 {
+	if count != 110592 {
 		t.Fatal("omits a two-intent outage schedule")
 	}
 }
 
-func checkTwoIntentRecovery(t *testing.T, rules Rules, s FaultScenario, first, second uint8, outage int) {
+func checkSymmetricOffsets(t *testing.T, rules Rules, s FaultScenario, first, second uint8, outage int) int {
+	t.Helper()
+	count := 0
+	for epsilon := int64(0); epsilon <= 2; epsilon++ {
+		for offset := -epsilon; offset <= epsilon; offset++ {
+			checkTwoIntentRecovery(t, rules, s, first, second, outage, uint64(epsilon), offset) // #nosec G115 -- Epsilon is between zero and two.
+			count++
+		}
+	}
+	return count
+}
+
+func checkTwoIntentRecovery(t *testing.T, rules Rules, s FaultScenario, first, second uint8, outage int, epsilon uint64, offset int64) {
 	t.Helper()
 	// Each synthetic value instantiates symbolic assumptions; none defines production E.
-	allowance := Allowance{ClockLag: uint64(first % 3), Publication: uint64(second % 3)}
+	allowance := Allowance{UTCError: epsilon, Publication: uint64(second % 3)}
 	start := s.Start
-	start.UTC -= int64(allowance.ClockLag) // #nosec G115 -- The experiment bounds this value to two seconds.
-	m, err := NewUncertainModel(rules, s.Initial, start, 0)
+	start.UTC += offset
+	m, err := NewUncertainModel(rules, s.Initial, start, allowance.UTCError)
 	requireFaultStep(t, err)
 	one := SignedIntent{State: s.Next, Bytes: []byte("first signed intent")}
 	requireFaultStep(t, m.client.Issue(one, true))
@@ -117,12 +138,102 @@ func checkTwoIntentRecovery(t *testing.T, rules Rules, s FaultScenario, first, s
 	requireFaultStep(t, err)
 	m.LoseClient()
 	requireFaultStep(t, m.faults.Crash(outage))
+	before := ClockReading{UTC: 109 + offset, Elapsed: 9, Safe: true}
+	early, err := recoveryEvidence(m.faults, [3]bool{true, true, true}, before)
+	requireFaultStep(t, err)
+	if early.PublicShares != 0 {
+		t.Fatal("publishes before initial B0")
+	}
 	// Publication completes within the assumed work allowance after local eligibility.
-	clock := ClockReading{UTC: by - int64(allowance.ClockLag), Elapsed: uint64(by - 100), Safe: true} // #nosec G115 -- This experiment uses positive times below 1000.
+	clock := ClockReading{UTC: by + offset, Elapsed: uint64(by - 100), Safe: true} // #nosec G115 -- This experiment uses positive times below 1000.
 	evidence, err := recoveryEvidence(m.faults, [3]bool{true, true, true}, clock)
 	requireFaultStep(t, err)
 	if !evidence.ContentAvailable || evidence.PublicShares != 7&^(1<<outage) {
 		t.Fatalf("schedule %d/%d outage %d misses Bmax+E", first, second, outage)
+	}
+}
+
+func TestConservativePolicyPreservesLowerBoundAcrossClockSteps(t *testing.T) {
+	for _, offsets := range [][3]int64{{-2, 0, 2}, {2, 0, -2}, {0, -2, 2}} {
+		for outage := 0; outage < 3; outage++ {
+			checkClockSteps(t, offsets, outage)
+		}
+	}
+}
+
+func checkClockSteps(t *testing.T, offsets [3]int64, outage int) {
+	t.Helper()
+	rules, s := faultScenario(t)
+	s.Start.UTC += offsets[0]
+	m, err := NewUncertainModel(rules, s.Initial, s.Start, 2)
+	requireFaultStep(t, err)
+	m.LoseClient()
+	requireFaultStep(t, m.faults.Crash(outage))
+	for index, realUTC := range []int64{109, 110, 113, 114} {
+		offset := offsets[min(index, 2)]
+		evidence, err := recoveryEvidence(m.faults, [3]bool{true, true, true}, ClockReading{UTC: realUTC + offset, Elapsed: uint64(realUTC - 100), Safe: true}) // #nosec G115 -- These synthetic elapsed values are positive.
+		requireFaultStep(t, err)
+		if realUTC < 110 && evidence.PublicShares != 0 {
+			t.Fatal("clock step publishes before B0")
+		}
+		if realUTC == 114 && !evidence.ContentAvailable {
+			t.Fatal("clock step misses Bmax plus twice the error")
+		}
+	}
+}
+
+func TestConservativePolicyRejectsUnrepresentableBounds(t *testing.T) {
+	rules, s := faultScenario(t)
+	if _, err := NewUncertainModel(rules, s.Initial, s.Start, math.MaxUint64); err == nil {
+		t.Fatal("accepts an unrepresentable initial clock bound")
+	}
+	if _, err := NewUncertainModel(rules, s.Initial, ClockReading{UTC: math.MinInt64, Safe: true}, 1); err == nil {
+		t.Fatal("accepts initial lower bound underflow")
+	}
+	if _, err := (Allowance{UTCError: math.MaxUint64}).ReleaseBy(110); err == nil {
+		t.Fatal("overflows twice the UTC error")
+	}
+	m, err := NewUncertainModel(rules, s.Initial, s.Start, 1)
+	requireFaultStep(t, err)
+	if err := m.faults.Publish(0, ClockReading{UTC: math.MinInt64, Elapsed: 1, Safe: true}); err == nil {
+		t.Fatal("accepts lower bound underflow")
+	}
+	if err := m.faults.Publish(0, ClockReading{UTC: 101, Elapsed: 1, Safe: true}); err == nil {
+		t.Fatal("underflow clears unsafe latch")
+	}
+}
+
+func TestConservativePolicyLatchesUnsafeSamples(t *testing.T) {
+	rules, s := faultScenario(t)
+	for _, reading := range []ClockReading{
+		{UTC: 106, Elapsed: 1, Safe: true},
+		{UTC: 101, Elapsed: 1, Safe: false},
+		{UTC: 101, Elapsed: 0, Safe: true},
+	} {
+		m, err := NewUncertainModel(rules, s.Initial, s.Start, 2)
+		requireFaultStep(t, err)
+		requireFaultStep(t, m.faults.Publish(0, ClockReading{UTC: 101, Elapsed: 1, Safe: true}))
+		if err := m.faults.Publish(0, reading); err == nil {
+			t.Fatal("accepts an unsafe clock sample")
+		}
+		if err := m.faults.Publish(0, ClockReading{UTC: 114, Elapsed: 14, Safe: true}); err == nil {
+			t.Fatal("later sample clears unsafe latch")
+		}
+	}
+}
+
+func TestConservativePolicyRetainsReleaseAfterRollbackQuarantine(t *testing.T) {
+	rules, s := faultScenario(t)
+	m, err := NewUncertainModel(rules, s.Initial, s.Start, 2)
+	requireFaultStep(t, err)
+	requireFaultStep(t, m.faults.Publish(0, ClockReading{UTC: 114, Elapsed: 14, Safe: true}))
+	requireFaultStep(t, m.faults.Crash(0))
+	requireFaultStep(t, m.RestartAgent(0, true))
+	if err := m.faults.Publish(0, ClockReading{UTC: 115, Elapsed: 15, Safe: true}); err == nil {
+		t.Fatal("stale snapshot publishes after quarantine")
+	}
+	if m.faults.observer.public != 1 {
+		t.Fatal("rollback recalls released share")
 	}
 }
 
@@ -234,7 +345,7 @@ func TestRejectsUnsafeInitialStateAndAllowanceOverflow(t *testing.T) {
 	if _, err := NewUncertainModel(rules, s.Initial, ClockReading{}, 0); err == nil {
 		t.Fatal("accepts unsafe initial clock")
 	}
-	if _, err := (Allowance{ClockLag: 1}).ReleaseBy(math.MaxInt64); err == nil {
+	if _, err := (Allowance{UTCError: 1}).ReleaseBy(math.MaxInt64); err == nil {
 		t.Fatal("overflows clock allowance")
 	}
 	if _, err := (Allowance{Publication: 1}).ReleaseBy(math.MaxInt64); err == nil {

@@ -120,7 +120,8 @@ An issued intent contributes to Bmax even when no agent receives it.
 The model rejects empty bytes, a different content identity, nonincreasing sequences, and decreasing boundaries.
 The model rejects boundary arithmetic overflow.
 
-`UncertainModel` applies the journal to the existing local agent transitions.
+`UncertainModel` applies the journal with a separate conservative clock policy.
+The historical local constructors and fault explorers retain their original clock policy.
 Its executable schedules reside in the same package as the model state.
 Each delivery separates volatile acceptance, durable state, and receipt delivery.
 A receipt requires persistence first. A lost receipt changes no confirmed client evidence.
@@ -143,8 +144,10 @@ These outcomes explain why an incomplete response proves neither success nor def
 
 ## Revised outage evidence
 
-`TestReleasesEveryTwoIntentScheduleByBmaxPlusAllowance` enumerates 12,288 schedules.
+`TestReleasesEveryTwoIntentScheduleByBmaxPlusAllowance` enumerates 110,592 schedules.
 Each schedule combines two independent 64-state renewal experiments and one of three permanent agent outages.
+Each combination tests nine clock cases: epsilon zero, one, or two, with every integer offset from minus epsilon through epsilon.
+The schedules check zero public shares at real UTC 109, before the initial B0=110.
 The client issues deadlines 200 and 300 after the initial deadline 100, with grace 10.
 Each request can disappear, lose volatile acceptance, lose its durable receipt, or deliver its durable receipt at each agent.
 Every stage includes an agent crash and a new live instance from the complete durable value.
@@ -152,24 +155,56 @@ The client then disappears permanently. The main server supplies no operation or
 Each surviving agent has an independent ciphertext copy.
 The observer obtains two shares by Bmax plus the assumed allowance in every schedule.
 
-Let C bound local clock lag, and let P bound publication work after local eligibility.
-The conditional argument uses these assumptions:
+### Conservative clock policy
 
-- Each reachable honest agent retains its complete accepted state and release history.
-- Each accepted release boundary is at most the greatest durably issued boundary, Bmax.
-- Each agent reaches that local boundary by real time Bmax+C.
-- Each agent completes public share availability within P after eligibility.
-- Two surviving endpoints supply shares and at least one authenticated ciphertext copy without owner or main-server access.
+The earlier 12,288-case experiment at `87cfc47` uses nonnegative clock lag only.
+It does not establish a symmetric clock-error guarantee.
+With B0=110 and tolerance one, UTC 110 at real UTC 109 permits early publication under the historical rule.
+`TestConservativePolicyRejectsFastClockEarlyPublication` reproduces this failure before the revised implementation.
+The historical rules and their B0-only counterexamples remain unchanged.
 
-Under these assumptions, E=C+P bounds completion at Bmax+E.
-`Allowance.ReleaseBy` checks the arithmetic without a production numeric value.
-The finite experiment instantiates C and P with synthetic values from zero through two seconds.
-These values vary with the schedule. They do not enumerate every possible clock or network history.
-The samples keep a fixed clock lag and a continuous synthetic elapsed timeline.
-The observer receives publication at the assumed completion time.
-This construction checks the deadline predicate; it does not establish a real publication bound.
-The model does not prove the conditional argument for every possible implementation.
-Issue #28 owns review of clock limits and publication bounds under AC-switch-protocol-11.
+Let epsilon bound absolute UTC error in both directions at initialization and every later sample.
+For real time t and sample U, assume t-epsilon <= U <= t+epsilon.
+`Safe` asserts external readiness. It neither measures nor proves that inequality.
+The revised policy uses L=U-epsilon as a conservative UTC lower bound.
+At each later sample, it takes the greater of this lower bound and the prior lower bound plus exact elapsed time.
+Complete synthetic snapshots retain this lower bound and the continuous elapsed timeline across restart.
+A sample difference above twice epsilon latches an unsafe clock.
+Backward elapsed time and unrepresentable arithmetic also latch an unsafe clock.
+The constructor rejects an unrepresentable initial lower bound or twice-epsilon allowance.
+
+Under these assumptions, each sampled lower bound satisfies t-2*epsilon <= L <= t.
+Exact elapsed projection preserves both inequalities between samples.
+The maximum of two such lower bounds preserves both inequalities.
+Release requires this lower bound to reach the accepted release boundary.
+Therefore, release cannot precede that boundary in real time.
+At real time Bmax+2*epsilon, every intact surviving agent has a lower bound at least Bmax.
+Every accepted boundary is at most Bmax because delivery uses durably issued intent.
+Thus each surviving agent can publish by that time, subject to the publication allowance below.
+This argument assumes every accepted boundary remains at least B0. The journal permits only nondecreasing boundaries.
+
+Let P bound all time from mathematical eligibility through public share availability.
+P includes the next clock sample, scheduling, publication work, endpoint access, and observer retrieval.
+The schedules sample once at the assumed completion time; they do not measure these operations.
+With two surviving honest agents and independent ciphertext access, E=2*epsilon+P bounds completion at Bmax+E.
+`Allowance.UTCError` represents epsilon. `Allowance.ReleaseBy` checks both additions and the multiplication by two.
+No numeric production E has review acceptance.
+
+The conditional argument requires these assumptions:
+
+- Each reachable honest agent retains complete accepted state and irreversible release history.
+- Each sample satisfies the absolute UTC error bound, including samples after restart.
+- Elapsed time measures real elapsed seconds exactly on one continuous synthetic timeline.
+- Two endpoints complete publication and retrieval within P after mathematical eligibility.
+- At least one endpoint supplies an authenticated ciphertext copy without owner or main-server access.
+
+The finite experiment uses fixed offsets and publication values from zero through two seconds.
+Separate tests use forward and backward UTC steps within the asserted bound across each agent outage.
+They check the release boundary before, at, and after real UTC 110, and completion by UTC 114 for epsilon two.
+Other tests check unsafe samples, elapsed rollback, lower-bound underflow, allowance overflow, and stale-state quarantine.
+These cases support the conditional argument. They do not enumerate every clock, network, or implementation history.
+An external readiness assertion cannot establish accuracy, exact elapsed time, polling limits, or real persistence.
+Issue #28 owns independent review of these assumptions under AC-switch-protocol-11.
 
 ## Irreversible history and quarantine
 
