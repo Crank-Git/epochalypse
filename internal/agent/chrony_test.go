@@ -45,11 +45,17 @@ func TestChronyClockAcceptsPinnedVersionWithFeatureSuffix(t *testing.T) {
 
 func TestChronyClockRejectsUntrustedLeapAndStaleSource(t *testing.T) {
 	for name, change := range map[string]func(*chronyFixture){
-		"leap": func(f *chronyFixture) { f.tracking = strings.Replace(f.tracking, "Leap status     : Normal", "Leap status     : Not synchronised", 1) },
-		"source": func(f *chronyFixture) { f.sources = strings.Replace(f.sources, "^+ 198.51.100.2", "^? 198.51.100.2", 1) },
-		"stale": func(f *chronyFixture) { f.sources = strings.Replace(f.sources, "377 11", "000 1000", 1) },
-		"no selected source": func(f *chronyFixture) { f.sources = strings.Replace(f.sources, "^* 192.0.2.1", "^+ 192.0.2.1", 1) },
-		"wrong reference": func(f *chronyFixture) { f.tracking = strings.Replace(f.tracking, "(192.0.2.1)", "(203.0.113.8)", 1) },
+		"leap": func(f *chronyFixture) {
+			f.tracking = strings.Replace(f.tracking, "Leap status     : Normal", "Leap status     : Not synchronised", 1)
+		},
+		"source": func(f *chronyFixture) {
+			f.sources = strings.Replace(f.sources, "^+ 198.51.100.2", "^? 198.51.100.2", 1)
+		},
+		"stale":                 func(f *chronyFixture) { f.sources = strings.Replace(f.sources, "377 11", "000 1000", 1) },
+		"no selected source":    func(f *chronyFixture) { f.sources = strings.Replace(f.sources, "^* 192.0.2.1", "^+ 192.0.2.1", 1) },
+		"wrong reference":       func(f *chronyFixture) { f.tracking = strings.Replace(f.tracking, "(192.0.2.1)", "(203.0.113.8)", 1) },
+		"unpinned participant":  func(f *chronyFixture) { f.sources += "^+ 203.0.113.8 2 6 377 1 -4us[ -6us] +/- 1ms\n" },
+		"duplicate participant": func(f *chronyFixture) { f.sources += "^+ 192.0.2.1 2 6 377 1 -4us[ -6us] +/- 1ms\n" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			fixture := chronyFixtureRunner()
@@ -125,9 +131,9 @@ type chronyFixture struct {
 func chronyFixtureRunner() *chronyFixture {
 	refTime := time.Now().UTC().Format("Mon Jan _2 15:04:05 2006")
 	return &chronyFixture{
-		version: "chronyc (chrony) version 4.9 (+READLINE +SECHASH +IPV6 -DEBUG)",
+		version:  "chronyc (chrony) version 4.9 (+READLINE +SECHASH +IPV6 -DEBUG)",
 		tracking: "Reference ID    : CB00710F (192.0.2.1)\nRef time (UTC)  : " + refTime + "\nSystem time     : 0.000006523 seconds slow of NTP time\nSkew            : 0.129 ppm\nRoot delay      : 0.013639022 seconds\nRoot dispersion : 0.001100737 seconds\nLeap status     : Normal\n",
-		sources: "MS Name/IP address         Stratum Poll Reach LastRx Last sample\n==============================================================================\n^* 192.0.2.1 2 6 377 11 -4us[ -6us] +/- 1ms\n^+ 198.51.100.2 2 6 377 11 -4us[ -6us] +/- 1ms\n",
+		sources:  "MS Name/IP address         Stratum Poll Reach LastRx Last sample\n==============================================================================\n^* 192.0.2.1 2 6 377 11 -4us[ -6us] +/- 1ms\n^+ 198.51.100.2 2 6 377 11 -4us[ -6us] +/- 1ms\n",
 	}
 }
 
@@ -152,7 +158,7 @@ func chronyTestConfig(run ChronyRunner) ChronyConfig {
 			now := time.Now()
 			return Assessment{
 				Epoch: "boot-epoch-1", Implementation: "chrony 4.9", Provenance: "operator profile",
-				SourceIdentities: []string{"192.0.2.1", "198.51.100.2"},
+				SourceIdentities:  []string{"192.0.2.1", "198.51.100.2"},
 				ReferenceEvidence: "operator verified source set", IndependenceEvidence: "operator verified independent sources",
 				LeapPolicy: "UTC normal only", AssessedElapsed: 0, BaseUncertainty: 100 * time.Millisecond,
 			}, Capture{Epoch: "boot-epoch-1", UTCSeconds: now.Unix(), CapturedElapsed: time.Second, DecisionElapsed: time.Second}, nil

@@ -14,8 +14,8 @@ const (
 	CandidateAllowanceSeconds int64 = 2*CandidateEpsilonSeconds + CandidateSampleGapSeconds + CandidateWorkSeconds
 )
 
-// Assessment contains independently verified clock evidence for one elapsed epoch.
-// The adapter must invalidate its epoch after suspend, a step, or source loss.
+// Assessment contains operator-pinned clock evidence for one capture epoch.
+// A fresh assessment follows suspend, a step, or source loss.
 type Assessment struct {
 	Epoch                string
 	Implementation       string
@@ -44,7 +44,7 @@ type Reading struct{ lower int64 }
 func (r Reading) LowerUTC() int64 { return r.lower }
 
 // AssessClock checks the candidate profile after authoritative state validation.
-// Evidence producers must establish reference correctness and elapsed epoch continuity.
+// Operator premises establish reference correctness and the configured error bound.
 func AssessClock(a Assessment, c Capture) (Reading, error) {
 	if !assessmentComplete(a) || !captureCurrent(a, c) || c.UTCSeconds < CandidateEpsilonSeconds {
 		return Reading{}, ErrClock

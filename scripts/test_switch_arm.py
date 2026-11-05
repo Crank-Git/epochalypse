@@ -21,18 +21,20 @@ class SwitchArmExecutableTests(unittest.TestCase):
             env = dict(os.environ, GOOS="linux", GOARCH=architecture, CGO_ENABLED="0")
             executable = directory / "epochalypse"
             fixture = directory / "switch-positive.test"
+            clock_fixture = directory / "agent-clock.test"
             coverage = directory / "coverage"
             coverage.mkdir()
             coverpkg = "github.com/Crank-Git/epochalypse/..."
             subprocess.run(["go", "build", "-cover", f"-coverpkg={coverpkg}", "-o", str(executable), "./cmd/epochalypse"], env=env, check=True, timeout=120)
             subprocess.run(["go", "test", "-c", "-coverpkg=" + coverpkg, "-o", str(fixture), "./internal/command"], env=env, check=True, timeout=120)
+            subprocess.run(["go", "test", "-c", "-coverpkg=" + coverpkg, "-o", str(clock_fixture), "./internal/agent"], env=env, check=True, timeout=120)
             subprocess.run([
                 "docker", "run", "--rm", "--init", "--network", "none",
                 "--mount", f"type=bind,src={Path.cwd()},dst=/work,readonly",
                 "--mount", f"type=bind,src={directory},dst=/state",
                 BROWSER_IMAGE,
                 "sh", "-c",
-                "mkdir -p /tmp/switch-cover; GOCOVERDIR=/tmp/switch-cover EPOCHALYPSE_SWITCH_ARM_BINARY=/state/epochalypse /state/switch-positive.test -test.run=^TestCLIArmsSwitchWithThreeDurableTLSAgents$ -test.timeout=90s; result=$?; cp -R /tmp/switch-cover/. /state/coverage/; chmod -R a+rwX /state; exit \"$result\"",
+                "mkdir -p /tmp/switch-cover; GOCOVERDIR=/tmp/switch-cover EPOCHALYPSE_SWITCH_ARM_BINARY=/state/epochalypse /state/switch-positive.test -test.run=^TestCLIArmsSwitchWithThreeDurableTLSAgents$ -test.timeout=90s && /state/agent-clock.test -test.v -test.gocoverdir=/tmp/switch-cover -test.run='^Test(SystemCapture|ProfileClock|ChronyClock|DurationFromTimespec|ValidBootID)' -test.timeout=60s; result=$?; cp -R /tmp/switch-cover/. /state/coverage/; chmod -R a+rwX /state; exit \"$result\"",
             ], check=True, timeout=150)
             coverage_profile = Path(".test-artifacts/switch-arm.out")
             subprocess.run(["go", "tool", "covdata", "textfmt", f"-i={coverage}", f"-o={coverage_profile}"], check=True, timeout=20)

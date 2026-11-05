@@ -19,12 +19,14 @@ type ChronyRunner func(context.Context, string, ...string) ([]byte, error)
 
 // ChronyConfig pins chrony and supplies independent clock evidence.
 type ChronyConfig struct {
-	Executable      string
-	ExpectedVersion string
+	Executable       string
+	ExpectedVersion  string
 	SourceIdentities []string
-	Timeout         time.Duration
-	Run             ChronyRunner
-	Evidence        func() (Assessment, Capture, error)
+	Timeout          time.Duration
+	Run              ChronyRunner
+	Evidence         func() (Assessment, Capture, error)
+	Profile          *Assessment
+	Capture          func() (Capture, error)
 }
 
 // ChronyClock reads chrony state and applies operator-pinned clock evidence.
@@ -32,7 +34,7 @@ type ChronyClock struct{ config ChronyConfig }
 
 // NewChronyClock creates a read-only adapter for chrony 4.9.
 func NewChronyClock(config ChronyConfig) (*ChronyClock, error) {
-	if config.Executable == "" || config.ExpectedVersion != "4.9" || config.Evidence == nil || !validSources(config.SourceIdentities) {
+	if config.Executable == "" || config.ExpectedVersion != "4.9" || !validEvidenceMode(config) || !validSources(config.SourceIdentities) {
 		return nil, errChronyEvidence
 	}
 	if config.Timeout == 0 {
@@ -45,7 +47,19 @@ func NewChronyClock(config ChronyConfig) (*ChronyClock, error) {
 		config.Run = runChronyCommand
 	}
 	config.SourceIdentities = slices.Clone(config.SourceIdentities)
+	if config.Profile != nil {
+		profile := *config.Profile
+		profile.SourceIdentities = slices.Clone(profile.SourceIdentities)
+		config.Profile = &profile
+	}
 	return &ChronyClock{config: config}, nil
+}
+
+func validEvidenceMode(config ChronyConfig) bool {
+	if config.Profile != nil || config.Capture != nil {
+		return config.Evidence == nil && config.Profile != nil && config.Capture != nil
+	}
+	return config.Evidence != nil
 }
 
 func validSources(sources []string) bool {
@@ -64,11 +78,11 @@ func validSources(sources []string) bool {
 
 // Read returns one decision-local lower UTC bound.
 func (c *ChronyClock) Read() (Reading, error) {
-	if c == nil || c.config.Evidence == nil || c.config.Run == nil {
+	if c == nil || !validEvidenceMode(c.config) || c.config.Run == nil {
 		return Reading{}, errChronyEvidence
 	}
 	started := time.Now()
-	initialAssessment, initialCapture, err := c.config.Evidence()
+	initialAssessment, initialCapture, err := c.beginAssessment()
 	if err != nil {
 		return Reading{}, errors.Join(errChronyEvidence, err)
 	}
@@ -76,7 +90,7 @@ func (c *ChronyClock) Read() (Reading, error) {
 	if err != nil {
 		return Reading{}, err
 	}
-	assessment, capture, err := c.config.Evidence()
+	assessment, capture, err := c.endAssessment(initialAssessment)
 	if err != nil {
 		return Reading{}, errors.Join(errChronyEvidence, err)
 	}
@@ -84,6 +98,25 @@ func (c *ChronyClock) Read() (Reading, error) {
 		return Reading{}, errChronyEvidence
 	}
 	return evaluateChrony(string(tracking), string(sources), assessment, capture, c.config.SourceIdentities)
+}
+
+func (c *ChronyClock) beginAssessment() (Assessment, Capture, error) {
+	if c.config.Profile == nil {
+		return c.config.Evidence()
+	}
+	capture, err := c.config.Capture()
+	assessment := *c.config.Profile
+	assessment.Epoch = capture.Epoch
+	assessment.AssessedElapsed = capture.CapturedElapsed
+	return assessment, capture, err
+}
+
+func (c *ChronyClock) endAssessment(initial Assessment) (Assessment, Capture, error) {
+	if c.config.Profile == nil {
+		return c.config.Evidence()
+	}
+	capture, err := c.config.Capture()
+	return initial, capture, err
 }
 
 func (c *ChronyClock) readSnapshot() ([]byte, []byte, error) {
@@ -124,7 +157,7 @@ func evaluateChrony(tracking, sources string, assessment Assessment, capture Cap
 }
 
 func validCaptureWindow(before, after Capture) bool {
-	if before.Epoch != after.Epoch || before.CapturedElapsed < 0 || after.DecisionElapsed < before.CapturedElapsed {
+	if before.Epoch != after.Epoch || before.CapturedElapsed < 0 || after.CapturedElapsed < before.DecisionElapsed || before.DecisionElapsed < before.CapturedElapsed || after.DecisionElapsed < after.CapturedElapsed {
 		return false
 	}
 	return after.DecisionElapsed-before.CapturedElapsed <= 250*time.Millisecond
@@ -161,11 +194,11 @@ func (c *ChronyClock) command(args ...string) ([]byte, error) {
 }
 
 type chronyMetrics struct {
-	errorBound   time.Duration
-	skewPPM      float64
-	leap         string
+	errorBound    time.Duration
+	skewPPM       float64
+	leap          string
 	referenceTime time.Time
-	referenceID  string
+	referenceID   string
 }
 
 func parseChronyTracking(output string) (chronyMetrics, error) {
@@ -259,7 +292,7 @@ func selectedSources(output string, expected []string, referenceID string) bool 
 		if len(fields) < 6 || len(fields[0]) != 2 || (fields[0][1] != '*' && fields[0][1] != '+') {
 			continue
 		}
-		if !validReachability(fields[4]) || !freshSourceSample(fields[5]) {
+		if !validSelectedSource(fields, expected, selected) {
 			return false
 		}
 		selected[fields[1]] = fields[0][1]
@@ -276,6 +309,11 @@ func selectedSources(output string, expected []string, referenceID string) bool 
 		}
 	}
 	return true
+}
+
+func validSelectedSource(fields []string, expected []string, selected map[string]byte) bool {
+	return slices.Contains(expected, fields[1]) && selected[fields[1]] == 0 &&
+		strings.ContainsRune("^=#", rune(fields[0][0])) && validReachability(fields[4]) && freshSourceSample(fields[5])
 }
 
 func validReachability(value string) bool {

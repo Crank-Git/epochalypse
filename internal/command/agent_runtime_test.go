@@ -86,9 +86,25 @@ func TestAgentServeRejectsMissingTLSIdentity(t *testing.T) {
 }
 
 func TestAgentRuntimeRejectsProductionClockClaim(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "agent.json")
+	if err := os.WriteFile(path, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"agent", "serve", "--config", "unused.json"}, &stdout, &stderr)
+	code := Run([]string{"agent", "serve", "--config", path}, &stdout, &stderr)
 	if code != 2 || !strings.Contains(stderr.String(), "explicit lab clock mode is required") {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+}
+
+func TestAgentRuntimeRejectsConflictingClockModes(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "agent.json")
+	if err := os.WriteFile(path, []byte(`{"clock_profile":{}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"agent", "serve", "--config", path, "--lab-only-synthetic-clock"}, &stdout, &stderr)
+	if code != 2 || !strings.Contains(stderr.String(), "configure exactly one clock mode") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 }

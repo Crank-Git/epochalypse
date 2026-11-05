@@ -177,20 +177,18 @@ func startSwitchAgentProcesses(t *testing.T, binary string, paths switchFixtureP
 		writeFixtureFile(t, privateKeyPath, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privateKey}), 0o600)
 		endpoint := strings.TrimPrefix(enrolled.Endpoint, "https://")
 		settingsPath := filepath.Join(root, "runtime.json")
-		settings := struct {
-			Authority            agent.Config       `json:"authority"`
-			AgentID              string             `json:"agent_id"`
-			OwnerKey             ed25519.PublicKey  `json:"owner_key"`
-			Certificate          []byte             `json:"certificate"`
-			CertificateSignature []byte             `json:"certificate_signature"`
-			SigningKey           ed25519.PrivateKey `json:"signing_key"`
-			AgeIdentity          string             `json:"age_identity"`
-		}{agent.Config{Directory: authority, CheckpointDirectory: filepath.Join(root, "checkpoint"), ExpectedVolumeID: "test-" + enrolled.ID}, enrolled.ID, owner, plan.Certificate, plan.CertificateSignature, fixture.signingKeys[i], fixture.identities[i].String()}
+		settings := map[string]any{"authority": agent.Config{Directory: authority, CheckpointDirectory: filepath.Join(root, "checkpoint"), ExpectedVolumeID: "test-" + enrolled.ID}, "agent_id": enrolled.ID, "owner_key": owner, "certificate": plan.Certificate, "certificate_signature": plan.CertificateSignature, "signing_key": fixture.signingKeys[i], "age_identity": fixture.identities[i].String()}
+		clockArgs := []string{"--lab-only-synthetic-clock"}
+		if i == 2 {
+			settings["clock_profile"] = writeSwitchClockProfile(t, root)
+			clockArgs = nil
+		}
 		writeJSONFixture(t, settingsPath, settings)
 		runSwitchExecutable(t, binary, []string{"agent", "initialize", "--config", settingsPath}, nil)
 		ctx, cancel := context.WithCancel(context.Background())
-		command := exec.CommandContext(ctx, binary, "agent", "serve", "--config", settingsPath, "--lab-only-synthetic-clock", "--http-addr", endpoint, "--tls-cert", certificatePath, "--tls-key", privateKeyPath) // #nosec G204 G702 -- The test runs its built executable with fixed fixture arguments.
-		log, err := os.Create(filepath.Join(root, "agent.log"))                                                                                                                                                    // #nosec G304 -- The log path is inside the test's temporary fixture directory.
+		commandArgs := append([]string{"agent", "serve", "--config", settingsPath, "--http-addr", endpoint, "--tls-cert", certificatePath, "--tls-key", privateKeyPath}, clockArgs...)
+		command := exec.CommandContext(ctx, binary, commandArgs...) // #nosec G204 G702 -- The test runs its built executable with fixed fixture arguments.
+		log, err := os.Create(filepath.Join(root, "agent.log"))     // #nosec G304 -- The log path is inside the test's temporary fixture directory.
 		if err != nil {
 			cancel()
 			t.Fatal(err)

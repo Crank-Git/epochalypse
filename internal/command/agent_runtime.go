@@ -19,13 +19,15 @@ import (
 
 // agentRuntimeSettings contains local operator pins and private agent keys.
 type agentRuntimeSettings struct {
-	Authority            agent.Config       `json:"authority"`
-	AgentID              string             `json:"agent_id"`
-	OwnerKey             ed25519.PublicKey  `json:"owner_key"`
-	Certificate          []byte             `json:"certificate"`
-	CertificateSignature []byte             `json:"certificate_signature"`
-	SigningKey           ed25519.PrivateKey `json:"signing_key"`
-	AgeIdentity          string             `json:"age_identity"`
+	Authority            agent.Config        `json:"authority"`
+	AgentID              string              `json:"agent_id"`
+	OwnerKey             ed25519.PublicKey   `json:"owner_key"`
+	Certificate          []byte              `json:"certificate"`
+	CertificateSignature []byte              `json:"certificate_signature"`
+	SigningKey           ed25519.PrivateKey  `json:"signing_key"`
+	AgeIdentity          string              `json:"age_identity"`
+	ClockProfile         *agent.ClockProfile `json:"clock_profile,omitempty"`
+	labClock             bool
 }
 
 func runAgentRuntime(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -43,12 +45,13 @@ func runAgentRuntime(ctx context.Context, args []string, stdout, stderr io.Write
 		_, _ = fmt.Fprintln(stderr, "agent runtime configuration is required")
 		return 2
 	}
-	if args[1] == "serve" && !*lab {
-		_, _ = fmt.Fprintln(stderr, "explicit lab clock mode is required; production clock evidence is unavailable")
-		return 2
-	}
 	settings, err := readAgentRuntimeSettings(*path)
 	if err == nil {
+		settings.labClock = *lab
+		if args[1] == "serve" && *lab == (settings.ClockProfile != nil) {
+			_, _ = fmt.Fprintln(stderr, "configure exactly one clock mode: explicit lab clock mode is required without an operator clock profile")
+			return 2
+		}
 		if args[1] == "initialize" {
 			err = agent.Initialize(settings.Authority)
 		} else {
@@ -90,15 +93,26 @@ func serveAgentRuntime(ctx context.Context, settings agentRuntimeSettings, addre
 	if err != nil {
 		return errors.New("load agent HTTPS identity")
 	}
-	runtime, err := agent.OpenService(agent.ServiceConfig{
-		Authority: settings.Authority, LabOnlySyntheticClock: true,
+	serviceConfig := agent.ServiceConfig{
+		Authority: settings.Authority, LabOnlySyntheticClock: settings.labClock,
 		Transition: agent.TransitionConfig{
 			OwnerKey: settings.OwnerKey, EnrollmentBody: settings.Certificate,
 			EnrollmentSignature: settings.CertificateSignature, AgentID: settings.AgentID,
 			SigningKey: settings.SigningKey, AgeIdentity: settings.AgeIdentity,
 			ReadClock: agent.NewLabClock(time.Now),
 		},
-	})
+	}
+	if settings.ClockProfile != nil {
+		capture, err := agent.NewSystemCapture()
+		if err != nil {
+			return fmt.Errorf("open Linux clock capture: %w", err)
+		}
+		serviceConfig.VerifiedClock, err = agent.NewProfileClock(*settings.ClockProfile, capture)
+		if err != nil {
+			return fmt.Errorf("validate operator clock profile: %w", err)
+		}
+	}
+	runtime, err := agent.OpenService(serviceConfig)
 	if err != nil {
 		return fmt.Errorf("open agent runtime: %w", err)
 	}

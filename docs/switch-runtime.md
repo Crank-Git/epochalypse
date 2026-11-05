@@ -54,6 +54,11 @@ The journal persists the body before the final commit marker.
 It persists the committed marker before it updates and syncs the checkpoint.
 The caller receives the committed result after that order completes.
 The journal permanently retains possible-disclosure and unsafe-clock latches.
+The per-record byte limit rejects an oversized successor before journal mutation.
+This refusal preserves the accepted journal, material, and latches across restart.
+An unexpected append failure can leave uncertain persistence and quarantine the journal.
+The runtime does not reserve publication capacity.
+Issue #33 owns the complete reservation and growth policy before the batch can claim the release bound.
 It rejects attempts to clear either latch.
 
 Replay validates the full committed prefix before the caller can obtain state.
@@ -101,7 +106,8 @@ After suspend, a clock step, source loss, or an epoch change, obtain new assessm
 Missing or inconsistent evidence blocks readiness.
 The function checks evidence structure and candidate limits.
 It does not establish the truth of external evidence.
-An evidence producer must assess reference correctness and elapsed epoch continuity independently.
+The operator profile states verified reference correctness and source independence premises.
+The Linux producer checks short capture and age intervals within a boot and process epoch.
 
 The tests use explicit synthetic evidence.
 They do not certify this host or establish actual publication and recovery performance.
@@ -119,7 +125,7 @@ The runtime validates retained enrollment, requests, ciphertext, shares, and rec
 A corrupt journal or irreversible latch blocks startup.
 An intact committed transition can recreate its missing receipt through an exact retry.
 
-The current executable requires an explicit synthetic clock for local experiments:
+Local experiments can select an explicit synthetic clock:
 
 ```sh
 epochalypse agent initialize --config private-agent.json
@@ -139,20 +145,51 @@ Stop it with SIGTERM or SIGINT before maintenance.
 
 `NewLabClock` reads a fresh wall-clock sample for each local decision.
 This explicit synthetic producer does not establish clock accuracy, source independence, or epoch continuity.
-The executable rejects a production clock claim without the lab flag.
 Actual-host readiness requires the separate clock evidence and deployment gates from ADR 0013.
 
 `NewChronyClock` provides a read-only assessment adapter for the pinned chrony 4.9 interface.
 It runs bounded `chronyc -v`, `chronyc -n tracking`, and `chronyc -n sources` commands.
 The client version query does not identify the running daemon version.
 The operator profile must separately attest the deployed daemon, reference correctness, and source independence.
-The caller supplies independently validated assessment and capture evidence before and after each acquisition.
+The configured profile supplies explicit operator premises.
+Each read obtains a fresh assessment and brackets acquisition with Linux capture evidence.
 The adapter rejects an epoch change, stale evidence, excessive acquisition delay, or an unresolved leap state.
 It adds the tracking error bound to the independent reference uncertainty before the 500-millisecond check.
 It requires the pinned selected source, reachable source samples, and a fresh reference measurement.
 `ServiceConfig.VerifiedClock` accepts this typed adapter instead of the explicit lab clock.
-The executable still requires the lab mode until a platform capture adapter supplies its real profile.
-The [readiness ruling](https://github.com/Crank-Git/epochalypse/issues/31#issuecomment-6667891433) defines the remaining Linux capture work.
+The optional `clock_profile` configuration selects this path without the lab flag.
+The runtime requires exactly one clock mode.
+The [readiness ruling](https://github.com/Crank-Git/epochalypse/issues/31#issuecomment-6667891433) defines the operator premises and later host gates.
+
+Example profile fields use synthetic documentation values:
+
+```json
+{
+  "executable": "/usr/bin/chronyc",
+  "version": "4.9",
+  "daemon_version": "4.9",
+  "operator_verified": true,
+  "provenance": "operator-pinned installation evidence",
+  "sources": ["192.0.2.1", "198.51.100.2"],
+  "reference_evidence": "operator reference correctness evidence",
+  "independence_evidence": "operator source independence evidence",
+  "leap_policy": "UTC normal only",
+  "base_uncertainty_ns": 100000000,
+  "rate_ppm": 100
+}
+```
+
+Replace each premise with verified installation evidence before use.
+The client version query does not verify the configured daemon version or source correctness.
+The adapter rejects an absent or unverified profile and unsupported platforms.
+`CLOCK_BOOTTIME` includes suspended time.
+The producer compares it with `CLOCK_MONOTONIC` to detect an interrupted capture epoch.
+The kernel boot identifier and a random process epoch scope each observation.
+Capture errors supply no authority and never clear durable latches.
+Fresh UTC acquisition supplies each decision; elapsed observations never project release authority.
+
+Verified against [Linux clock_gettime](https://man7.org/linux/man-pages/man2/clock_gettime.2.html), retrieved 2026-11-05.
+Verified against the [kernel boot identifier documentation](https://docs.kernel.org/admin-guide/sysctl/kernel.html#random), retrieved 2026-11-05.
 
 Verified against the [chronyc 4.9 manual](https://chrony-project.org/doc/4.9/chronyc.html), retrieved 2026-11-05.
 The [versioned client source](https://raw.githubusercontent.com/mlichvar/chrony/4.9/client.c) defines the version output and feature suffix.
