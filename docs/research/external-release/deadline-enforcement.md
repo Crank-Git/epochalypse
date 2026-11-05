@@ -57,7 +57,7 @@ An unavailable remote endpoint also prevents a client from learning state, even 
 Custody must authenticate chain state rather than trust an arbitrary endpoint response.
 No reviewed verification method or endpoint redundancy policy exists for this candidate.
 
-The current Automation documentation marks v2.1 deprecated on 2026-07-31. It directs users to CRE [D4].
+The official Automation documentation states that v2.1 sunsets on 2026-07-31. It directs users to CRE [D4].
 CRE documents cron expressions with a minimum 30-second interval [D5].
 That interval describes scheduling granularity. It supplies no maximum delay for transaction inclusion, finality, private release, or retrieval.
 The current release notes identify CLI v1.39.0, dated 2026-10-21 [D8].
@@ -84,7 +84,9 @@ A fixed time condition alone cannot move an observer's retained ciphertext to a 
 A contract condition could instead consult current external state. That possibility is an inference, not a verified switch implementation.
 
 Current NuCypher repositories mark the client and node runtime inactive [D10, D12].
-The documentation announces a 2026 relaunch under new stewardship [D9]. An announcement does not establish a deployed successor or service continuity.
+The documentation plans a stable relaunch in Q3 2026 under new stewardship [D9].
+That planned date has passed by this report's 2026-11-05 audit date.
+This audit verifies neither a deployed successor nor service continuity.
 This audit verifies no successor version, operator cohort, threshold, availability commitment, or renewal protocol.
 The historical package version therefore supplies interface evidence, not an approved current service.
 
@@ -153,7 +155,7 @@ The source identifiers record the capability review. They do not approve an impl
 | D1 | [Solidity v0.8.30 security](https://docs.soliditylang.org/en/v0.8.30/security-considerations.html#private-information-and-randomness), [global variables](https://docs.soliditylang.org/en/v0.8.30/units-and-global-variables.html#block-and-transaction-properties) | Public visibility and `block.timestamp`. |
 | D2 | [Ethereum transactions, dated snapshot](https://ethereum.org/en/developers/docs/transactions/) | Signatures, fees, inclusion, and transaction lifecycle. |
 | D3 | [Ethereum proof of stake, dated snapshot](https://ethereum.org/en/developers/docs/consensus-mechanisms/pos/#finality) | Checkpoints, finality, and withheld votes. |
-| D4 | [Automation supported networks, dated snapshot](https://docs.chain.link/chainlink-automation/overview/supported-networks) | Deprecation dates and CRE successor. |
+| D4 | [Automation supported networks, dated snapshot](https://docs.chain.link/chainlink-automation/overview/supported-networks) | Sunset dates and CRE successor. |
 | D5 | [CRE cron trigger, TypeScript documentation snapshot](https://docs.chain.link/cre/guides/workflow/using-triggers/cron-trigger-ts) | `CronCapability.trigger()`, schedule, and minimum interval. |
 | D6 | [CRE finality, TypeScript documentation snapshot](https://docs.chain.link/cre/concepts/finality-ts) | Read defaults and write-success limits. |
 | D7 | [CRE workflow deployment, dated snapshot](https://docs.chain.link/cre/guides/operations/deploying-workflows) | Registry authorization, wallet, gas, and confidentiality distinction. |
