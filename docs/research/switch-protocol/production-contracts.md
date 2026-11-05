@@ -115,9 +115,26 @@ The owner signs the certificate before preparation. Agents pin it through authen
 The certificate is immutable for one content key. Changes require a fresh switch and key.
 The module treats its digest as a pinned input; it does not implement certificate or nested receipt decoding.
 
+Enrollment admission rejects repeated agent identities, repeated Ed25519 public-key bytes, and repeated canonical X25519 age recipients.
+It rejects empty signature keys and the reserved owner identity.
+It parses each age recipient with `ParseX25519Recipient` from age v1.3.2.
+It requires the exact string returned by that recipient's `String` method, including case.
+Noncanonical spelling cannot create another recipient slot for the same key.
+Compare recipient identities, rather than hashes supplied by an untrusted enrollment entry.
+Distinct identity labels alone do not establish three independent keyholders.
+
+`admitEnrollment` constructs the validated enrollment consumed by `confirm` and the encrypted-distribution fixture.
+The value copies its three agent records. It carries the pinned enrollment digest.
+`confirm` rejects an unvalidated enrollment or a different state digest before receipt verification.
+It derives its signature-key map exclusively from the validated enrollment.
+An external key map cannot replace those keys during confirmation.
+The real certificate adapter must derive the digest and these same records from one verified canonical certificate.
+This helper does not authenticate a caller-supplied digest or replace that adapter.
+Distinct keys do not prove independent operators, credentials, hosts, or failure domains; deployment review must establish those properties separately.
+
 The frame fixtures check canonical syntax and the signed state association.
 Semantic admission additionally checks the pinned enrollment, operation phase, exact requested state, and operation-specific certificate contents.
-`confirm` tests three distinct authenticated receipt identities against the exact expected state.
+`confirm` tests three distinct authenticated receipt identities against the exact expected state and validated enrollment.
 Nested arm receipts must all use prepared phase. Successful arm needs three later armed receipts.
 Prepare and arm certificate validation remain runtime obligations; opaque entry bytes are not proof that these checks execute.
 
@@ -324,9 +341,11 @@ git diff --check
 Run the repository's configured `golangci-lint` from the nested module with the same local cache paths.
 Use `--config ../../../.golangci.yml ./...` and a worktree-local `GOLANGCI_LINT_CACHE`.
 The 2026-11-05 check reports passing race tests, vet, build, and zero lint issues.
-First-party compatibility helper coverage is 99.4 percent.
+First-party compatibility helper coverage is 99.0 percent after the enrollment admission repair.
 The phase-conflict test also fails before the armed-phase check and passes after it.
 The exhausted-generation test fails before the overflow guard and passes after it.
+The enrollment tests reject duplicate signature keys and duplicate recipients after they fail against the permissive admission stub.
+The pre-repair confirmation predicate also accepts one signature key under three identity labels; its negative fixture records that failure.
 
 The module has no network requirement after its pinned dependencies enter the cache.
 The initial behavioral tests fail against the committed permissive stubs in `fca53bf`.

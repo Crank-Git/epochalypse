@@ -60,23 +60,21 @@ func TestDistributesEachShareToItsEnrolledRecipient(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	agents := enrollmentAgents(t)
+	for i, id := range identities {
+		agents[i].Recipient = id.Recipient().String()
+	}
+	enrollment, err := admitEnrollment([32]byte{3}, agents)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i, part := range parts {
-		var ciphertext bytes.Buffer
-		w, err := age.Encrypt(&ciphertext, identities[i].Recipient())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err = w.Write(part); err != nil {
-			t.Fatal(err)
-		}
-		if err = w.Close(); err != nil {
-			t.Fatal(err)
-		}
-		if ciphertext.Len() > 4096 {
+		ciphertext := encryptShare(t, part, enrollment.agents[i].Recipient)
+		if len(ciphertext) > 4096 {
 			t.Fatal("encrypted share exceeds frame limit")
 		}
 		for j, id := range identities {
-			r, err := age.Decrypt(bytes.NewReader(ciphertext.Bytes()), id)
+			r, err := age.Decrypt(bytes.NewReader(ciphertext), id)
 			if j != i {
 				if err == nil {
 					t.Fatal("another agent decrypts the share")
@@ -92,6 +90,26 @@ func TestDistributesEachShareToItsEnrolledRecipient(t *testing.T) {
 			}
 		}
 	}
+}
+
+func encryptShare(t *testing.T, part []byte, value string) []byte {
+	t.Helper()
+	recipient, err := age.ParseX25519Recipient(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ciphertext bytes.Buffer
+	w, err := age.Encrypt(&ciphertext, recipient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = w.Write(part); err != nil {
+		t.Fatal(err)
+	}
+	if err = w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return ciphertext.Bytes()
 }
 
 func TestCorruptShareRequiresAuthenticatedContentCheck(t *testing.T) {

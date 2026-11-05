@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"strings"
 	"testing"
 
 	"filippo.io/age"
@@ -265,6 +266,11 @@ func TestRejectsExhaustedGeneration(t *testing.T) {
 func TestRequiresThreeMatchingAuthenticatedReceipts(t *testing.T) {
 	m, k, keys := fixture()
 	agents := [3]string{"agent-a", "agent-b", "agent-c"}
+	enrolled := enrollmentAgents(t)
+	enrollment, err := admitEnrollment(m.State.Enrollment, enrolled)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var receipts []Envelope
 	for i, id := range agents {
 		seed := bytes.Repeat([]byte{byte(i + 10)}, 32)
@@ -283,32 +289,32 @@ func TestRequiresThreeMatchingAuthenticatedReceipts(t *testing.T) {
 				subset = append(subset, e)
 			}
 		}
-		if confirm(m.State, subset, keys, agents) != (mask == 7) {
+		if confirm(m.State, subset, enrollment) != (mask == 7) {
 			t.Fatalf("confirmation differs for mask %d", mask)
 		}
 	}
-	if confirm(m.State, []Envelope{receipts[0], receipts[0], receipts[1]}, keys, agents) {
+	if confirm(m.State, []Envelope{receipts[0], receipts[0], receipts[1]}, enrollment) {
 		t.Fatal("duplicate receipts confirm")
 	}
 	wrong := m.State
 	wrong.Enrollment[0]++
-	if confirm(wrong, receipts, keys, agents) {
+	if confirm(wrong, receipts, enrollment) {
 		t.Fatal("old enrollment confirms")
 	}
-	if confirm(m.State, receipts, keys, [3]string{"agent-a", "agent-a", "agent-c"}) {
-		t.Fatal("repeated enrollment confirms")
+	if confirm(m.State, receipts, admittedEnrollment{}) {
+		t.Fatal("unvalidated enrollment confirms")
 	}
 	prepared := m
 	prepared.Phase = 1
 	prepared.Signer = "agent-a"
 	preparedKey := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{10}, 32))
-	if confirm(m.State, []Envelope{signed(t, prepared, preparedKey), receipts[1], receipts[2]}, keys, agents) {
+	if confirm(m.State, []Envelope{signed(t, prepared, preparedKey), receipts[1], receipts[2]}, enrollment) {
 		t.Fatal("prepared receipt confirms armed state")
 	}
 	m.Operation = "checkin"
 	m.Signer = "owner"
 	m.Durable = 0
-	if confirm(m.State, []Envelope{receipts[0], receipts[1], signed(t, m, k)}, keys, agents) {
+	if confirm(m.State, []Envelope{receipts[0], receipts[1], signed(t, m, k)}, enrollment) {
 		t.Fatal("owner message substitutes for receipt")
 	}
 }
@@ -340,25 +346,48 @@ func TestRejectsRepeatedEnrollmentKeysAndRecipients(t *testing.T) {
 			if err := validateEnrollment(n); err == nil {
 				t.Fatal("accepts repeated enrollment key material")
 			}
+			if _, err := admitEnrollment([32]byte{3}, n); err == nil {
+				t.Fatal("admits repeated enrollment key material")
+			}
 		})
 	}
 }
 
 func TestRejectsOneSignatureKeyUnderThreeAgentIdentities(t *testing.T) {
 	m, key, _ := fixture()
-	keys := map[string]ed25519.PublicKey{}
 	ids := [3]string{"agent-a", "agent-b", "agent-c"}
+	agents := enrollmentAgents(t)
 	var receipts []Envelope
-	for _, id := range ids {
-		keys[id] = key.Public().(ed25519.PublicKey)
+	for i, id := range ids {
+		agents[i].SigningKey = [32]byte(key.Public().(ed25519.PublicKey))
 		m.Operation = "receipt"
 		m.Signer = id
 		m.Phase = 2
 		m.Durable = m.State.Sequence
 		receipts = append(receipts, signed(t, m, key))
 	}
-	if confirm(m.State, receipts, keys, ids) {
+	enrollment, err := admitEnrollment(m.State.Enrollment, agents)
+	if err == nil {
+		t.Fatal("admits one signature key for three agents")
+	}
+	if confirm(m.State, receipts, enrollment) {
 		t.Fatal("one signature key confirms three agents")
+	}
+}
+
+func TestRejectsMalformedEnrollment(t *testing.T) {
+	agents := enrollmentAgents(t)
+	for _, change := range []func(*[3]enrolledAgent){
+		func(a *[3]enrolledAgent) { a[0].ID = "owner" }, func(a *[3]enrolledAgent) { a[0].ID = "bad!" },
+		func(a *[3]enrolledAgent) { a[1].ID = a[0].ID }, func(a *[3]enrolledAgent) { a[0], a[1] = a[1], a[0] },
+		func(a *[3]enrolledAgent) { a[0].SigningKey = [32]byte{} }, func(a *[3]enrolledAgent) { a[0].Recipient = "" },
+		func(a *[3]enrolledAgent) { a[0].Recipient = strings.Repeat("x", 129) }, func(a *[3]enrolledAgent) { a[0].Recipient = strings.ToUpper(a[0].Recipient) },
+	} {
+		n := agents
+		change(&n)
+		if _, err := admitEnrollment([32]byte{3}, n); err == nil {
+			t.Fatal("admits malformed or noncanonical enrollment")
+		}
 	}
 }
 

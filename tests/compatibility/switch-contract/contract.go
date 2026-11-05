@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+
+	"filippo.io/age"
 )
 
 type State struct {
@@ -42,7 +44,56 @@ type enrolledAgent struct {
 	Recipient  string
 }
 
-func validateEnrollment(agents [3]enrolledAgent) error { return nil }
+type admittedEnrollment struct {
+	digest [32]byte
+	agents [3]enrolledAgent
+	valid  bool
+}
+
+func validateEnrollment(agents [3]enrolledAgent) error {
+	keys := map[[32]byte]bool{}
+	recipients := map[string]bool{}
+	previousID := ""
+	for _, agent := range agents {
+		if !validID(agent.ID) || agent.ID == "owner" || previousID >= agent.ID {
+			return errors.New("invalid or unordered enrolled identity")
+		}
+		if agent.SigningKey == [32]byte{} || keys[agent.SigningKey] {
+			return errors.New("empty or repeated enrolled signature key")
+		}
+		if err := validateRecipient(agent.Recipient); err != nil {
+			return err
+		}
+		if recipients[agent.Recipient] {
+			return errors.New("repeated enrolled age recipient")
+		}
+		keys[agent.SigningKey] = true
+		recipients[agent.Recipient] = true
+		previousID = agent.ID
+	}
+	return nil
+}
+
+func validateRecipient(value string) error {
+	if len(value) > 128 {
+		return errors.New("enrolled age recipient exceeds limit")
+	}
+	r, err := age.ParseX25519Recipient(value)
+	if err != nil {
+		return fmt.Errorf("parse enrolled age recipient: %w", err)
+	}
+	if r.String() != value {
+		return errors.New("enrolled age recipient is not canonical")
+	}
+	return nil
+}
+
+func admitEnrollment(digest [32]byte, agents [3]enrolledAgent) (admittedEnrollment, error) {
+	if err := validateEnrollment(agents); err != nil {
+		return admittedEnrollment{}, err
+	}
+	return admittedEnrollment{digest: digest, agents: agents, valid: true}, nil
+}
 
 const domain = "epochalypse/switch/research-v2/"
 const maxBody = 16384
@@ -335,18 +386,21 @@ func successor(s Snapshot, action string) (Snapshot, error) {
 	return n, nil
 }
 
-func confirm(state State, receipts []Envelope, keys map[string]ed25519.PublicKey, agents [3]string) bool {
+func confirm(state State, receipts []Envelope, enrollment admittedEnrollment) bool {
+	if !enrollment.valid || state.Enrollment != enrollment.digest {
+		return false
+	}
+	keys := map[string]ed25519.PublicKey{}
+	for _, agent := range enrollment.agents {
+		keys[agent.ID] = agent.SigningKey[:]
+	}
 	seen := map[string]bool{}
 	for _, e := range receipts {
 		m, err := verify(e, keys)
 		if err != nil || m.Operation != "receipt" || m.State != state || m.Phase != 2 {
 			continue
 		}
-		for _, id := range agents {
-			if id == m.Signer {
-				seen[id] = true
-			}
-		}
+		seen[m.Signer] = true
 	}
-	return len(seen) == 3 && agents[0] != agents[1] && agents[0] != agents[2] && agents[1] != agents[2]
+	return len(seen) == 3
 }
