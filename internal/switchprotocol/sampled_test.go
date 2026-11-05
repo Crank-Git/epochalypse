@@ -120,6 +120,14 @@ func TestSampledRestartRequiresFreshAssessment(t *testing.T) {
 		requireFaultStep(t, err)
 		requireFaultStep(t, m.faults.Crash(0))
 		requireFaultStep(t, m.RestartAgent(0, stale))
+		intent := SignedIntent{State: s.Next, Bytes: []byte("synthetic intent")}
+		requireFaultStep(t, m.client.Issue(intent, true))
+		if err := m.Deliver(0, intent, ClockReading{UTC: 101}, true, true); err == nil {
+			t.Fatal("missing assessment permits a durable receipt")
+		}
+		if m.faults.agents[0].durable.accepted != s.Initial || len(m.client.receipts) != 0 {
+			t.Fatal("unready renewal changes authority or evidence")
+		}
 		if err := m.faults.Publish(0, ClockReading{UTC: 1000}); err == nil {
 			t.Fatal("missing or expired assessment permits publication")
 		}
