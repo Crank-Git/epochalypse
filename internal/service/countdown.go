@@ -24,6 +24,7 @@ type countdownAPI struct {
 
 func (api *countdownAPI) routes(mux *http.ServeMux, owners *owner.Store, lab bool) {
 	api.ownerControls(mux, owners, lab)
+	api.publicControls(mux, lab)
 	for _, path := range []string{"/api/v1/countdowns", "/api/v1/countdowns/{id}"} {
 		mux.Handle(path, owner.SecureHandler(lab, owners.RequireScope("countdown:write", http.HandlerFunc(api.serve))))
 	}
@@ -96,7 +97,7 @@ func (api *countdownAPI) work(w http.ResponseWriter, r *http.Request) {
 		countdownDomainError(w, err)
 		return
 	}
-	countdownJSON(w, 200, record)
+	api.readResponse(w, r, record)
 }
 
 func (api *countdownAPI) create(w http.ResponseWriter, r *http.Request) {

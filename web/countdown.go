@@ -13,7 +13,7 @@ const CountdownHTML = `<!doctype html>
 <p id="countdown-status" role="status" tabindex="-1">Check the owner session.</p>
 <section aria-labelledby="retained-heading"><h2 id="retained-heading">Retained countdowns</h2>
 <p>Deletion removes local metadata. DNS caches can retain public event data.</p>
-<ul id="countdown-list">{{range .}}<li data-id="{{.ID}}"><strong>{{.Title}}</strong><p>Event: <time>{{.EventAt.Format "2006-01-02T15:04:05Z"}}</time></p><p>DNS name: <code>{{.Name}}</code></p><button type="button" data-delete="{{.ID}}">Delete countdown</button></li>{{end}}</ul>
+<ul id="countdown-list">{{range .}}<li data-id="{{.ID}}"><strong>{{.Title}}</strong><p>Event: <time>{{.EventAt.Format "2006-01-02T15:04:05Z"}}</time></p><p>DNS name: <code>{{.Name}}</code></p><p><a href="/events/{{.ID}}">Read public countdown</a></p><button type="button" data-delete="{{.ID}}">Delete countdown</button></li>{{end}}</ul>
 </section></main></body></html>`
 
 // CountdownJS uses session CSRF proof for each bounded mutation.
@@ -39,7 +39,9 @@ const CountdownJS = `'use strict';
     const event = document.createElement('p'); event.textContent = 'Event: ' + record.event_at;
     const name = document.createElement('p'); name.textContent = 'DNS name: ' + record.name;
     const button = document.createElement('button'); button.type = 'button'; button.dataset.delete = record.id; button.textContent = 'Delete countdown';
-    item.append(title, event, name, button); list.append(item);
+    const link = document.createElement('a'); link.href = '/events/' + record.id; link.textContent = 'Read public countdown';
+    const publicPage = document.createElement('p'); publicPage.append(link);
+    item.append(title, event, name, publicPage, button); list.append(item);
   }
   async function mutate(path, method, body) {
     if (busy) return;
