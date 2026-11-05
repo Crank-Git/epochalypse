@@ -6,7 +6,7 @@ status: approved
 spec_version: 2
 created: 2026-11-04
 approved: 2026-11-04
-html_generated: 2026-11-04
+html_generated: 2026-11-05
 branch_model: dev-and-live
 visibility: public
 features:
@@ -75,6 +75,8 @@ A separate research epic assesses loss of all project-operated servers.
 | beacon | noun | A publicly verifiable drand round signature. | arbitrary randomness |
 | DNS | noun | Domain Name System. | name database |
 | DNSSEC | noun | DNS Security Extensions. | encryption |
+| DNSKEY | noun | A DNS record that contains a public DNSSEC key. | private key |
+| key tag | noun | A 16-bit checksum that identifies a DNSKEY candidate; different keys can have the same value. | unique key identifier |
 | RRSIG | noun | A DNS record that carries a signature and its time window. | key |
 | RRset | noun | DNS records with one owner name, class, and type. | arbitrary record group |
 | TXT | noun | The DNS text record type. | text file |

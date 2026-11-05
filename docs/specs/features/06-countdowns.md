@@ -2,7 +2,7 @@
 id: countdowns
 feature: "DNS countdowns"
 epic: "Epic 6: DNS countdowns"
-status: issued
+status: built
 issues: [35, 36, 37, 38]
 mockups: [mockups/countdowns.html]
 ---

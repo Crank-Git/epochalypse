@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 
 	"github.com/Crank-Git/epochalypse/internal/service"
@@ -22,6 +23,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return runToken(args, stdout, stderr)
 		case "window":
 			return runWindow(args, stdout, stderr)
+		case "countdown":
+			return runCountdown(args, stdout, stderr)
 		case "capsule":
 			return runCapsule(args, stdout, stderr)
 		case "lab":
@@ -34,13 +37,13 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return runService(ctx, args, stderr)
 		}
 	}
-	if len(args) > 1 || (len(args) == 1 && args[0] != "help" && args[0] != "-h" && args[0] != "--help") {
+	if len(args) > 1 || (len(args) == 1 && !slices.Contains([]string{"help", "-h", "--help"}, args[0])) {
 		if _, err := fmt.Fprintln(stderr, "invalid command: use epochalypse help"); err != nil {
 			return 1
 		}
 		return 2
 	}
-	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  help        Show command help\n  owner       Create or recover the local owner\n  token       Create a scoped token with host access\n  window      Create or inspect signed windows offline\n  capsule     Create or publish local capsule content\n  lab         Verify an explicit public DNSSEC anchor\n  server      Start the web server\n  dns         Start the local DNS scaffold\n  agent       Start a local agent scaffold\n  status      Verify a deployed commit\n  demo        Create synthetic fixtures\n  clean-demo  Remove the explicit demo namespace"); err != nil {
+	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  help        Show command help\n  owner       Create or recover the local owner\n  token       Create a scoped token with host access\n  window      Create or inspect signed windows offline\n  countdown   Create or inspect absolute events offline\n  capsule     Create or publish local capsule content\n  lab         Verify an explicit public DNSSEC anchor\n  server      Start the web server\n  dns         Start the local DNS scaffold\n  agent       Start a local agent scaffold\n  status      Verify a deployed commit\n  demo        Create synthetic fixtures\n  clean-demo  Remove the explicit demo namespace"); err != nil {
 		return 1
 	}
 	return 0
@@ -68,6 +71,8 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 	flags.StringVar(&config.TLSKey, "tls-key", "", "TLS private key file")
 	flags.StringVar(&config.Zone, "zone", "", "Dedicated experimental zone")
 	flags.StringVar(&config.KeyFile, "key-file", os.Getenv("EPOCHALYPSE_KEY_FILE"), "Protected BIND private key file")
+	flags.StringVar(&config.CountdownZone, "countdown-zone", "", "Dedicated countdown zone")
+	flags.StringVar(&config.CountdownKeyFile, "countdown-key-file", os.Getenv("EPOCHALYPSE_COUNTDOWN_KEY_FILE"), "Protected countdown private key file")
 	flags.StringVar(&config.NameServer, "nameserver", "", "Canonical nameserver outside the experimental zone")
 	flags.StringVar(&config.PublicURL, "public-url", os.Getenv("EPOCHALYPSE_PUBLIC_URL"), "Public HTTPS origin outside the experimental zone")
 	maxObjects := flags.String("max-objects", envDefault("EPOCHALYPSE_MAX_OBJECTS", "100"), "Maximum retained content objects")
@@ -92,6 +97,9 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 	}
 	if config.Zone == "" {
 		config.Zone = settings.Zone
+	}
+	if config.CountdownZone == "" {
+		config.CountdownZone = settings.CountdownZone
 	}
 	if config.NameServer == "" {
 		config.NameServer = settings.NameServer

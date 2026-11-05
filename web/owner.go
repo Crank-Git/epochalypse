@@ -11,7 +11,7 @@ const DashboardHTML = `<!doctype html>
 <h2 id="{{.ID}}-heading">{{.Heading}}</h2><p class="state">State: {{.State}}</p><p>{{.Message}}</p>
 {{if .Items}}<ul>{{range .Items}}<li><strong>{{.Name}}</strong> <span>{{.State}}</span> <small>{{.ID}}</small></li>{{end}}</ul>{{end}}
 </section>{{end}}</div>
-<p><a href="/owner/capsules">Create or publish a capsule</a>. Use the local CLI to create a scoped token for API access.</p>
+<p><a href="/owner/capsules">Create or publish a capsule</a>. <a href="/owner/countdowns">Create or inspect a countdown</a>. Use the local CLI to create a scoped token for API access.</p>
 <form method="post" action="/owner/sign-out"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
 </main></body></html>`
 

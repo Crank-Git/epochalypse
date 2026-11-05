@@ -13,6 +13,10 @@ const key = generateKeyPairSync('ec', {namedCurve: 'prime256v1'}).privateKey.exp
 const publicKey = Buffer.concat([Buffer.from(key.x, 'base64url'), Buffer.from(key.y, 'base64url')]).toString('base64');
 await writeFile(`${directory}/synthetic.private`, `Private-key-format: v1.3\nAlgorithm: 13 (ECDSAP256SHA256)\nComment: epochalypse-lab-only\nPrivateKey: ${Buffer.from(key.d, 'base64url').toString('base64')}\n`, {mode: 0o600});
 await writeFile(`${directory}/synthetic.key`, `windows.example. 60 IN DNSKEY 257 3 13 ${publicKey}`, {mode: 0o600});
+const countdownKey = generateKeyPairSync('ec', {namedCurve: 'prime256v1'}).privateKey.export({format: 'jwk'});
+const countdownPublicKey = Buffer.concat([Buffer.from(countdownKey.x, 'base64url'), Buffer.from(countdownKey.y, 'base64url')]).toString('base64');
+await writeFile(`${directory}/countdown.private`, `Private-key-format: v1.3\nAlgorithm: 13 (ECDSAP256SHA256)\nComment: epochalypse-lab-only\nPrivateKey: ${Buffer.from(countdownKey.d, 'base64url').toString('base64')}\n`, {mode: 0o600});
+await writeFile(`${directory}/countdown.key`, `countdown.example. 60 IN DNSKEY 257 3 13 ${countdownPublicKey}`, {mode: 0o600});
 const env = {...process.env, GOCOVERDIR: `${directory}/coverage`};
 await writeFile(`${directory}/capsule-content`, 'CLI synthetic content', {mode: 0o600});
 const preparedPath = `${directory}/capsule-prepared.json`;
@@ -21,7 +25,7 @@ assert.equal(prepared.status, 0, prepared.stderr);
 assert.equal((await readFile(preparedPath, 'utf8')).includes('CLI synthetic content'), false);
 const init = spawnSync(`${directory}/epochalypse`, ['owner', 'init', '--password-file', `${directory}/password`, '--state-dir', '/tmp/epochalypse-owner-data'], {env, encoding: 'utf8', timeout: 10000});
 assert.equal(init.status, 0, init.stderr);
-const server = spawn(`${directory}/epochalypse`, ['server', '--config', `${directory}/config.json`, '--state-dir', '/tmp/epochalypse-owner-data', '--http-addr', '127.0.0.1:8080', '--local-lab', '--zone', 'windows.example.', '--key-file', `${directory}/synthetic.private`], {env, stdio: ['ignore', 'ignore', 'pipe']});
+const server = spawn(`${directory}/epochalypse`, ['server', '--config', `${directory}/config.json`, '--state-dir', '/tmp/epochalypse-owner-data', '--http-addr', '127.0.0.1:8080', '--local-lab', '--zone', 'windows.example.', '--key-file', `${directory}/synthetic.private`, '--countdown-zone', 'countdown.example.', '--countdown-key-file', `${directory}/countdown.private`], {env, stdio: ['ignore', 'ignore', 'pipe']});
 let diagnostic = '';
 server.stderr.on('data', data => { diagnostic = (diagnostic + data).slice(-2000); });
 const fixture = spawn(`${directory}/capsule-fixture`, ['-test.run=^TestPublicCapsuleBrowserFixture$', '-test.timeout=90s'], {cwd: '/work/internal/service', env: {...env, EPOCHALYPSE_CAPSULE_BROWSER_FIXTURE: '1'}, stdio: ['ignore', 'ignore', 'pipe']});
@@ -44,7 +48,7 @@ try {
   }
   const executable = spawnSync('find', ['/ms-playwright', '-name', 'chrome', '-type', 'f'], {encoding: 'utf8', timeout: 3000}).stdout.trim().split('\n')[0];
   assert.ok(executable, 'The pinned image contains Chromium');
-  const result = spawnSync('node', ['/work/scripts/owner_browser.mjs', executable, `${directory}/chrome`, 'http://127.0.0.1:8080', `${directory}/window-record.json`, preparedPath], {stdio: 'inherit', timeout: 45000});
+  const result = spawnSync('node', ['/work/scripts/owner_browser.mjs', executable, `${directory}/chrome`, 'http://127.0.0.1:8080', `${directory}/window-record.json`, preparedPath, `${directory}/countdown-record.json`], {stdio: 'inherit', timeout: 45000});
   assert.equal(result.status, 0, 'The owner browser flow passes');
   const record = JSON.parse(await readFile(`${directory}/window-record.json`, 'utf8'));
   assert.equal((await fetch('http://127.0.0.1:8080/healthz', {signal: AbortSignal.timeout(1000)})).status, 200);
@@ -63,6 +67,13 @@ try {
   }
 }
 const record = JSON.parse(await readFile(`${directory}/window-record.json`, 'utf8'));
+const countdownRecord = JSON.parse(await readFile(`${directory}/countdown-record.json`, 'utf8'));
+const countdownInspection = spawnSync(`${directory}/epochalypse`, ['countdown', 'inspect', '--id', countdownRecord.id, '--state-dir', '/tmp/epochalypse-owner-data'], {env, encoding: 'utf8', timeout: 5000});
+assert.equal(countdownInspection.status, 0, countdownInspection.stderr);
+assert.deepEqual(JSON.parse(countdownInspection.stdout), countdownRecord, 'Offline inspection preserves the browser-created event');
+const countdownCreation = spawnSync(`${directory}/epochalypse`, ['countdown', 'create', '--title', 'CLI synthetic event', '--event-at', countdownRecord.event_at, '--state-dir', '/tmp/epochalypse-owner-data', '--zone', 'countdown.example.', '--key-file', `${directory}/countdown.private`], {env, encoding: 'utf8', timeout: 5000});
+assert.equal(countdownCreation.status, 0, countdownCreation.stderr);
+assert.equal(JSON.parse(countdownCreation.stdout).event_at, countdownRecord.event_at);
 const windowFlags = ['--state-dir', '/tmp/epochalypse-owner-data', '--zone', 'windows.example.', '--key-file', `${directory}/synthetic.private`];
 const inspect = spawnSync(`${directory}/epochalypse`, ['window', 'inspect', '--id', record.id, ...windowFlags], {env, encoding: 'utf8', timeout: 5000});
 assert.equal(inspect.status, 0, inspect.stderr);

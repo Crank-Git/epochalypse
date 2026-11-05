@@ -7,6 +7,7 @@ import (
 
 	"github.com/Crank-Git/epochalypse/internal/authority"
 	"github.com/Crank-Git/epochalypse/internal/capsule"
+	"github.com/Crank-Git/epochalypse/internal/countdown"
 	"github.com/Crank-Git/epochalypse/internal/installation"
 	"github.com/Crank-Git/epochalypse/internal/owner"
 	"github.com/Crank-Git/epochalypse/internal/resolver"
@@ -14,15 +15,19 @@ import (
 )
 
 type mainState struct {
-	owner         *owner.Store
-	content       *installation.Store
-	capsules      *capsule.Store
-	capsuleSlots  chan struct{}
-	windows       *window.Store
-	authority     *authority.Authority
-	jobs          *resolver.Jobs
-	directAddress string
-	directSlots   chan struct{}
+	owner              *owner.Store
+	content            *installation.Store
+	capsules           *capsule.Store
+	capsuleSlots       chan struct{}
+	countdowns         *countdown.Store
+	countdownSigner    *countdown.Signer
+	countdownAuthority *authority.Authority
+	countdownSlots     chan struct{}
+	windows            *window.Store
+	authority          *authority.Authority
+	jobs               *resolver.Jobs
+	directAddress      string
+	directSlots        chan struct{}
 }
 
 func openMainState(config Config) (*mainState, error) {
@@ -41,6 +46,10 @@ func openMainState(config Config) (*mainState, error) {
 		state.close()
 		return nil, err
 	}
+	if err := state.attachCountdowns(config); err != nil {
+		state.close()
+		return nil, err
+	}
 	if config.Zone == "" {
 		return state, nil
 	}
@@ -48,6 +57,10 @@ func openMainState(config Config) (*mainState, error) {
 	if err != nil {
 		state.close()
 		return nil, err
+	}
+	if state.countdownSigner != nil && signer.PublicKey().PublicKey == state.countdownSigner.PublicKey().PublicKey {
+		state.close()
+		return nil, errors.New("countdowns require signing material separate from windows")
 	}
 	if signer.LabOnly() && !config.labMaterialAllowed() {
 		state.close()
@@ -87,6 +100,9 @@ func (s *mainState) close() {
 	if s.capsules != nil {
 		_ = s.capsules.Close()
 	}
+	if s.countdowns != nil {
+		_ = s.countdowns.Close()
+	}
 	if s.content != nil {
 		_ = s.content.Close()
 	}
@@ -96,6 +112,8 @@ func (s *mainState) close() {
 func (s *mainState) routes(mux *http.ServeMux, lab bool) {
 	api := &capsuleAPI{store: s.capsules, now: func() time.Time { return time.Now().UTC().Truncate(time.Second) }, slots: s.capsuleSlots, timeout: 10 * time.Second, beacon: capsule.QuicknetRelay()}
 	api.routes(mux, s.owner, lab)
+	countdowns := &countdownAPI{store: s.countdowns, now: time.Now, slots: s.countdownSlots}
+	countdowns.routes(mux, s.owner, lab)
 	s.publicWindowRoutes(mux, lab)
 	s.observationRoutes(mux, lab)
 	mux.Handle("/api/v1/windows", owner.SecureHandler(lab, s.owner.RequireOwner(windowHandler(s.windows, time.Now))))
@@ -106,8 +124,17 @@ func (s *mainState) routes(mux *http.ServeMux, lab bool) {
 }
 
 func (s *mainState) dnsResponder() func([]byte, bool) []byte {
-	if s.authority == nil {
+	if s.authority == nil && s.countdownAuthority == nil {
 		return nil
 	}
-	return func(data []byte, udp bool) []byte { return s.authority.Packet(data, udp, time.Now()) }
+	return func(data []byte, udp bool) []byte {
+		now := time.Now()
+		if s.authority != nil {
+			response := s.authority.Packet(data, udp, now)
+			if s.countdownAuthority == nil || len(response) < 4 || response[3]&15 != 5 {
+				return response
+			}
+		}
+		return s.countdownAuthority.Packet(data, udp, now)
+	}
 }

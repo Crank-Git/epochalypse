@@ -17,7 +17,12 @@ import (
 
 func serviceKey(t *testing.T) string {
 	t.Helper()
-	key := dns.NewDNSKEY("windows.example.", dns.ECDSAP256SHA256)
+	return serviceKeyForZone(t, "windows.example.")
+}
+
+func serviceKeyForZone(t *testing.T, zone string) string {
+	t.Helper()
+	key := dns.NewDNSKEY(zone, dns.ECDSAP256SHA256)
 	key.Flags = 257
 	private, err := key.Generate(256)
 	if err != nil {
