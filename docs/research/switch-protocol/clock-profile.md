@@ -101,9 +101,20 @@ Verified on 2026-11-05:
   The documentation also warns that some systems stop monotonic clocks during sleep.
 - [RFC 5905](https://www.rfc-editor.org/rfc/rfc5905.html), sections 8 and 9: dispersion grows with a declared frequency tolerance.
   Its typical 15-parts-per-million parameter is an algorithm assumption, rather than a host certification.
-- [chrony 4.8 chronyc manual](https://chrony-project.org/doc/4.8/chronyc.html), `tracking`: the reference-dependent bound combines system offset, root dispersion, and half root delay.
+- [chrony 4.9 chronyc manual](https://chrony-project.org/doc/4.9/chronyc.html), `tracking`: the reference-dependent bound combines system offset, root dispersion, and half root delay.
   `Skew` estimates frequency uncertainty. `Leap status` reports synchronization and leap state.
   A successful `waitsync` checks selected thresholds; it supplies no independent guarantee of reference correctness.
+
+The [chrony release record](https://chrony-project.org/news.html) dates version 4.9 to 2026-08-27.
+Its assessment formula, skew definition, leap states, and `waitsync` checks retain the relevant 4.8 semantics.
+The [current RFC 5905 status](https://www.rfc-editor.org/info/rfc5905/) remains Proposed Standard and lists five updates.
+[RFC 7822](https://www.rfc-editor.org/rfc/rfc7822.html) updates extension fields.
+[RFC 8573](https://www.rfc-editor.org/rfc/rfc8573.html) updates message authentication.
+[RFC 9109](https://www.rfc-editor.org/rfc/rfc9109.html) updates port randomization.
+[RFC 9748](https://www.rfc-editor.org/rfc/rfc9748.html) updates registries.
+[RFC 9769](https://www.rfc-editor.org/rfc/rfc9769.html) adds interleaved modes.
+These updates leave the cited dispersion growth and frequency-tolerance clauses unchanged.
+This profile uses those clauses for uncertainty accounting, rather than a complete NTP implementation contract.
 
 These references justify the evidence fields and age accounting, rather than the chosen numeric ceilings.
 This change adopts no daemon, external library, provider API, or live clock configuration.
