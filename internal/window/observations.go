@@ -51,7 +51,7 @@ func (s *Store) ReserveRun(id string, targets []observation.Target, now time.Tim
 		return observation.Run{}, errors.New("resolver metadata exceeds the observation bound")
 	}
 	err = s.db.Update(func(tx *bolt.Tx) error {
-		if err := s.limits.admits(tx, runReservation); err != nil {
+		if err := s.admits(tx, runReservation); err != nil {
 			return err
 		}
 		return tx.Bucket(observationBucket).Put([]byte(id+"/"+run.ID), data)
@@ -88,12 +88,27 @@ func decodeRun(data []byte) (runDocument, error) {
 	return doc, nil
 }
 
-func observationBytes(data []byte) (int, error) {
+func (s *Store) runAt(tx *bolt.Tx, key, data []byte) (runDocument, error) {
 	doc, err := decodeRun(data)
 	if err != nil {
-		return 0, err
+		return runDocument{}, err
 	}
-	return max(len(data), doc.ReservedBytes), nil
+	if string(key) != doc.Run.WindowID+"/"+doc.Run.ID {
+		return runDocument{}, errors.New("durable observation differs from its storage key")
+	}
+	w, err := s.decode(tx.Bucket(windowBucket).Get([]byte(doc.Run.WindowID)))
+	if err != nil {
+		return runDocument{}, fmt.Errorf("verify observation window: %w", err)
+	}
+	if doc.Run.Name != w.Name {
+		return runDocument{}, errors.New("durable observation differs from its window name")
+	}
+	for _, result := range doc.Run.Results {
+		if result.Name != w.Name {
+			return runDocument{}, errors.New("durable resolver result differs from its window name")
+		}
+	}
+	return doc, nil
 }
 
 // CompleteRun commits all results before it releases the pending byte reservation.
@@ -105,7 +120,7 @@ func (s *Store) CompleteRun(windowID, runID string, results []observation.Result
 	err := s.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(observationBucket)
 		key := []byte(windowID + "/" + runID)
-		doc, err := decodeRun(bucket.Get(key))
+		doc, err := s.runAt(tx, key, bucket.Get(key))
 		if err != nil {
 			return err
 		}
@@ -190,7 +205,7 @@ func (s *Store) ListRuns(windowID, after string) ([]observation.Run, string, err
 				next = runs[len(runs)-1].ID
 				break
 			}
-			doc, err := decodeRun(data)
+			doc, err := s.runAt(tx, key, data)
 			if err != nil {
 				return err
 			}
@@ -206,8 +221,8 @@ func (s *Store) RecoverRuns(now time.Time) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(observationBucket)
 		pending := []runDocument{}
-		if err := bucket.ForEach(func(_, data []byte) error {
-			doc, err := decodeRun(data)
+		if err := bucket.ForEach(func(key, data []byte) error {
+			doc, err := s.runAt(tx, key, data)
 			if err != nil {
 				return err
 			}

@@ -33,22 +33,23 @@ func OpenWithLimits(stateDir string, signer *Signer, limits Limits) (*Store, err
 	return openStore(stateDir, signer, limits)
 }
 
-func (l Limits) admits(tx *bolt.Tx, size int) error {
+func (s *Store) admits(tx *bolt.Tx, size int) error {
+	l := s.limits
 	used := int64(size)
 	count := 1
 	if used > l.MaxBytes {
 		return ErrQuota
 	}
 	for _, name := range [][]byte{windowBucket, observationBucket} {
-		err := tx.Bucket(name).ForEach(func(_, value []byte) error {
+		err := tx.Bucket(name).ForEach(func(key, value []byte) error {
 			count++
 			retained := len(value)
 			if string(name) == string(observationBucket) {
-				var err error
-				retained, err = observationBytes(value)
+				doc, err := s.runAt(tx, key, value)
 				if err != nil {
 					return err
 				}
+				retained = max(len(value), doc.ReservedBytes)
 			}
 			used += int64(retained)
 			if used > l.MaxBytes || count > l.MaxObjects {

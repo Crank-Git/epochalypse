@@ -98,7 +98,7 @@ func (s *Store) Create(in Input, now time.Time) (Window, error) {
 	}
 	if err := s.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(windowBucket)
-		if err := s.limits.admits(tx, len(encoded)); err != nil {
+		if err := s.admits(tx, len(encoded)); err != nil {
 			return err
 		}
 		if bucket.Get([]byte(w.ID)) != nil {
