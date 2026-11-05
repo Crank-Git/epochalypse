@@ -224,10 +224,18 @@ Private temporary disk holds up to twice the selected plaintext limit during res
 The codec uses mode 0700 for temporary directories and mode 0600 for temporary files.
 It authenticates the complete age stream before it parses the manifest or exposes restored file paths.
 It removes temporary plaintext after failure. The caller removes successful temporary state through the archive's `Close` method.
-The codec does not yet provide a backup CLI, a coherent snapshot, or a validated installation.
+The internal `Snapshot` function copies a stopped installation with the canonical paths above.
+It holds exclusive bbolt locks on both complete databases until every file copy completes.
+It rejects either active database, replaced database files, source links, unsafe file modes, cancellation, and excess bytes.
+It records numeric file ownership and copies files into a private temporary directory.
+The caller must call the returned archive's `Close` method to remove these copies.
+Keep configuration and key writers stopped throughout the call. Database locks do not control those files.
+The implementation does not yet provide a backup CLI or a validated installation.
 
 Verified interface: [age v1.3.2 source](https://github.com/FiloSottile/age/blob/v1.3.2/age.go), retrieved 2026-11-05.
 `Encrypt` requires the caller to close its writer. `Decrypt` returns a plaintext stream that authenticates through its final chunk.
+Verified interface: [bbolt v1.5.0 source](https://github.com/etcd-io/bbolt/blob/v1.5.0/db.go), retrieved 2026-11-05.
+Read-write `Open` obtains an exclusive file lock. `Options.Timeout` bounds the wait. `Options.OpenFile` permits an existing-file check.
 
 For a coherent snapshot, block external access and stop the main process with SIGTERM through its service manager.
 Wait for process exit and database lock release. Stop all offline CLI writers before copying either database.

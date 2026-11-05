@@ -123,6 +123,9 @@ func stageSources(ctx context.Context, archive Archive, limits Limits) (_ *os.Fi
 }
 
 func copySource(ctx context.Context, dst io.Writer, file File) error {
+	if err := regularParent(file.SourcePath); err != nil {
+		return err
+	}
 	info, err := os.Lstat(file.SourcePath)
 	if err != nil {
 		return fmt.Errorf("inspect backup source: %w", err)
