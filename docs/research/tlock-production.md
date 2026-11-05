@@ -1,6 +1,7 @@
 # Tlock adapter checkpoint
 
-This checkpoint supplies the key adapter, durable draft producer, and authenticated recovery producer for #20. Transport integration remains incomplete.
+This checkpoint supplies the key adapter, durable drafts, authenticated recovery, and all-mode transports for #20.
+The full project gate remains pending.
 The production service still rejects tlock creation. This checkpoint does not complete AC-capsules-1 or AC-capsules-4.
 
 ## Dependency review
@@ -80,7 +81,7 @@ Later HTTP handlers must retain the existing four shared capsule slots and reque
 
 ### Durable draft producer
 
-`Store.Create` now accepts tlock internally. The HTTP and CLI adapters retain explicit tlock gates until the remaining interfaces are complete.
+`Store.Create` accepts tlock through the CLI and HTTP adapters.
 Preparation authenticates the JWE object with its fresh content key before it wraps that key.
 The record retains the complete `Timelock`. Its effective time equals the selected ceiling round time.
 Reads reject a missing wrapper, mismatched mode or times, an unknown version, and any changed quicknet identity.
@@ -93,12 +94,14 @@ Publication compares this digest before it changes the publication time. Repeate
 This proof detects a changed draft. It is not a signature against an attacker who controls both database buckets.
 It does not independently prove future wrapper decryption. Complete authenticated recovery must verify that relation after the beacon becomes available.
 The code creates both encrypted layers from the same fresh key before it discards the key.
-No import interface accepts an externally prepared record at this checkpoint.
+The owner-authorized prepared import accepts only a bounded canonical tlock draft.
+It validates structure and pinned metadata. It cannot authenticate the encrypted layers before the selected round.
+Recovery performs that authentication before plaintext return.
 
 Keeping the key until publication would defeat local tlock preparation. A digest permits the publication check without retaining that secret.
 This choice uses the existing private-state allowance and preserves the fixed database layout.
 The key producer returns `ErrTooEarly` before the tlock boundary and `ErrUnavailable` afterwards.
-It never returns the digest as a content key. The next recovery producer must use `Timelock.OpenKey` and authenticate the complete JWE object.
+It never returns the digest as a content key. The recovery producer uses `Timelock.OpenKey` and authenticates the complete JWE object.
 
 `TestTimelockDraftRetainsNoContentKey` checks the retained digest and rejects its use as a content key.
 `TestTimelockPublicationPreservesCeilingRoundAfterRestart` checks restart, reduced upload limits, ceiling time, repeated publication, and key boundaries.
@@ -126,7 +129,9 @@ Committed stub `4ac7ea3` records four failing recovery behavior tests with seven
 The complete capsule race suite passes after implementation. The focused linter reports zero issues.
 Focused capsule coverage is 93.9 percent. The project aggregate gate remains pending.
 
-The next slice must add CLI local preparation, the web disclosure and mode, and transport integration for authenticated recovery.
-It must test all three modes through the real CLI and browser interfaces.
-It must preserve the legacy record fixture and classify release separately from availability.
+The CLI prepares tlock locally and can write a canonical draft with `--prepared-output`.
+The owner-authorized import accepts no plaintext or unwrapped key.
+The web selector offers all three modes and discloses operator-visible preparation before upload.
+Real Chromium tests exercise all three modes and import a draft from an independent local CLI installation.
+The version 1 record fixture and typed recovery classifications remain unchanged.
 The final verification must run the full required suite with zero required skips and at least 95 percent aggregate coverage.

@@ -1,12 +1,11 @@
 # Capsule foundation
 
-The current foundation provides public and server-held HTTP interfaces, CLI commands, and owner controls.
-The internal tlock draft producer is available. The transport adapters keep tlock disabled until #20 completes recovery and interface verification.
+The foundation provides public, server-held, and tlock HTTP interfaces, CLI commands, and owner controls.
 The [tlock integration record](research/tlock-production.md) defines its current contract and remaining work.
 
 ## Content and trust
 
-Both supported modes use the authenticated content object defined in [ADR 0008](adr/0008-capsule-authenticated-object.md).
+All three modes use the authenticated content object defined in [ADR 0008](adr/0008-capsule-authenticated-object.md).
 Each draft receives a fresh identifier and 32-byte content key.
 The record contains the object and its SHA-256 digest. The private-key bucket stores the key separately.
 Neither the manifest nor the record contains a key.
@@ -17,7 +16,7 @@ Server-held mode trusts the server operator. The operator holds the key and can 
 A server outage or lost key can delay or prevent availability. A lost server-held key has no automatic recovery.
 
 Web preparation passes plaintext through the server in v1. The web interface must state this fact before upload.
-CLI tlock preparation occurs on the owner's machine. #20 supplies that separate preparation path.
+CLI tlock preparation occurs on the owner's machine. It uploads neither plaintext nor an unwrapped content key.
 
 ## Bounded preparation
 
@@ -184,7 +183,9 @@ Select **Create draft**. Review the returned metadata, then select **Publish cap
 The controls show the configured plaintext limit. The server enforces the limit independently of browser checks.
 The controls clear the content fields after successful preparation. They render metadata as text.
 Owner sessions authorize both the page and script. Mutations use the shared CSRF proof and existing HTTP work bounds.
-Tlock remains unavailable until #20. These controls do not offer the later public page or recovery bundle.
+The tlock option uses the pinned quicknet round at or after the requested time.
+Beacon failure can delay availability. Published ciphertext cannot be recalled.
+These controls do not offer the later public page or recovery bundle.
 
 ## Local CLI
 
@@ -203,8 +204,36 @@ Use `--kind file` for opaque bytes. Use `--plaintext-limit` to set the allowance
 The default remains 10 MiB. Both commands return manifest JSON without content or keys.
 Publication in public mode exposes its key immediately. The requested date remains advisory.
 Server-held publication preserves the requested release boundary and operator trust.
-Export, local open, deletion, and tlock preparation remain with later slices.
+Export, local open, and deletion remain with later slices.
 
 Verified against Go 1.27.3 shipped documentation for `os.Open`, `flag.FlagSet.Int`, `time.Parse`, and `filepath.Base`.
 The browser adapters use the documented [FormData interface](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest_API/Using_FormData_Objects)
 and [Fetch interface](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch), retrieved 2026-11-05 UTC.
+
+## Local tlock draft import
+
+Use `capsule create --mode tlock --prepared-output prepared.json` with the other creation flags.
+The command creates a local draft and writes its canonical `Record` to a new owner-only file.
+An existing output file causes failure. A failed file write can leave the local draft retained.
+The output contains ciphertext and pinned wrapper metadata. It contains neither plaintext nor the unwrapped content key.
+The command still returns manifest JSON on standard output.
+
+Upload the exact file bytes to `POST /api/v1/capsules/prepared` with `Content-Type: application/json`.
+The route requires owner authorization or the exact `capsule:write` bearer scope.
+Owner sessions also require the existing CSRF proof. TLS, four shared work slots, and request deadlines apply.
+The response is 201 with manifest metadata and a `Location` header.
+Publish the imported draft through the existing publication route.
+
+`ImportPrepared(ctx, reader, now)` bounds the encoded input before JSON allocation.
+It accepts only the exact canonical tlock draft record. It rejects publication state, keys, unknown fields, and duplicate fields.
+It validates the pinned identity, ceiling round, object profile, digest, labels, and configured plaintext allowance.
+The requested release time must remain at or after import time. The creation time cannot exceed import time.
+Duplicate identifiers fail without replacement. The shared transaction charges the full record and its separate 32-byte preparation digest.
+Cancellation before the transaction commits retains no draft.
+
+Import validates structure. It cannot authenticate future wrapper decryption or content without the discarded key.
+The preparation digest detects later draft changes. It does not prove that an external producer prepares valid encrypted content.
+Recovery verifies the beacon signature and authenticates both encrypted layers before it exposes plaintext.
+ADR 0010 defines this trust boundary.
+
+Verified against Go 1.27.3 shipped documentation for `os.OpenFile`, `io.LimitReader`, and `context.Context` (2026-11-05 UTC).

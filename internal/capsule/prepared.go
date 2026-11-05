@@ -2,6 +2,7 @@ package capsule
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"time"
@@ -11,7 +12,11 @@ import (
 )
 
 // ImportPrepared persists a structurally validated tlock draft without an unwrapped key.
-func (s *Store) ImportPrepared(content io.Reader, now time.Time) (Record, error) {
+func (s *Store) ImportPrepared(ctx context.Context, content io.Reader, now time.Time) (Record, error) {
+	now = now.UTC().Truncate(time.Second)
+	if err := ctx.Err(); err != nil {
+		return Record{}, err
+	}
 	record, err := decodePrepared(content, s.plaintextLimit, now)
 	if err != nil {
 		return Record{}, err
@@ -26,6 +31,9 @@ func (s *Store) ImportPrepared(content io.Reader, now time.Time) (Record, error)
 		return Record{}, err
 	}
 	err = s.db.Update(func(tx *bolt.Tx) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		bucket := tx.Bucket([]byte(installation.CapsulesBucket))
 		keys := tx.Bucket([]byte(installation.CapsuleKeysBucket))
 		if bucket == nil || keys == nil || bucket.Get([]byte(record.ID)) != nil || keys.Get([]byte(record.ID)) != nil {

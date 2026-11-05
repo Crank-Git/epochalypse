@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 
-export async function checkCapsules(call, evaluate, waitFor, origin) {
+export async function checkCapsules(call, evaluate, waitFor, origin, prepared) {
   await call('Page.navigate', {url: origin + '/owner/capsules'});
   await waitFor("document.querySelector('#capsule-fields')?.disabled === false");
   assert.equal(await evaluate("document.querySelector('#trust').parentElement.textContent.includes('plaintext through the server')"), true);
   assert.equal(await evaluate("document.querySelector('#allowance').textContent.includes('32 bytes')"), true);
-  assert.equal(await evaluate("document.querySelector('#mode option:last-child').disabled"), true);
+  assert.equal(await evaluate("document.querySelector('#mode option:last-child').value"), 'tlock');
+  assert.equal(await evaluate("document.querySelector('#mode option:last-child').disabled"), false);
   await evaluate("document.querySelector('#release-at').value = '2099-01-01T00:00:00Z'; document.querySelector('#content').value = 'x'.repeat(33); document.querySelector('#create').click()");
   await waitFor("document.querySelector('#capsule-status').textContent.includes('exceeds its byte limit')");
   assert.equal(await evaluate("document.querySelector('#draft').hidden"), true);
@@ -38,6 +39,34 @@ export async function checkCapsules(call, evaluate, waitFor, origin) {
   await evaluate("document.querySelector('#publish').click()");
   await waitFor("document.querySelector('#capsule-status').textContent === 'Published. The public-mode key is available immediately.'");
   assert.equal(await keyStatus(publicDraft.id), 200);
+  await evaluate(`{
+    document.querySelector('#mode').value = 'tlock';
+    document.querySelector('#kind').value = 'text';
+    document.querySelector('#kind').dispatchEvent(new Event('change'));
+    document.querySelector('#content').value = 'local synthetic text';
+    document.querySelector('#create').click();
+  }`);
+  await waitFor("document.querySelector('#capsule-status').textContent.includes('Private draft saved')");
+  const timed = await evaluate("JSON.parse(document.querySelector('#metadata').textContent)");
+  assert.equal(timed.mode, 'tlock');
+  assert.ok(Date.parse(timed.effective_release_at) >= Date.parse(timed.requested_release_at));
+  assert.ok(Date.parse(timed.effective_release_at) - Date.parse(timed.requested_release_at) < 3000);
+  assert.equal(await keyStatus(timed.id), 404);
+  await evaluate("document.querySelector('#publish').click()");
+  await waitFor("document.querySelector('#capsule-status').textContent.includes('pinned beacon round permits release')");
+  assert.equal(await keyStatus(timed.id), 425);
+  const imported = await evaluate(`(async () => {
+    const proof = await fetch('/api/v1/csrf').then(response => response.json());
+    const response = await fetch('/api/v1/capsules/prepared', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': proof.csrf_token}, body: ${JSON.stringify(prepared)}});
+    return {status: response.status, body: await response.json()};
+  })()`);
+  assert.equal(imported.status, 201);
+  assert.equal(imported.body.mode, 'tlock');
+  assert.equal(imported.body.id, JSON.parse(prepared).id);
+  assert.equal(imported.body.published_at, null);
+  assert.equal(Object.hasOwn(imported.body, 'object'), false);
+  assert.equal(Object.hasOwn(imported.body, 'key'), false);
+  assert.equal(await keyStatus(imported.body.id), 404);
   await call('Page.navigate', {url: origin + '/owner'});
   await waitFor("document.querySelector('h1')?.textContent === 'Signed in'");
 }

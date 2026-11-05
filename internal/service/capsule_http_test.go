@@ -160,7 +160,7 @@ func TestCapsuleHTTPImportsLocalPreparedDraft(t *testing.T) {
 		t.Fatalf("anonymous import: %d", w.Code)
 	}
 	r := request()
-	r.AddCookie(&http.Cookie{Name: "__Host-epochalypse-session", Value: h.session})
+	r.AddCookie(&http.Cookie{Name: "__Host-epochalypse-session", Value: h.session, Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 	if w := h.send(r); w.Code != 403 {
 		t.Fatalf("import without CSRF: %d", w.Code)
 	}
@@ -177,6 +177,22 @@ func TestCapsuleHTTPImportsLocalPreparedDraft(t *testing.T) {
 	r.Header.Set("Authorization", "Bearer "+h.bearer)
 	if w := h.send(r); w.Code != 503 {
 		t.Fatalf("duplicate import: %d", w.Code)
+	}
+	for _, invalid := range []struct {
+		body, media string
+		status      int
+	}{
+		{"{}", "application/json", 400},
+		{string(data) + "\n", "application/json", 503},
+		{string(data), "text/plain", 400},
+		{strings.Repeat("x", 20000), "application/json", 413},
+	} {
+		r := httptest.NewRequest("POST", "https://localhost/api/v1/capsules/prepared", strings.NewReader(invalid.body))
+		r.Header.Set("Content-Type", invalid.media)
+		r.Header.Set("Authorization", "Bearer "+h.bearer)
+		if w := h.send(r); w.Code != invalid.status {
+			t.Fatalf("invalid import: %d %s", w.Code, w.Body)
+		}
 	}
 }
 

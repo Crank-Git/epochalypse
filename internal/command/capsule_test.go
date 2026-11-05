@@ -85,7 +85,7 @@ func TestCapsuleCommandWritesPreparedTimelockWithoutPlaintext(t *testing.T) {
 	if code := Run(args, &out, &errors); code != 0 {
 		t.Fatalf("prepare: %d %s", code, &errors)
 	}
-	data, err := os.ReadFile(prepared)
+	data, err := os.ReadFile(prepared) // #nosec G304 -- The test owns this temporary file.
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestCapsuleCommandWritesPreparedTimelockWithoutPlaintext(t *testing.T) {
 	if code := Run(args, &out, &errors); code == 0 {
 		t.Fatal("prepared output overwrites an existing file")
 	}
-	if retained, err := os.ReadFile(prepared); err != nil || !bytes.Equal(data, retained) {
+	if retained, err := os.ReadFile(prepared); err != nil || !bytes.Equal(data, retained) { // #nosec G304 -- The test owns this temporary file.
 		t.Fatal("failed preparation changes existing output")
 	}
 }
