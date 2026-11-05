@@ -26,6 +26,8 @@ type Config struct {
 	TLSKey                string
 	Zone                  string
 	KeyFile               string
+	CountdownZone         string
+	CountdownKeyFile      string
 	WindowLimits          *window.Limits
 	NameServer            string
 	PublicURL             string
@@ -69,6 +71,9 @@ func (c Config) Validate() error {
 		return fmt.Errorf("configure a positive bounded capsule plaintext limit: %w", err)
 	}
 	if err := c.validateWindows(); err != nil {
+		return err
+	}
+	if err := c.validateCountdowns(); err != nil {
 		return err
 	}
 	if err := c.validateResolvers(); err != nil {
@@ -191,6 +196,7 @@ func ReadConfig(path string) error {
 type Settings struct {
 	Version               int                  `json:"version"`
 	Zone                  string               `json:"zone,omitempty"`
+	CountdownZone         string               `json:"countdown_zone,omitempty"`
 	NameServer            string               `json:"nameserver,omitempty"`
 	PublicURL             string               `json:"public_url,omitempty"`
 	Resolvers             []observation.Target `json:"resolvers,omitempty"`

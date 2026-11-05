@@ -70,6 +70,8 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 	flags.StringVar(&config.TLSKey, "tls-key", "", "TLS private key file")
 	flags.StringVar(&config.Zone, "zone", "", "Dedicated experimental zone")
 	flags.StringVar(&config.KeyFile, "key-file", os.Getenv("EPOCHALYPSE_KEY_FILE"), "Protected BIND private key file")
+	flags.StringVar(&config.CountdownZone, "countdown-zone", "", "Dedicated countdown zone")
+	flags.StringVar(&config.CountdownKeyFile, "countdown-key-file", os.Getenv("EPOCHALYPSE_COUNTDOWN_KEY_FILE"), "Protected countdown private key file")
 	flags.StringVar(&config.NameServer, "nameserver", "", "Canonical nameserver outside the experimental zone")
 	flags.StringVar(&config.PublicURL, "public-url", os.Getenv("EPOCHALYPSE_PUBLIC_URL"), "Public HTTPS origin outside the experimental zone")
 	maxObjects := flags.String("max-objects", envDefault("EPOCHALYPSE_MAX_OBJECTS", "100"), "Maximum retained content objects")
@@ -94,6 +96,9 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 	}
 	if config.Zone == "" {
 		config.Zone = settings.Zone
+	}
+	if config.CountdownZone == "" {
+		config.CountdownZone = settings.CountdownZone
 	}
 	if config.NameServer == "" {
 		config.NameServer = settings.NameServer

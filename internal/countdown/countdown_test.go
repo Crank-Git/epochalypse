@@ -51,9 +51,7 @@ func TestStoreRetainsEventUntilDeletionAfterRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if record.Name != "c"+record.ID+".countdown.example." || record.TXT().Txt[0] != "v=epochalypse1 event="+validInput().EventAt || record.TXT().Hdr.TTL != MaxTTL {
-		t.Fatalf("record=%+v TXT=%s", record, record.TXT())
-	}
+	assertStaticEventRecord(t, record)
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -81,6 +79,13 @@ func TestStoreRetainsEventUntilDeletionAfterRestart(t *testing.T) {
 	}
 	if err := s.Delete(context.Background(), record.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatal(err)
+	}
+}
+
+func assertStaticEventRecord(t *testing.T, record Record) {
+	t.Helper()
+	if record.Name != "c"+record.ID+".countdown.example." || record.TXT().Txt[0] != "v=epochalypse1 event="+validInput().EventAt || record.TXT().Hdr.TTL != MaxTTL {
+		t.Fatalf("record=%+v TXT=%s", record, record.TXT())
 	}
 }
 

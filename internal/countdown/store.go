@@ -88,7 +88,10 @@ func (s *Store) Create(ctx context.Context, in Input, now time.Time) (Record, er
 		if err := s.db.Admit(tx, 1, int64(len(encoded))); err != nil {
 			return err
 		}
-		return bucket.Put([]byte(id), encoded)
+		if err := bucket.Put([]byte(id), encoded); err != nil {
+			return err
+		}
+		return ctx.Err()
 	})
 	if err != nil {
 		return Record{}, err
@@ -142,7 +145,10 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 		if _, err := recordAt(tx, id); err != nil {
 			return err
 		}
-		return tx.Bucket([]byte(installation.CountdownsBucket)).Delete([]byte(id))
+		if err := tx.Bucket([]byte(installation.CountdownsBucket)).Delete([]byte(id)); err != nil {
+			return err
+		}
+		return ctx.Err()
 	})
 }
 

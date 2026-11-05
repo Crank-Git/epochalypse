@@ -28,6 +28,14 @@ func LoadSigner(zone, path string) (*Signer, error) {
 // LabOnly reports the explicit lab marker for service admission checks.
 func (s *Signer) LabOnly() bool { return s.key.LabOnly() }
 
+// PublicKey returns an independent public key for the countdown authority.
+func (s *Signer) PublicKey() *dns.DNSKEY { return s.key.PublicKey() }
+
+// SignInfrastructure preserves ordinary validity for the separate countdown zone.
+func (s *Signer) SignInfrastructure(records []dns.RR, now time.Time) (*dns.RRSIG, error) {
+	return s.key.SignInfrastructure(records, now)
+}
+
 // Records returns independent signed records after it validates the retained metadata.
 // Each call renews ordinary validity, including after the event completes.
 func (s *Signer) Records(r Record, now time.Time) (*dns.TXT, *dns.RRSIG, *dns.DNSKEY, error) {

@@ -41,7 +41,39 @@ The producer uses the existing protected key loader. It preserves explicit signa
 It rejects records from another zone and clocks outside the supported DNSSEC timestamp range.
 No signature cache retains deleted countdowns.
 
-The remaining #36 work adds HTTP adapters, service configuration, and owner controls.
+The main server accepts `--countdown-zone` and `--countdown-key-file`.
+The version 1 configuration accepts `countdown_zone`.
+`EPOCHALYPSE_COUNTDOWN_KEY_FILE` supplies the protected key reference when the flag is absent.
+The countdown authority runs with window DNS disabled.
+It uses a separate zone and signing material. Equal or nested zones fail configuration validation.
+Equivalent key paths fail configuration validation. Reused public key material fails startup.
+Production configuration requires TLS, a separate public HTTPS origin, and an explicit external nameserver.
+The server rejects explicit lab keys outside the lab environment.
+The service attaches countdown state before it tests whether window DNS is enabled.
+It keeps the same installation writer and quota across all content domains.
+
+`POST /api/v1/countdowns` accepts a JSON object with `title` and `event_at` strings.
+It returns 201, retained metadata, and the actual DNS name.
+`GET /api/v1/countdowns/{id}` returns retained metadata.
+`DELETE /api/v1/countdowns/{id}` accepts an empty body and returns 204.
+Each route requires the owner session or a `countdown:write` token.
+Session mutations require CSRF proof. Production HTTP requests require TLS.
+Creation limits the JSON body to 4096 bytes. Unknown fields and additional JSON documents fail.
+Inspection and deletion accept no request body. Each route rejects query parameters.
+Four request slots and explicit deadlines bound concurrent work.
+The shared error response reports invalid input, unavailable state, cancellation, and exhausted quota.
+The store checks cancellation before the transaction commits each mutation.
+
+The owner dashboard links to `/owner/countdowns`.
+The page accepts an absolute UTC event time, shows retained metadata, and supports deletion.
+The page escapes retained titles and DNS names. Its script inserts returned metadata as text.
+The Chromium check creates an event with keyboard input, checks rejected times, and deletes an event.
+Offline CLI inspection verifies the retained event after service shutdown.
+
+`authority.NewCountdown` serves the separate signed zone through the main DNS listeners.
+Each query reads a current store snapshot and renews ordinary signatures.
+The authority serves DNSKEY, NS, SOA, and signed denial records for this zone.
+Window TXT records retain their owner's explicit signature window.
 Issue #37 supplies the final authoritative TTL and resolver proof.
 Issue #38 supplies the public page and advisory labels.
 The batch ships these slices together.
@@ -51,3 +83,4 @@ Verified interfaces, retrieved 2026-11-04:
 - [bbolt v1.5.0](https://pkg.go.dev/go.etcd.io/bbolt@v1.5.0), transaction and bucket methods; checked against the downloaded module source.
 - [DNS adapter v0.6.128](https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128), TXT headers and RRSIG methods; checked against the downloaded module source.
 - [RFC 4035 section 5.3.3](https://www.rfc-editor.org/rfc/rfc4035.html#section-5.3.3), validation limits on cached TTL values.
+- [Go HTTP package](https://pkg.go.dev/net/http), Go 1.27.3 request limits and response deadlines; checked with `go doc`.
