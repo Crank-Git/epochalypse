@@ -229,7 +229,7 @@ Use `--kind file` for opaque bytes. Use `--plaintext-limit` to set the allowance
 The default remains 10 MiB. Both commands return manifest JSON without content or keys.
 Publication in public mode exposes its key immediately. The requested date remains advisory.
 Server-held publication preserves the requested release boundary and operator trust.
-Export, local open, and deletion remain with later slices.
+Export, local open, and deletion are implemented. The sections below describe their commands and recovery limits.
 
 Verified against Go 1.27.3 shipped documentation for `os.Open`, `flag.FlagSet.Int`, `time.Parse`, and `filepath.Base`.
 The browser adapters use the documented [FormData interface](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest_API/Using_FormData_Objects)

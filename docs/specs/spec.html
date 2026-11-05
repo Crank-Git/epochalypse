@@ -384,6 +384,40 @@ body.rv-open .layout { padding-right:21rem; }
 </table></div>
 <p>Feature files define each epic's complete behavior. Split an epic before issue creation if the work exceeds six focused changes. Do not compress the protocol review to preserve an estimate.</p>
 <h2 id="milestones">Milestones</h2>
+<h3 id="first-usable-local-milestone">First usable local milestone</h3>
+<p>On 2026-11-05, the owner selects these completed features in <code>dev</code> for the first usable local milestone:</p>
+<ul>
+<li>DNSSEC experiments.
+</li>
+<li>Time capsules.
+</li>
+<li>Countdowns.
+</li>
+<li>Owner access.
+</li>
+</ul>
+<p>Provide these deliverables:</p>
+<ul>
+<li>Verified local startup.
+</li>
+<li>A synthetic walkthrough.
+</li>
+<li>The required test evidence.
+</li>
+</ul>
+<p>Switch runtime work and its dependent deployment exercises belong to a later milestone. Preserve these switch artifacts:</p>
+<ul>
+<li>The requirements.
+</li>
+<li>The reviewed protocol.
+</li>
+<li>The parked implementation.
+</li>
+<li>The historical counterexamples.
+</li>
+</ul>
+<p>Switch completion does not block this local milestone. Actual-host certification and promotion to <code>main</code> remain separate gates. Every required test must pass. Aggregate first-party Go statement coverage must reach 95.00 percent before rounding.</p>
+<h3 id="full-project-roadmap">Full project roadmap</h3>
 <ol>
 <li>Establish a green repository and a reproducible DNS demonstration.
 </li>
@@ -448,6 +482,10 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>No unanswered product question blocks the approved plan. Technical gates block the affected implementation or production claim.</p>
 <h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-11-05: The owner selects DNSSEC experiments, capsules, countdowns, and owner access for the first local milestone in #120. Defer switch runtime and dependent operations. Preserve their requirements and quality gates.
+</li>
+</ul>
 <ul>
 <li>2026-11-05: Accept the documented external-release blocker in issue #50. Adopt no new service and retain the reviewed independent-agent direction.
 </li>
