@@ -23,7 +23,13 @@ const CapsuleHTML = `<!doctype html>
 <button id="create" type="submit">Create draft</button></fieldset></form>
 <section id="draft" hidden aria-labelledby="draft-heading"><h2 id="draft-heading">Capsule metadata</h2><pre id="metadata"></pre>
 <p>Publication exposes the manifest. Public mode also exposes its key immediately. Public copies remain outside your control.</p>
-<button id="publish" type="button" disabled>Publish capsule</button></section>
+<button id="publish" type="button" disabled>Publish capsule</button>
+<p id="export-capsule" hidden><a id="export-link" download>Export recovery bundle</a></p>
+<p>Before server-held release, an export contains ciphertext only. After release, it includes the released key. A lost key has no automatic recovery.</p>
+<p>Tlock exports contain the encrypted key and pinned beacon identity. Retain the bundle before deletion. Beacon failure can delay recovery.</p>
+<p>Deletion removes local content and private state. Public copies and backups remain outside your control. Deletion does not promise secure erasure.</p>
+<form id="delete-capsule"><label for="delete-confirm">Repeat the exact capsule identifier</label> <input id="delete-confirm" required autocomplete="off">
+<button id="delete" type="submit">Delete local content</button><button id="delete-cancel" type="button">Cancel deletion</button></form></section>
 <p id="capsule-status" role="status" aria-live="polite">Prepare a private draft before publication.</p>
 </main></body></html>`
 
@@ -40,13 +46,16 @@ let draft;
 const showError = error => { status.textContent = error.message; };
 async function request(path, options = {}) {
   const response = await fetch(path, {...options, credentials: 'same-origin', signal: AbortSignal.timeout(15000)});
-  const body = await response.json();
+  const body = response.status === 204 ? null : await response.json();
   if (!response.ok) throw new Error(body.error?.message || 'Capsule access is unavailable.');
   return body;
 }
 function showMetadata(value) {
   document.querySelector('#draft').hidden = false;
   document.querySelector('#metadata').textContent = JSON.stringify(value, null, 2);
+  document.querySelector('#delete-confirm').value = '';
+  document.querySelector('#export-capsule').hidden = !value.published_at;
+  document.querySelector('#export-link').href = '/api/v1/public/capsules/' + value.id + '/bundle';
 }
 kind.addEventListener('change', () => {
   document.querySelector('#text-input').hidden = kind.value !== 'text';
@@ -95,6 +104,29 @@ publish.addEventListener('click', async () => {
     status.textContent = messages[value.mode];
   } catch (error) { showError(error); publish.disabled = false; }
   finally { fields.disabled = false; }
+});
+document.querySelector('#delete-cancel').addEventListener('click', () => {
+  document.querySelector('#delete-confirm').value = '';
+  status.textContent = 'Deletion canceled. Local content remains.';
+});
+document.querySelector('#delete-capsule').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (fields.disabled) return;
+  const confirmation = document.querySelector('#delete-confirm').value;
+  if (confirmation !== draft) { status.textContent = 'Repeat the exact capsule identifier to confirm deletion.'; return; }
+  const wasDisabled = publish.disabled;
+  fields.disabled = true;
+  publish.disabled = true;
+  document.querySelector('#delete').disabled = true;
+  try {
+    await request('/api/v1/capsules/' + draft, {method: 'DELETE', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': proof}, body: JSON.stringify({confirm: confirmation})});
+    draft = undefined;
+    document.querySelector('#draft').hidden = true;
+    document.querySelector('#metadata').textContent = '';
+    document.querySelector('#delete-confirm').value = '';
+    status.textContent = 'Local content deleted. Public copies and backups remain outside your control.';
+  } catch (error) { showError(error); publish.disabled = wasDisabled; }
+  finally { fields.disabled = false; document.querySelector('#delete').disabled = false; }
 });
 request('/api/v1/csrf').then(value => { proof = value.csrf_token; fields.disabled = false; }).catch(showError);
 `

@@ -6,9 +6,29 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Crank-Git/epochalypse/internal/capsule"
 	"github.com/Crank-Git/epochalypse/internal/owner"
 	"time"
 )
+
+func TestMainCapsuleExportUsesWholeSecondClock(t *testing.T) {
+	h := newCapsuleHTTP(t)
+	now := time.Now().UTC().Truncate(time.Second)
+	record, err := h.state.capsules.Create(capsule.Input{Mode: capsule.Public, Kind: capsule.Text, ReleaseAt: now.Add(time.Hour)}, strings.NewReader("synthetic"), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.state.capsules.Publish(record.ID, now); err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	h.state.routes(mux, false)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, httptest.NewRequest("GET", "https://localhost/api/v1/public/capsules/"+record.ID+"/bundle", nil))
+	if w.Code != 200 {
+		t.Fatalf("real-clock export: %d %s", w.Code, w.Body)
+	}
+}
 
 func TestCapsuleDeleteRequiresConfirmationAndAuthorization(t *testing.T) {
 	h := newCapsuleHTTP(t)
@@ -37,7 +57,7 @@ func TestCapsuleDeleteRequiresConfirmationAndAuthorization(t *testing.T) {
 				r.Header.Set("Authorization", "Bearer "+tc.bearer)
 			}
 			if tc.session {
-				r.AddCookie(&http.Cookie{Name: "__Host-epochalypse-session", Value: h.session, Secure: true})
+				r.AddCookie(&http.Cookie{Name: "__Host-epochalypse-session", Value: h.session, Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 			}
 			w := h.send(r)
 			if w.Code != tc.want {

@@ -79,7 +79,11 @@ func TestDeleteRequiresExactConfirmation(t *testing.T) {
 }
 
 func TestDeleteReleasesSharedQuota(t *testing.T) {
-	s := capsuleStore(t, 32)
+	s, err := Open(t.TempDir(), installation.Limits{MaxObjects: 2, MaxBytes: 1 << 20}, 32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
 	record, err := s.Create(capsuleInput(ServerHeld), strings.NewReader("secret"), capsuleNow)
 	if err != nil {
 		t.Fatal(err)
@@ -94,6 +98,9 @@ func TestDeleteReleasesSharedQuota(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.db.Update(func(tx *bolt.Tx) error { return s.db.Admit(tx, 1, 32) }); !errors.Is(err, installation.ErrQuota) {
+		t.Fatal("full installation admits another object", err)
+	}
 	if err := s.Delete(context.Background(), record.ID, record.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -104,5 +111,36 @@ func TestDeleteReleasesSharedQuota(t *testing.T) {
 		return s.db.Admit(tx, 1, 32)
 	}); err != nil {
 		t.Fatal("deletion retains a budget charge", err)
+	}
+}
+
+type deletionCancellation struct {
+	context.Context
+	calls    int
+	cancelAt int
+}
+
+func (c *deletionCancellation) Err() error {
+	c.calls++
+	if c.calls >= c.cancelAt {
+		return context.Canceled
+	}
+	return nil
+}
+
+func TestDeleteRollsBackCancellationBeforeCommit(t *testing.T) {
+	for _, cancelAt := range []int{2, 3} {
+		s := capsuleStore(t, 32)
+		record, err := s.Create(capsuleInput(ServerHeld), strings.NewReader("secret"), capsuleNow)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx := &deletionCancellation{Context: context.Background(), cancelAt: cancelAt}
+		if err := s.Delete(ctx, record.ID, record.ID); !errors.Is(err, context.Canceled) {
+			t.Fatal("cancellation passes", err)
+		}
+		if objects, keys := capsuleCounts(t, s); objects != 1 || keys != 1 {
+			t.Fatal("canceled transaction retains partial state")
+		}
 	}
 }

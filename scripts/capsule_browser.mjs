@@ -55,6 +55,24 @@ export async function checkCapsules(call, evaluate, waitFor, origin, prepared) {
   await evaluate("document.querySelector('#publish').click()");
   await waitFor("document.querySelector('#capsule-status').textContent.includes('pinned beacon round permits release')");
   assert.equal(await keyStatus(timed.id), 425);
+  assert.equal(await evaluate("document.querySelector('#export-capsule').hidden"), false);
+  const retained = await evaluate("fetch(document.querySelector('#export-link').href).then(response => response.json())");
+  assert.equal(retained.record.id, timed.id);
+  assert.equal(retained.record.mode, 'tlock');
+  assert.equal(Object.hasOwn(retained, 'released_key'), false);
+  assert.ok(retained.record.timelock);
+  await evaluate("document.querySelector('#delete-confirm').value = 'yes'; document.querySelector('#delete').click()");
+  await waitFor("document.querySelector('#capsule-status').textContent.includes('exact capsule identifier')");
+  assert.equal(await keyStatus(timed.id), 425);
+  await evaluate(`document.querySelector('#delete-confirm').value = '${timed.id}'; document.querySelector('#delete-cancel').click()`);
+  await waitFor("document.querySelector('#capsule-status').textContent.includes('Deletion canceled')");
+  assert.equal(await evaluate("document.querySelector('#delete-confirm').value"), '');
+  assert.equal(await keyStatus(timed.id), 425);
+  await evaluate(`document.querySelector('#delete-confirm').value = '${timed.id}'; document.querySelector('#delete').click()`);
+  await waitFor("document.querySelector('#capsule-status').textContent.includes('Local content deleted')");
+  assert.equal(await evaluate("document.querySelector('#draft').hidden"), true);
+  assert.equal(await keyStatus(timed.id), 404);
+  assert.equal(retained.record.id, timed.id);
   const imported = await evaluate(`(async () => {
     const proof = await fetch('/api/v1/csrf').then(response => response.json());
     const response = await fetch('/api/v1/capsules/prepared', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': proof.csrf_token}, body: ${JSON.stringify(prepared)}});
