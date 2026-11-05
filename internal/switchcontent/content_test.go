@@ -128,6 +128,13 @@ func TestRecoverRejectsCorruptShare(t *testing.T) {
 	}
 }
 
+func TestRecoverRejectsShortShare(t *testing.T) {
+	material, shares := preparedContent(t, []byte("content"))
+	if _, err := Recover(material.Ciphertext, [][]byte{shares[0][:len(shares[0])-1], shares[1]}); err == nil {
+		t.Fatal("short recovery share was accepted")
+	}
+}
+
 func TestRecoverRejectsDuplicateShareCoordinates(t *testing.T) {
 	material, shares := preparedContent(t, []byte("content"))
 	shares[1][len(shares[1])-1] = shares[0][len(shares[0])-1]
@@ -195,6 +202,91 @@ func TestPrepareReturnsReaderFailure(t *testing.T) {
 	}
 }
 
+func TestPrepareReturnsPartialReadFailureWithoutMaterial(t *testing.T) {
+	recipients, _ := testRecipients(t)
+	material, err := Prepare(&partialFailingReader{}, recipients)
+	if !errors.Is(err, errTestReader) {
+		t.Fatalf("prepare error = %v, want reader cause", err)
+	}
+	if len(material.Ciphertext) != 0 || material.KeyID != ([keyIDBytes]byte{}) || material.ContentDigest != ([sha256.Size]byte{}) {
+		t.Fatal("prepare returned content after a reader failure")
+	}
+	for _, share := range material.Shares {
+		if len(share) != 0 {
+			t.Fatal("prepare returned a share after a reader failure")
+		}
+	}
+}
+
+func TestPrepareRejectsNilReaderBeforeRecipientParsing(t *testing.T) {
+	if _, err := Prepare(nil, [3]string{}); err == nil || err.Error() != "content reader is nil" {
+		t.Fatalf("prepare error = %v, want nil-reader error", err)
+	}
+}
+
+func TestRecoverRejectsInvalidShareCount(t *testing.T) {
+	material, shares := preparedContent(t, []byte("content"))
+	for _, invalid := range [][][]byte{nil, shares[:1], append(shares, shares[0])} {
+		if _, err := Recover(material.Ciphertext, invalid); err == nil {
+			t.Fatalf("recovery with %d shares was accepted", len(invalid))
+		}
+	}
+}
+
+func TestRecoverRejectsUnsupportedFrameVersion(t *testing.T) {
+	material, shares := preparedContent(t, []byte("content"))
+	material.Ciphertext[4]++
+	if _, err := Recover(material.Ciphertext, shares[:2]); err == nil {
+		t.Fatal("unsupported content frame version was accepted")
+	}
+}
+
+func TestDecryptShareRejectsAuthenticatedPayloadWithWrongSize(t *testing.T) {
+	identity, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, size := range []int{shareBytes - 1, shareBytes + 1} {
+		var encrypted bytes.Buffer
+		writer, err := age.Encrypt(&encrypted, identity.Recipient())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := io.Copy(writer, bytes.NewReader(make([]byte, size))); err != nil {
+			t.Fatal(err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := DecryptShare(encrypted.Bytes(), identity); err == nil {
+			t.Fatalf("authenticated share payload of %d bytes was accepted", size)
+		}
+	}
+}
+
+func TestDecryptShareRejectsCorruptAuthenticatedStream(t *testing.T) {
+	identity, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var encrypted bytes.Buffer
+	writer, err := age.Encrypt(&encrypted, identity.Recipient())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.Copy(writer, bytes.NewReader(make([]byte, shareBytes))); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	data := encrypted.Bytes()
+	data[len(data)-1] ^= 1
+	if _, err := DecryptShare(data, identity); err == nil {
+		t.Fatal("corrupt authenticated share stream was accepted")
+	}
+}
+
 var errTestReader = errors.New("test reader failure")
 
 type failingReader struct{}
@@ -202,6 +294,18 @@ type failingReader struct{}
 func (failingReader) Read([]byte) (int, error) { return 0, errTestReader }
 
 var _ io.Reader = failingReader{}
+
+type partialFailingReader struct{ sent bool }
+
+func (r *partialFailingReader) Read(data []byte) (int, error) {
+	if r.sent {
+		return 0, errTestReader
+	}
+	r.sent = true
+	return copy(data, "partial content"), nil
+}
+
+var _ io.Reader = (*partialFailingReader)(nil)
 
 func preparedContent(t *testing.T, plaintext []byte) (Material, [][]byte) {
 	t.Helper()

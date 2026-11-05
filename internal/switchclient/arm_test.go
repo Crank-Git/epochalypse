@@ -16,14 +16,15 @@ import (
 )
 
 type replicaFixture struct {
-	t                    *testing.T
-	keys                 map[string]ed25519.PrivateKey
-	bundle               string
-	armCalls             int
-	failPrepare, failArm string
+	t                      *testing.T
+	keys                   map[string]ed25519.PrivateKey
+	bundle                 string
+	prepareCalls, armCalls int
+	failPrepare, failArm   string
 }
 
 func (r *replicaFixture) Prepare(_ context.Context, a switchwire.Agent, e switchwire.Envelope, _, _ []byte) (switchwire.Envelope, error) {
+	r.prepareCalls++
 	if a.ID == r.failPrepare {
 		return switchwire.Envelope{}, errors.New("offline")
 	}

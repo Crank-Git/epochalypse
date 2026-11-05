@@ -70,6 +70,7 @@ type Journal struct {
 	closed      bool
 	quarantined bool
 	afterStep   func(string)
+	performIO   func(string, func() error) error
 }
 
 type diskRecord struct {
@@ -341,30 +342,38 @@ func (j *Journal) validateSuccessor(next State) error {
 }
 
 func (j *Journal) appendRecord(payload []byte, checksum [sha256.Size]byte) error {
-	if _, err := j.journal.Seek(0, io.SeekEnd); err != nil {
+	if err := j.io("seek-journal", func() error { _, err := j.journal.Seek(0, io.SeekEnd); return err }); err != nil {
 		return fmt.Errorf("seek authority journal: %w", err)
 	}
 	j.quarantined = true
-	if err := writeAll(j.journal, frameHeader(len(payload))); err != nil {
+	if err := j.io("write-record-length", func() error { return writeAll(j.journal, frameHeader(len(payload))) }); err != nil {
 		return fmt.Errorf("append authority record length: %w", err)
 	}
-	if err := writeAll(j.journal, payload); err != nil {
+	if err := j.io("write-record-body", func() error { return writeAll(j.journal, payload) }); err != nil {
 		return fmt.Errorf("append authority record: %w", err)
 	}
-	if err := writeAll(j.journal, checksum[:]); err != nil {
+	if err := j.io("write-record-checksum", func() error { return writeAll(j.journal, checksum[:]) }); err != nil {
 		return fmt.Errorf("append authority checksum: %w", err)
 	}
-	if err := j.journal.Sync(); err != nil {
+	if err := j.io("sync-record-body", j.journal.Sync); err != nil {
 		return fmt.Errorf("sync authority record body: %w", err)
 	}
 	j.step("before-commit-marker")
-	if err := writeAll(j.journal, []byte(authorityCommitMarker)); err != nil {
+	if err := j.io("write-commit-marker", func() error { return writeAll(j.journal, []byte(authorityCommitMarker)) }); err != nil {
 		return fmt.Errorf("append authority commit marker: %w", err)
 	}
-	if err := j.journal.Sync(); err != nil {
+	if err := j.io("sync-commit-marker", j.journal.Sync); err != nil {
 		return fmt.Errorf("sync authority commit marker: %w", err)
 	}
 	return nil
+}
+
+// io keeps fault injection local to one authority and one durability operation.
+func (j *Journal) io(operation string, action func() error) error {
+	if j.performIO != nil {
+		return j.performIO(operation, action)
+	}
+	return action()
 }
 
 // Close releases the exclusive process lock and closes the authority files.
@@ -558,10 +567,15 @@ func (j *Journal) writeCheckpoint() error {
 	if len(data) > int(j.config.MaxRecordBytes) {
 		return ErrRecordLimit
 	}
-	if err := os.MkdirAll(j.config.CheckpointDirectory, 0o700); err != nil {
+	if err := j.io("create-checkpoint-directory", func() error { return os.MkdirAll(j.config.CheckpointDirectory, 0o700) }); err != nil {
 		return fmt.Errorf("create checkpoint directory: %w", err)
 	}
-	root, err := os.OpenRoot(j.config.CheckpointDirectory)
+	var root *os.Root
+	err = j.io("open-checkpoint-root", func() error {
+		var openErr error
+		root, openErr = os.OpenRoot(j.config.CheckpointDirectory)
+		return openErr
+	})
 	if err != nil {
 		return fmt.Errorf("open checkpoint directory: %w", err)
 	}
@@ -571,26 +585,31 @@ func (j *Journal) writeCheckpoint() error {
 		return fmt.Errorf("create checkpoint name: %w", err)
 	}
 	temporaryName := ".checkpoint-" + hex.EncodeToString(randomName[:])
-	temporary, err := root.OpenFile(temporaryName, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	var temporary *os.File
+	err = j.io("create-checkpoint-file", func() error {
+		var openErr error
+		temporary, openErr = root.OpenFile(temporaryName, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		return openErr
+	})
 	if err != nil {
 		return fmt.Errorf("create temporary checkpoint: %w", err)
 	}
-	if err := temporary.Chmod(0o600); err != nil {
+	if err := j.io("protect-checkpoint-file", func() error { return temporary.Chmod(0o600) }); err != nil {
 		return errors.Join(fmt.Errorf("set temporary checkpoint permissions: %w", err), temporary.Close(), root.Remove(temporaryName))
 	}
-	if err := writeAll(temporary, data); err != nil {
+	if err := j.io("write-checkpoint", func() error { return writeAll(temporary, data) }); err != nil {
 		return errors.Join(fmt.Errorf("write checkpoint: %w", err), temporary.Close(), root.Remove(temporaryName))
 	}
-	if err := temporary.Sync(); err != nil {
+	if err := j.io("sync-checkpoint", temporary.Sync); err != nil {
 		return errors.Join(fmt.Errorf("sync checkpoint: %w", err), temporary.Close(), root.Remove(temporaryName))
 	}
-	if err := temporary.Close(); err != nil {
+	if err := j.io("close-checkpoint", temporary.Close); err != nil {
 		return errors.Join(fmt.Errorf("close checkpoint: %w", err), root.Remove(temporaryName))
 	}
-	if err := root.Rename(temporaryName, authorityCheckpointName); err != nil {
+	if err := j.io("rename-checkpoint", func() error { return root.Rename(temporaryName, authorityCheckpointName) }); err != nil {
 		return errors.Join(fmt.Errorf("replace checkpoint: %w", err), root.Remove(temporaryName))
 	}
-	if err := syncRoot(root); err != nil {
+	if err := j.io("sync-checkpoint-directory", func() error { return syncRoot(root) }); err != nil {
 		return fmt.Errorf("sync checkpoint directory: %w", err)
 	}
 	return nil

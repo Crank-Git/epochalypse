@@ -32,6 +32,13 @@ Race instrumentation can exceed the production request limit at 10 MiB.
 This package-private test budget preserves the production five-second request limit.
 It does not establish production latency or the publication allowance.
 
+Agent durability tests inject failures at named journal and checkpoint operations.
+Each failure withholds the receipt and preserves its error cause.
+An uncertain write quarantines live access.
+Restart either rejects incomplete evidence or validates intact authority before an exact retry.
+Owner-local export tests reject directory-sync failures before prepare or arm transmission.
+The export tests replace a package-local sync function and run without parallel tests.
+
 Coverage combines unit tests, CLI executions, browser executions, and backup executions.
 Instrumentation uses the explicit first-party module path to exclude dependencies.
 The CLI profile includes the executable entry point.

@@ -16,6 +16,8 @@ import (
 
 const maxBundleBytes = 16 << 20
 
+var syncDirectory = func(_ string, directory *os.File) error { return directory.Sync() }
+
 // Bundle retains public enrollment, encrypted content, and prepared receipts.
 type Bundle struct {
 	Version  int
@@ -110,7 +112,7 @@ func persistExact(path string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	if err = errors.Join(directory.Sync(), directory.Close()); err != nil {
+	if err = errors.Join(syncDirectory(path, directory), directory.Close()); err != nil {
 		return err
 	}
 	return verifyExactFile(path, data)

@@ -113,9 +113,7 @@ func EncodeFrame(f Frame) ([]byte, error) {
 	b.WriteString(frameDomain)
 	b.WriteString(f.Operation)
 	b.WriteByte(0)
-	if err := putField(b, []byte(f.State.Switch)); err != nil {
-		return nil, err
-	}
+	putField(b, []byte(f.State.Switch))
 	_ = binary.Write(b, binary.BigEndian, f.State.Version)
 	_ = binary.Write(b, binary.BigEndian, f.State.Sequence)
 	_ = binary.Write(b, binary.BigEndian, f.State.Deadline)
@@ -123,9 +121,7 @@ func EncodeFrame(f Frame) ([]byte, error) {
 	b.Write(f.State.Content[:])
 	b.Write(f.State.Key[:])
 	b.Write(f.State.Enrollment[:])
-	if err := putField(b, []byte(f.Signer)); err != nil {
-		return nil, err
-	}
+	putField(b, []byte(f.Signer))
 	b.Write(f.Nonce[:])
 	_ = binary.Write(b, binary.BigEndian, f.Durable)
 	b.WriteByte(f.Phase)
@@ -137,13 +133,9 @@ func EncodeFrame(f Frame) ([]byte, error) {
 	entryCounts := [4][4]byte{{}, {0, 0, 0, 1}, {0, 0, 0, 2}, {0, 0, 0, 3}}
 	b.Write(entryCounts[len(f.Entries)][:])
 	for _, e := range f.Entries {
-		if err := putField(b, []byte(e.ID)); err != nil {
-			return nil, err
-		}
+		putField(b, []byte(e.ID))
 		b.Write(e.Key[:])
-		if err := putField(b, e.Data); err != nil {
-			return nil, err
-		}
+		putField(b, e.Data)
 	}
 	if b.Len() > MaxBody {
 		return nil, fmt.Errorf("%w: frame exceeds limit", errInvalid)
@@ -277,16 +269,10 @@ func EncodeCertificate(c Certificate) ([]byte, error) {
 	_ = binary.Write(b, binary.BigEndian, c.Version)
 	b.Write([]byte{0, 0, 0, 3})
 	for _, a := range c.Agents {
-		if err := putField(b, []byte(a.ID)); err != nil {
-			return nil, err
-		}
+		putField(b, []byte(a.ID))
 		b.Write(a.SigningKey[:])
-		if err := putField(b, []byte(a.Recipient)); err != nil {
-			return nil, err
-		}
-		if err := putField(b, []byte(a.Endpoint)); err != nil {
-			return nil, err
-		}
+		putField(b, []byte(a.Recipient))
+		putField(b, []byte(a.Endpoint))
 	}
 	if b.Len() > MaxCertificate {
 		return nil, fmt.Errorf("%w: certificate exceeds limit", errInvalid)
@@ -573,14 +559,11 @@ func isIDCharacter(c byte) bool {
 	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_'
 }
 
-func putField(b *bytes.Buffer, value []byte) error {
+func putField(b *bytes.Buffer, value []byte) {
 	var length [4]byte
-	if err := writeLength(length[:], len(value)); err != nil {
-		return err
-	}
+	binary.BigEndian.PutUint32(length[:], uint32(len(value))) // #nosec G115 -- Frame and certificate validation bound each field before encoding.
 	b.Write(length[:])
 	b.Write(value)
-	return nil
 }
 
 func writeLength(out []byte, n int) error {

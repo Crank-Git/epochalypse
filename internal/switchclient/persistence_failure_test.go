@@ -96,6 +96,54 @@ func TestArmCancellationPreservesPrivateIntentWithoutTransmission(t *testing.T) 
 	}
 }
 
+func TestArmStopsWhenIntentOrBundleDirectorySyncFails(t *testing.T) {
+	originalSync := syncDirectory
+	t.Cleanup(func() { syncDirectory = originalSync })
+
+	for _, target := range []struct {
+		name string
+		file string
+	}{
+		{name: "intent", file: ".intent"},
+		{name: "bundle", file: ""},
+	} {
+		t.Run(target.name, func(t *testing.T) {
+			p, key, replicas := armFixture(t)
+			cause := errors.New("synthetic directory sync failure")
+			failedPath := replicas.bundle + target.file
+			syncDirectory = func(path string, directory *os.File) error {
+				if path == failedPath {
+					return cause
+				}
+				return directory.Sync()
+			}
+			result, err := PrepareAndArm(context.Background(), p, key, replicas, replicas.bundle)
+			if !errors.Is(err, cause) || result.Confirmed || replicas.armCalls != 0 {
+				t.Fatalf("directory sync failure permits arm: result=%+v sends=%d error=%v", result, replicas.armCalls, err)
+			}
+			wantPrepareCalls := 0
+			if target.name == "bundle" {
+				wantPrepareCalls = 3
+			}
+			if replicas.prepareCalls != wantPrepareCalls {
+				t.Fatalf("prepare calls = %d, want %d", replicas.prepareCalls, wantPrepareCalls)
+			}
+			for _, path := range []string{replicas.bundle + ".intent", replicas.bundle} {
+				_, statErr := os.Stat(path)
+				if target.name == "intent" && path == replicas.bundle {
+					if !errors.Is(statErr, os.ErrNotExist) {
+						t.Fatalf("bundle exists after intent sync failure: %v", statErr)
+					}
+					continue
+				}
+				if statErr != nil {
+					t.Fatalf("durable evidence %q is missing: %v", path, statErr)
+				}
+			}
+		})
+	}
+}
+
 type unavailableBundleReader struct{ cause error }
 
 func (r unavailableBundleReader) Read([]byte) (int, error) { return 0, r.cause }
