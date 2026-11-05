@@ -62,6 +62,16 @@ func TestCountdownAuthorityUsesPreciseRemainingSeconds(t *testing.T) {
 	if err != nil || retained != record {
 		t.Fatalf("retained event changes: %v", err)
 	}
+	horizon, err := store.Create(context.Background(), countdown.Input{Title: "Horizon event", EventAt: now.Add(countdown.MaxTTL * time.Second).Format(time.RFC3339)}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, at := range []time.Time{now, now.Add(-time.Second)} {
+		reply := query(t, a, horizon.Name, dns.TypeTXT, true, true, at)
+		if len(reply.Answer) != 2 || reply.Answer[0].Header().TTL != countdown.MaxTTL || reply.Answer[1].(*dns.RRSIG).OrigTTL != countdown.MaxTTL {
+			t.Fatalf("horizon or rollback exceeds the signed TTL: %s", reply)
+		}
+	}
 }
 
 func countdownSignerFixture(t *testing.T, zone string) *countdown.Signer {

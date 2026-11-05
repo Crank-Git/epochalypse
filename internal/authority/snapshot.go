@@ -62,6 +62,9 @@ func (a *Authority) currentCountdowns(now time.Time) (*snapshot, error) {
 		if err != nil {
 			return nil, err
 		}
+		ttl := record.Timing(now).AuthoritativeTTL
+		txt.Hdr.TTL = ttl
+		sig.Hdr.TTL = ttl
 		s.names = append(s.names, record.Name)
 		s.nodes[record.Name] = map[uint16][]dns.RR{dns.TypeTXT: {txt, sig}}
 	}

@@ -74,7 +74,25 @@ Offline CLI inspection verifies the retained event after service shutdown.
 Each query reads a current store snapshot and renews ordinary signatures.
 The authority serves DNSKEY, NS, SOA, and signed denial records for this zone.
 Window TXT records retain their owner's explicit signature window.
-Issue #37 supplies the final authoritative TTL and resolver proof.
+The authority computes `max(0, floor(event_time - authoritative_now))` for each query.
+It caps the result at 2147483647 seconds, including after a clock rollback.
+It lowers both TXT and RRSIG header TTL values after signature creation.
+The signed Original TTL stays 2147483647. The absolute TXT event time stays unchanged.
+At and after the event, the authority retains the TXT with TTL zero until owner deletion.
+Each query uses independent records. A later query cannot change an earlier response.
+
+`Record.Timing(now)` returns typed `Timing` metadata for HTTP and public page adapters.
+`server_now` contains the precise UTC clock sample. `authoritative_ttl` contains its advisory TTL.
+Use the same clock sample for both values. Preserve subsecond precision before the whole-second calculation.
+
+`TestCountdownResolversValidateLoweredTTL` checks the production authority through three pinned validators.
+Strict Unbound and default Unbound 1.22.0 accept the lowered TTL with DNSSEC validation.
+BIND 9.20.24 accepts it with DNSSEC validation.
+All three preserve the absolute TXT event and accept completed events with TTL zero.
+For a one-year event, Unbound returns 86400 seconds and BIND returns approximately 172800 seconds.
+The authority returns the remaining year. RFC 4035 permits recursive caps from signature expiration and local policy.
+Recursive TTL values remain advisory. Prefetch and stale answers cannot change the retained event or enforce a security boundary.
+
 Issue #38 supplies the public page and advisory labels.
 The batch ships these slices together.
 
