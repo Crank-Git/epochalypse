@@ -1,4 +1,4 @@
-// Package authority serves public DNSSEC experiments without recursive service.
+// Package authority serves signed window and countdown zones without recursive service.
 package authority
 
 import (
@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// Authority reads committed windows and serves the experimental zone.
+// Authority reads committed records and serves one signed zone.
 type Authority struct {
 	store            *window.Store
 	signer           *window.Signer
@@ -29,7 +29,7 @@ type infrastructureSigner interface {
 	SignInfrastructure([]dns.RR, time.Time) (*dns.RRSIG, error)
 }
 
-// NewCountdown prepares the separate event zone with ordinary DNSSEC infrastructure.
+// NewCountdown prepares the separate countdown zone with ordinary DNSSEC infrastructure.
 func NewCountdown(store *countdown.Store, signer *countdown.Signer, nameserver string) (*Authority, error) {
 	if store == nil || signer == nil {
 		return nil, errors.New("configure the countdown store and signer")
