@@ -52,7 +52,7 @@ func openCountdownAuthority(t *testing.T) *authority.Authority {
 	return a
 }
 
-func countdownResponse(t *testing.T, address string, record countdown.Record) (*dns.TXT, *dns.RRSIG) {
+func countdownResponse(t *testing.T, address string, record countdown.Record, authoritative bool) (*dns.TXT, *dns.RRSIG) {
 	t.Helper()
 	request := dns.NewMsg(record.Name, dns.TypeTXT)
 	request.Security = true
@@ -67,7 +67,10 @@ func countdownResponse(t *testing.T, address string, record countdown.Record) (*
 	if txt.Txt[0] != record.TXT().Txt[0] || sig.OrigTTL != countdown.MaxTTL {
 		t.Fatalf("absolute event or Original TTL changes: %s", reply)
 	}
-	if !reply.Authoritative && !reply.AuthenticatedData {
+	if authoritative && !reply.Authoritative {
+		t.Fatalf("authority omits AA: %s", reply)
+	}
+	if !authoritative && !reply.AuthenticatedData {
 		t.Fatalf("resolver rejects DNSSEC: %s", reply)
 	}
 	return txt, sig
@@ -79,12 +82,12 @@ func TestCountdownResolversValidateLoweredTTL(t *testing.T) {
 		target := lab.startResolver(t, kind, kind+"-countdown")
 		for label, record := range lab.countdowns {
 			before := time.Now()
-			authoritative, _ := countdownResponse(t, lab.authorityAddress, record)
+			authoritative, _ := countdownResponse(t, lab.authorityAddress, record, true)
 			after := time.Now()
 			if authoritative.Hdr.TTL > record.Timing(before).AuthoritativeTTL || authoritative.Hdr.TTL < record.Timing(after).AuthoritativeTTL {
 				t.Fatal("authority omits the precise query clock")
 			}
-			txt, sig := countdownResponse(t, target.Address, record)
+			txt, sig := countdownResponse(t, target.Address, record, false)
 			if txt.Hdr.TTL > authoritative.Hdr.TTL || txt.Hdr.TTL > sig.OrigTTL || txt.Hdr.TTL > uint32(time.Until(time.Unix(int64(sig.Expiration), 0))/time.Second)+1 {
 				t.Fatal("recursive TTL exceeds the validation bounds")
 			}
