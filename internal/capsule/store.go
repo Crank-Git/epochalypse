@@ -20,6 +20,9 @@ type Store struct {
 	plaintextLimit int
 }
 
+// PlaintextLimit returns the configured allowance for new content.
+func (s *Store) PlaintextLimit() int { return s.plaintextLimit }
+
 // Open owns the installation lifetime for an offline capsule command.
 func Open(directory string, limits installation.Limits, plaintextLimit int) (*Store, error) {
 	shared, err := installation.Open(directory, limits)

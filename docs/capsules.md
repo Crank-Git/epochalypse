@@ -1,7 +1,7 @@
 # Capsule foundation
 
-The current foundation provides public and server-held domain operations.
-The HTTP, CLI, and web interfaces remain incomplete in this checkpoint of #18.
+The current foundation provides public and server-held domain operations and HTTP interfaces.
+The CLI and web controls remain incomplete in this checkpoint of #18.
 Tlock preparation remains unavailable until #20 supplies its verified adapter.
 
 ## Content and trust
@@ -90,3 +90,57 @@ These results let later interfaces distinguish release eligibility from content 
 
 The later capsule slices extend this producer for tlock, public pages, and recovery bundles.
 They must preserve bounded authenticated object handling and the shared installation transaction.
+
+## HTTP interfaces
+
+Mutations and owner metadata reads accept an owner session or an exact `capsule:write` bearer scope.
+Owner session mutations require the existing CSRF proof header and cookie.
+Only a validated bearer token bypasses the cookie CSRF proof. An invalid bearer never falls back to an owner session.
+All routes require TLS outside the explicit loopback lab.
+
+| Request | Result |
+|---|---|
+| `POST /api/v1/capsules` | 201 with a private draft manifest |
+| `GET /api/v1/capsules/{id}` | 200 with owner-authorized manifest metadata |
+| `POST /api/v1/capsules/{id}/publish` | 200 with the published manifest |
+| `GET /api/v1/public/capsules/{id}/key` | 200 with an authenticated released key; 425 before server-held release |
+
+Creation uses `multipart/form-data`. Supply one `mode`, one `release_at`, and one `content` part.
+The optional `title` part contains at most 256 UTF-8 bytes. The optional `kind` part selects `text` or `file`.
+If `kind` is absent, a content filename selects opaque file content. Otherwise, the content is text.
+The requested time uses RFC 3339 with whole seconds. The server stores it in UTC.
+Part headers exclude transfer encodings and unknown header names. Duplicate or unknown parts fail validation.
+
+The complete upload allowance is the plaintext limit plus 65536 bytes for multipart structure and metadata.
+The parser also checks each field's own bound. It bounds unknown-length bodies and trailing multipart data before preparation starts.
+Configure the plaintext allowance through `capsule_plaintext_limit` in the version 1 local JSON configuration.
+An absent or zero configuration value selects the 10 MiB default. Invalid or overflowing limits prevent startup.
+
+Publication accepts an empty body or one empty JSON object, with at most 1024 bytes.
+GET requests accept no body. Capsule routes accept no query parameters.
+Creation, owner metadata, and publication return manifests without content objects or keys.
+The public key response contains `version`, `id`, and a 43-character unpadded base64url `key` for its 32 bytes.
+It returns no key after an integrity, availability, or release error.
+All responses retain the shared error shape, request identifier, `no-store` cache policy, and response safeguards.
+
+The service shares four work slots across capsule preparation, metadata, publication, and key authentication.
+If all slots are busy, a request returns 429 with `Retry-After: 1` before it reads content or authenticates an object.
+Each admitted request has a ten-second body deadline and work context. Its response deadline permits five more seconds.
+The process also bounds request headers, body reads, and response writes.
+Cancellation before preparation retains no draft. A mutation that already commits remains durable after a client disconnects.
+
+| Status | Meaning |
+|---|---|
+| 400 | Invalid metadata, content, identifier, or request shape |
+| 401 or 403 | Missing credentials, wrong scope, or rejected owner CSRF proof |
+| 404 | Missing capsule or unpublished public key |
+| 408 | Canceled or timed-out request |
+| 409 | Full shared installation budget |
+| 413 | Excessive plaintext, metadata, or complete request bytes |
+| 425 | Server-held key remains before its release time |
+| 426 | TLS is required |
+| 429 | All capsule work slots are busy |
+| 503 | Unavailable state or failed integrity verification |
+
+The public recovery bundle, page, attachment, and export interfaces remain with the later capsule slices.
+The key-free `Record` is a ciphertext producer. It is not a self-contained recovery bundle.

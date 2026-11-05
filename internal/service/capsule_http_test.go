@@ -131,14 +131,18 @@ func TestCapsuleUploadRejectsContentBeyondConfiguredLimit(t *testing.T) {
 	}
 }
 
-func TestCapsuleKeyHTTPWithholdsDraftAndUsesExactReleaseBoundary(t *testing.T) {
+func TestCapsuleKeyHTTPHidesUnpublishedDraft(t *testing.T) {
 	h := newCapsuleHTTP(t)
 	manifest := createHTTPCapsule(t, h, "server-held")
 	*h.clock = manifest.RequestedReleaseAt.Add(time.Hour)
 	if w := h.key(manifest.ID); w.Code != 404 || strings.Contains(w.Body.String(), `"key":`) {
 		t.Fatalf("draft key: %d %s", w.Code, w.Body)
 	}
-	*h.clock = manifest.CreatedAt
+}
+
+func TestCapsuleKeyHTTPUsesExactReleaseBoundary(t *testing.T) {
+	h := newCapsuleHTTP(t)
+	manifest := createHTTPCapsule(t, h, "server-held")
 	if w := h.publish(manifest.ID); w.Code != 200 || strings.Contains(w.Body.String(), `"object":`) || strings.Contains(w.Body.String(), `"key":`) {
 		t.Fatalf("publish: %d %s", w.Code, w.Body)
 	}
