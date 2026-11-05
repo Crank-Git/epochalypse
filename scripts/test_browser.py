@@ -15,7 +15,10 @@ class OwnerBrowserTests(unittest.TestCase):
     def test_dashboard_waits_for_delayed_styles_in_chromium(self):
         self.run_browser(delay_styles=True)
 
-    def run_browser(self, *, delay_styles):
+    def test_countdown_restores_page_focus_in_chromium(self):
+        self.run_browser(delay_styles=False, background_countdown=True)
+
+    def run_browser(self, *, delay_styles, background_countdown=False):
         Path(".test-artifacts").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir=".test-artifacts") as temporary:
             directory = Path(temporary).resolve()
@@ -25,8 +28,52 @@ class OwnerBrowserTests(unittest.TestCase):
             subprocess.run(["go", "build", "-cover", "-coverpkg=github.com/Crank-Git/epochalypse/...", "-o", str(directory / "epochalypse"), "./cmd/epochalypse"], env=env, check=True, timeout=120)
             subprocess.run(["go", "test", "-c", "-o", str(directory / "capsule-fixture"), "./internal/service"], env=env, check=True, timeout=120)
             mounts = self.delayed_style_mount(directory) if delay_styles else []
+            if background_countdown:
+                mounts.extend(self.background_countdown_mount(directory))
             subprocess.run(["docker", "run", "--rm", "--init", "--network", "none", "--shm-size", "512m", "--mount", f"type=bind,src={Path.cwd()},dst=/work,readonly", "--mount", f"type=bind,src={directory},dst=/state", *mounts, BROWSER_IMAGE, "sh", "-c", 'node /work/scripts/container_owner.mjs; result=$?; chmod -R a+rwX /state; exit "$result"'], check=True, timeout=120)
             subprocess.run(["go", "tool", "covdata", "textfmt", f"-i={directory / 'coverage'}", "-o=.test-artifacts/browser.out"], check=True, timeout=20)
+
+    def background_countdown_mount(self, directory):
+        (directory / "public_countdown_original.mjs").write_text(Path("scripts/public_countdown_browser.mjs").read_text())
+        script = directory / "public_countdown_browser.mjs"
+        script.write_text("""import assert from 'node:assert/strict';
+import {checkPublicCountdown as original} from '/state/public_countdown_original.mjs';
+
+export async function checkPublicCountdown(call, evaluate, waitFor, origin, record) {
+  let targetId;
+  let unavailable = false;
+  const backgroundAfterLoad = async expression => {
+    await waitFor(expression);
+    const remaining = await evaluate("document.querySelector('#remaining').textContent");
+    if (remaining === 'Time unavailable.') unavailable = true;
+    if (targetId || !unavailable || remaining !== '10 whole seconds remain.') return;
+    await waitFor("document.readyState === 'complete' && document.querySelector('#sync-time').disabled === false");
+    ({targetId} = await call('Target.createTarget', {url: 'about:blank', newWindow: true}));
+    await call('Target.activateTarget', {targetId});
+    await waitFor('document.hasFocus() === false');
+    assert.equal(await evaluate('document.visibilityState'), 'visible');
+    await evaluate("document.querySelector('#sync-time').focus()");
+    assert.equal(await evaluate("document.activeElement.id"), 'sync-time');
+    assert.equal(await evaluate("document.querySelector('#sync-time').matches(':focus')"), false);
+    assert.equal(await evaluate("getComputedStyle(document.querySelector('#sync-time')).outlineStyle"), 'none');
+    console.log('COUNTDOWN_BACKGROUND_FOCUS', 'activeElement alone does not establish page focus');
+  };
+  const keyboardCall = async (method, params) => {
+    if (method === 'Input.dispatchKeyEvent') {
+      assert.equal(await evaluate('document.hasFocus()'), true, 'Keyboard input requires page focus');
+      assert.equal(await evaluate("document.querySelector('#sync-time').disabled"), false);
+    }
+    return call(method, params);
+  };
+  try {
+    await original(keyboardCall, evaluate, backgroundAfterLoad, origin, record);
+    assert.ok(targetId, 'The regression activates a second window before the keyboard check');
+  } finally {
+    if (targetId) await call('Target.closeTarget', {targetId});
+  }
+}
+""")
+        return ["--mount", f"type=bind,src={script},dst=/work/scripts/public_countdown_browser.mjs,readonly"]
 
     def delayed_style_mount(self, directory):
         source = Path("scripts/owner_browser.mjs").read_text()

@@ -55,12 +55,19 @@ export async function checkPublicCountdown(call, evaluate, waitFor, origin, reco
   await evaluate("fetch = async () => new Response('', {status:404}); document.querySelector('#sync-time').click()");
   await waitFor("document.querySelector('#sync-time').disabled === false");
   assert.equal(await evaluate("document.querySelector('#remaining').textContent"), 'Time unavailable.');
-  await evaluate("fetch = async () => Response.json(countdownFixture); document.dispatchEvent(new Event('visibilitychange'))");
+  await evaluate("fetch = async () => { countdownReads++; return Response.json(countdownFixture); }; document.dispatchEvent(new Event('visibilitychange'))");
   await waitFor("document.querySelector('#remaining').textContent === '10 whole seconds remain.'");
+  // An active element can exist while another window has page focus.
+  await call('Page.bringToFront');
+  await waitFor('document.hasFocus() === true');
+  await waitFor("document.querySelector('#sync-time').disabled === false");
+  const readsBeforeKeyboard = await evaluate('countdownReads');
   await evaluate("document.querySelector('#sync-time').focus()");
   await call('Input.dispatchKeyEvent', {type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
   await call('Input.dispatchKeyEvent', {type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
   await waitFor("document.querySelector('#sync-time').disabled === false");
+  assert.equal(await evaluate('countdownReads'), readsBeforeKeyboard + 1, 'Space requests server time');
+  assert.equal(await evaluate("document.querySelector('#sync-time').matches(':focus-visible')"), true);
   assert.equal(await evaluate("getComputedStyle(document.querySelector('#sync-time')).outlineStyle"), 'solid');
   await evaluate('fetch = savedCountdownFetch; Date.now = savedCountdownNow; performance.now = savedPerformanceNow');
   assert.equal(await evaluate("fetch('/events/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa').then(r => r.status)"), 404);
