@@ -16,6 +16,9 @@ type snapshot struct {
 }
 
 func (a *Authority) current(now time.Time) (*snapshot, error) {
+	if a.countdowns != nil {
+		return a.currentCountdowns(now)
+	}
 	revision, err := a.store.Revision()
 	if err != nil {
 		return nil, err
@@ -44,10 +47,35 @@ func (a *Authority) current(now time.Time) (*snapshot, error) {
 	return s, nil
 }
 
+func (a *Authority) currentCountdowns(now time.Time) (*snapshot, error) {
+	records, err := a.countdowns.List()
+	if err != nil {
+		return nil, err
+	}
+	s := &snapshot{revision: int(now.Unix()), zone: a.zone, names: []string{a.zone}, nodes: map[string]map[uint16][]dns.RR{a.zone: {}}}
+	for _, record := range records {
+		// Retained records from a previous zone remain available to owner inspection.
+		if record.Zone != a.zone {
+			continue
+		}
+		txt, sig, _, err := a.countdownSigner.Records(record, now)
+		if err != nil {
+			return nil, err
+		}
+		s.names = append(s.names, record.Name)
+		s.nodes[record.Name] = map[uint16][]dns.RR{dns.TypeTXT: {txt, sig}}
+	}
+	slices.SortFunc(s.names, compareName)
+	if err := a.infrastructure(s, now); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 func (a *Authority) infrastructure(s *snapshot, now time.Time) error {
 	header := dns.Header{Name: a.zone, TTL: 60, Class: dns.ClassINET}
 	soa := &dns.SOA{Hdr: header, Ns: a.nameserver, Mbox: "hostmaster." + a.zone, Serial: uint32(s.revision), Refresh: 60, Retry: 60, Expire: 86400, Minttl: 60} // #nosec G115 -- SOA serials deliberately wrap modulo 2^32.
-	for _, rr := range []dns.RR{a.signer.PublicKey(), &dns.NS{Hdr: header, Ns: a.nameserver}, soa} {
+	for _, rr := range []dns.RR{a.key.PublicKey(), &dns.NS{Hdr: header, Ns: a.nameserver}, soa} {
 		if err := a.addInfrastructure(s, rr, now); err != nil {
 			return err
 		}
@@ -67,7 +95,7 @@ func (a *Authority) infrastructure(s *snapshot, now time.Time) error {
 }
 
 func (a *Authority) addInfrastructure(s *snapshot, rr dns.RR, now time.Time) error {
-	sig, err := a.signer.SignInfrastructure([]dns.RR{rr}, now)
+	sig, err := a.key.SignInfrastructure([]dns.RR{rr}, now)
 	if err != nil {
 		return err
 	}

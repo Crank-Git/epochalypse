@@ -1,23 +1,44 @@
-// Package authority serves public DNSSEC experiments without recursive service.
+// Package authority serves signed window and countdown zones without recursive service.
 package authority
 
 import (
 	"codeberg.org/miekg/dns"
 	"codeberg.org/miekg/dns/dnsutil"
 	"errors"
+	"github.com/Crank-Git/epochalypse/internal/countdown"
 	"github.com/Crank-Git/epochalypse/internal/window"
 	"strings"
 	"sync"
 	"time"
 )
 
-// Authority reads committed windows and serves the experimental zone.
+// Authority reads committed records and serves one signed zone.
 type Authority struct {
 	store            *window.Store
 	signer           *window.Signer
+	key              infrastructureSigner
+	countdowns       *countdown.Store
+	countdownSigner  *countdown.Signer
 	zone, nameserver string
 	mu               sync.Mutex
 	cache            *snapshot
+}
+
+type infrastructureSigner interface {
+	PublicKey() *dns.DNSKEY
+	SignInfrastructure([]dns.RR, time.Time) (*dns.RRSIG, error)
+}
+
+// NewCountdown prepares the separate countdown zone with ordinary DNSSEC infrastructure.
+func NewCountdown(store *countdown.Store, signer *countdown.Signer, nameserver string) (*Authority, error) {
+	if store == nil || signer == nil {
+		return nil, errors.New("configure the countdown store and signer")
+	}
+	zone := signer.PublicKey().Hdr.Name
+	if err := ValidateNameServer(zone, nameserver); err != nil {
+		return nil, err
+	}
+	return &Authority{countdowns: store, countdownSigner: signer, key: signer, zone: zone, nameserver: nameserver}, nil
 }
 
 // New prepares an authority with an explicit nameserver outside the experiment.
@@ -29,7 +50,7 @@ func New(store *window.Store, signer *window.Signer, nameserver string) (*Author
 	if err := ValidateNameServer(zone, nameserver); err != nil {
 		return nil, err
 	}
-	return &Authority{store: store, signer: signer, zone: zone, nameserver: nameserver}, nil
+	return &Authority{store: store, signer: signer, key: signer, zone: zone, nameserver: nameserver}, nil
 }
 
 // ValidateNameServer requires an explicit canonical hostname outside the experimental zone.
@@ -121,6 +142,6 @@ type Metadata struct {
 
 // Metadata returns public key material for an anchor or the delegating parent.
 func (a *Authority) Metadata() Metadata {
-	key := a.signer.PublicKey()
+	key := a.key.PublicKey()
 	return Metadata{Zone: a.zone, NameServer: a.nameserver, DNSKEY: key, ParentDS: key.ToDS(dns.SHA256)}
 }
