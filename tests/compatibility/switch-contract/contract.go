@@ -287,6 +287,9 @@ func transition(s Snapshot, action string, durable bool, fresh bool) (Snapshot, 
 	if !durable {
 		return s, false, errors.New("durable commit is absent")
 	}
+	if s.Generation == math.MaxUint64 {
+		return s, false, errors.New("durable generation is exhausted")
+	}
 	n, err := successor(s, action)
 	if err != nil {
 		return s, false, err

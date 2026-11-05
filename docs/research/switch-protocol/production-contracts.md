@@ -147,7 +147,8 @@ Compare the derived state with the journal metadata and the requested switch con
 Any mismatch quarantines the journal before retry or receipt reconciliation.
 The fixture changes each state field independently to check this association.
 
-An increasing sequence identifies one immutable request. Same-sequence different bytes represent a conflict.
+An increasing check-in sequence identifies one immutable renewal request. Same-sequence different renewal bytes represent a conflict.
+Prepare and arm advance phase for the same initial state; they do not create a second renewal at that sequence.
 An exact retry can return the original durable receipt only while the clock and lifecycle still permit it.
 It creates no new acceptance or later deadline. Old sequences never regain authority.
 Before confirmation, persist three matching receipt envelopes for the exact issued request and enrollment.
@@ -263,6 +264,9 @@ Only three matching durable receipts confirm renewal; two public shares reconstr
 Released-share count follows key and agent identity across sequences, restart, and later histories.
 
 Cancellation stops future renewal attempts. A signed cancel can durably freeze renewal at each reached agent.
+Cancel binds the current accepted sequence and complete state in its separate signed operation domain.
+An agent rejects cancel for a different accepted state. A repeated cancel creates no new authority.
+After an uncertain renewal, the client reconciles states before it can obtain three matching cancellation receipts.
 It does not destroy accepted release authority, ciphertext, or shares.
 Three matching stopped-renewal receipts confirm that agents reject further renewals; fewer receipts report uncertain cancellation.
 In-flight requests can arrive before cancel in the serialized order.
@@ -322,6 +326,7 @@ Use `--config ../../../.golangci.yml ./...` and a worktree-local `GOLANGCI_LINT_
 The 2026-11-05 check reports passing race tests, vet, build, and zero lint issues.
 First-party compatibility helper coverage is 99.4 percent.
 The phase-conflict test also fails before the armed-phase check and passes after it.
+The exhausted-generation test fails before the overflow guard and passes after it.
 
 The module has no network requirement after its pinned dependencies enter the cache.
 The initial behavioral tests fail against the committed permissive stubs in `fca53bf`.

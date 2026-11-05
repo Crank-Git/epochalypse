@@ -253,6 +253,13 @@ func TestCancelAndReplacementPreserveOldAuthority(t *testing.T) {
 	}
 }
 
+func TestRejectsExhaustedGeneration(t *testing.T) {
+	s := Snapshot{Generation: ^uint64(0)}
+	if got, out, err := transition(s, "prepare", true, true); err == nil || out || got != s {
+		t.Fatal("generation wraps before output")
+	}
+}
+
 func TestRequiresThreeMatchingAuthenticatedReceipts(t *testing.T) {
 	m, k, keys := fixture()
 	agents := [3]string{"agent-a", "agent-b", "agent-c"}
