@@ -47,6 +47,41 @@ type cancelPreparedReader struct {
 	cancel context.CancelFunc
 }
 
+type cancelPreparedTransaction struct {
+	context.Context
+	cancel context.CancelFunc
+	checks int
+}
+
+func (c *cancelPreparedTransaction) Err() error {
+	err := c.Context.Err()
+	c.checks++
+	if c.checks == 2 {
+		// Cancellation follows the transaction's entry check.
+		c.cancel()
+	}
+	return err
+}
+
+func TestPreparedImportRollsBackCancellationDuringTransaction(t *testing.T) {
+	local := capsuleStore(t, 32)
+	record, err := local.Create(capsuleInput(Tlock), strings.NewReader("private text"), capsuleNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := json.Marshal(record)
+	remote := capsuleStore(t, 32)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	boundary := &cancelPreparedTransaction{Context: ctx, cancel: cancel}
+	if _, err := remote.ImportPrepared(boundary, bytes.NewReader(data), capsuleNow); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation during transaction: %v", err)
+	}
+	if records, keys := capsuleCounts(t, remote); records != 0 || keys != 0 {
+		t.Fatal("canceled transaction retains partial state")
+	}
+}
+
 func (r cancelPreparedReader) Read(p []byte) (int, error) {
 	n, err := r.reader.Read(p)
 	r.cancel()
