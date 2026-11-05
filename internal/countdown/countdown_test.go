@@ -15,6 +15,12 @@ import (
 
 var testNow = time.Date(2026, 11, 5, 12, 0, 0, 500000000, time.UTC)
 
+func TestSnapshotValidationRejectsMissingTransaction(t *testing.T) {
+	if err := ValidateSnapshot(nil); err == nil {
+		t.Fatal("snapshot accepts a missing transaction")
+	}
+}
+
 func validInput() Input {
 	return Input{Title: "Synthetic event", EventAt: testNow.Add(time.Hour).Truncate(time.Second).Format(time.RFC3339)}
 }
@@ -38,6 +44,22 @@ func TestInputRejectsUnsupportedEventTimes(t *testing.T) {
 	in.EventAt = testNow.Add(MaxTTL * time.Second).Truncate(time.Second).Format(time.RFC3339)
 	if _, err := in.Validate(testNow); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSnapshotValidationRejectsMalformedCountdown(t *testing.T) {
+	s, err := Open(t.TempDir(), installation.DefaultLimits(), "countdown.example.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Close() }()
+	if err := s.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket([]byte(installation.CountdownsBucket)).Put([]byte("bad"), []byte(`{"version":2}`))
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.View(ValidateSnapshot); err == nil {
+		t.Fatal("snapshot accepts a malformed countdown")
 	}
 }
 
