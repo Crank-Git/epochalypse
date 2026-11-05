@@ -19,6 +19,7 @@ type ModelAgent struct {
 	tolerance uint64
 	unsafe    bool
 	released  bool
+	utcError  uint64
 }
 
 // NewModelAgent returns a local model with a declared clock tolerance in seconds.
@@ -64,6 +65,14 @@ func (a *ModelAgent) CheckIn(next State, reading ClockReading) error {
 // Unsafe clocks block both check-in and new release evidence until external review.
 // A later check-in cannot clear the release latch.
 func (a *ModelAgent) ReleaseEligible(reading ClockReading) (bool, error) {
+	if a.utcError != 0 {
+		lower, err := subtractSeconds(reading.UTC, a.utcError)
+		if err != nil {
+			a.unsafe = true
+			return false, err
+		}
+		reading.UTC = lower
+	}
 	if err := a.advance(reading); err != nil {
 		return false, err
 	}
