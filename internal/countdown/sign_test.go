@@ -62,6 +62,38 @@ func TestCountdownSignerPreservesEventAcrossCompletionAndRenewal(t *testing.T) {
 	}
 }
 
+func TestCountdownSignerAcceptsZeroKeyTag(t *testing.T) {
+	zone := "countdown.example."
+	path := filepath.Join(t.TempDir(), "zero.private")
+	for _, extension := range []string{"private", "key"} {
+		data, err := os.ReadFile("../../testdata/dnssec/zero." + extension) // #nosec G304 -- Both extensions select the tracked synthetic fixture.
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := strings.ReplaceAll(string(data), "windows.example.", zone)
+		if err := os.WriteFile(strings.TrimSuffix(path, ".private")+"."+extension, []byte(text), 0600); err != nil { // #nosec G703 -- The test controls both temporary paths.
+			t.Fatal(err)
+		}
+	}
+	s, err := LoadSigner(zone, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := Record{Version: 1, ID: strings.Repeat("a", 32), Title: "Synthetic event", CreatedAt: testNow.Truncate(time.Second), EventAt: testNow.Add(time.Hour).Truncate(time.Second), Zone: zone, Name: "c" + strings.Repeat("a", 32) + "." + zone}
+	for _, now := range []time.Time{testNow, r.EventAt, r.EventAt.Add(72 * time.Hour)} {
+		txt, sig, key, err := s.Records(r, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if key.KeyTag() != 0 || sig.KeyTag != 0 || txt.String() != r.TXT().String() || !sig.ValidPeriod(now) {
+			t.Fatal("zero-tag signature changes the event or ordinary validity")
+		}
+		if err := sig.Verify(key, []dns.RR{txt}, &dns.SignOption{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestCountdownSignerRejectsInvalidMetadataAndKeyReferences(t *testing.T) {
 	zone := "countdown.example."
 	path := countdownKey(t, zone)

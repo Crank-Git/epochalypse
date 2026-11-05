@@ -64,7 +64,7 @@ func countdownResponse(t *testing.T, address string, record countdown.Record, au
 		t.Fatalf("countdown answer: %s", reply)
 	}
 	txt, sig := reply.Answer[0].(*dns.TXT), reply.Answer[1].(*dns.RRSIG)
-	if txt.Txt[0] != record.TXT().Txt[0] || sig.OrigTTL != countdown.MaxTTL {
+	if txt.Txt[0] != record.TXT().Txt[0] || sig.OrigTTL != countdown.MaxTTL || sig.KeyTag != 0 {
 		t.Fatalf("absolute event or Original TTL changes: %s", reply)
 	}
 	if authoritative && !reply.Authoritative {

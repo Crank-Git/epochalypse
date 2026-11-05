@@ -11,6 +11,7 @@ Supply an algorithm 13 BIND key pair for a dedicated experimental subdomain.
 The `.private` file and its sibling `.key` file have the same basename.
 The private file requires owner-only access. Use private-key format v1.3 for new files.
 ADR 0006 records the key and time policies.
+The signer accepts a valid key tag of zero. ADR 0011 records the local DNS library patch.
 
 Set `EPOCHALYPSE_KEY_FILE` to the private file path.
 Set the zone in the version 1 configuration:

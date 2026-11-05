@@ -19,6 +19,7 @@ import (
 type Signer struct {
 	key     *dns.DNSKEY
 	private crypto.Signer
+	keyTag  uint16
 	labOnly bool
 }
 
@@ -49,11 +50,12 @@ func LoadSigner(zone, privatePath string) (*Signer, error) {
 		return nil, errors.New("invalid private DNSSEC key")
 	}
 	p, ok := material.(*ecdsa.PrivateKey)
-	if !ok || !matchingKey(p) || key.KeyTag() == 0 {
+	if !ok || !matchingKey(p) {
 		return nil, errors.New("private DNSSEC key does not match the public DNSKEY")
 	}
 	key.Hdr.TTL = 60
-	return &Signer{key: key, private: p, labOnly: strings.Contains(string(private), "epochalypse-lab-only")}, nil
+	// KeyTag mutates the library cache, including when its computed value is zero.
+	return &Signer{key: key, private: p, keyTag: key.KeyTag(), labOnly: strings.Contains(string(private), "epochalypse-lab-only")}, nil
 }
 
 // LabOnly reports an explicit synthetic-key marker without exposing key material.
@@ -156,7 +158,7 @@ func (s *Signer) create(id string, in Input, now time.Time) (Window, error) {
 		Name: "w" + id + "." + s.key.Hdr.Name, Inception: inception, Expiration: expiration, DNSKEY: s.key.String()}
 	txt := makeTXT(w.Name, in.Content)
 	// The experiment stores exactly one signature with the owner's boundaries.
-	sig := dns.NewRRSIG(w.Zone, s.key.Algorithm, s.key.KeyTag(), uint32(inception.Unix()), uint32(expiration.Unix())) // #nosec G115 -- Validate bounds both timestamps.
+	sig := dns.NewRRSIG(w.Zone, s.key.Algorithm, s.keyTag, uint32(inception.Unix()), uint32(expiration.Unix())) // #nosec G115 -- Validate bounds both timestamps.
 	if err := sig.Sign(s.private, []dns.RR{txt}, &dns.SignOption{}); err != nil {
 		return Window{}, fmt.Errorf("sign public TXT: %w", err)
 	}

@@ -27,7 +27,7 @@ func (s *Signer) SignInfrastructure(records []dns.RR, now time.Time) (*dns.RRSIG
 	}
 	hour := seconds / 3600 * 3600
 	inception, expiration := max(int64(0), hour-300), min(int64(math.MaxUint32), hour+86400)
-	sig := dns.NewRRSIG(s.key.Hdr.Name, s.key.Algorithm, s.key.KeyTag(), uint32(inception), uint32(expiration)) // #nosec G115 -- Both values are bounded to uint32 above.
+	sig := dns.NewRRSIG(s.key.Hdr.Name, s.key.Algorithm, s.keyTag, uint32(inception), uint32(expiration)) // #nosec G115 -- Both values are bounded to uint32 above.
 	if err := sig.Sign(s.private, records, &dns.SignOption{}); err != nil {
 		return nil, fmt.Errorf("sign infrastructure RRset: %w", err)
 	}

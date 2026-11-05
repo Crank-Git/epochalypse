@@ -1,0 +1,5 @@
+all:
+	rpmbuild --define "%source_date_epoch_from_changelog 0" -bb atomdns.spec && rm -rf ~/rpmbuild
+
+clean:
+	git clean -f -d

@@ -1,6 +1,7 @@
 FROM golang:1.27.3-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS build
 WORKDIR /src
 COPY go.mod go.sum ./
+COPY third_party ./third_party
 ENV GOCACHE=/src/var/cache/go-build GOMODCACHE=/src/var/cache/go-mod GOPATH=/src/var/go GOTMPDIR=/src/var/tmp
 RUN mkdir -p /src/var/tmp && go mod download
 COPY cmd ./cmd
