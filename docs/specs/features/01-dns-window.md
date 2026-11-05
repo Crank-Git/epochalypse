@@ -81,7 +81,7 @@ Protocol sources: [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034.html), secti
 [RFC 8914](https://www.rfc-editor.org/rfc/rfc8914.html), code 8.
 Selected adapter: [codeberg.org/miekg/dns v0.6.128](https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128).
 The isolated compatibility report retains miekg/dns v1.1.73 as a comparison dependency.
-ADR 0004 records the verified selection. Production integration remains separate.
+ADR 0004 records the verified selection. docs/windows.md defines the implemented adapter contract.
 Resolver source: [Unbound 1.26.2 manual](https://unbound.docs.nlnetlabs.nl/en/latest/manpages/unbound.conf.html).
 The foundation pins actual resolver images after it verifies their version-specific manuals.
 

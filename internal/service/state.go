@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/Crank-Git/epochalypse/internal/authority"
+	"github.com/Crank-Git/epochalypse/internal/capsule"
+	"github.com/Crank-Git/epochalypse/internal/installation"
 	"github.com/Crank-Git/epochalypse/internal/owner"
 	"github.com/Crank-Git/epochalypse/internal/resolver"
 	"github.com/Crank-Git/epochalypse/internal/window"
@@ -13,6 +15,9 @@ import (
 
 type mainState struct {
 	owner         *owner.Store
+	content       *installation.Store
+	capsules      *capsule.Store
+	capsuleSlots  chan struct{}
 	windows       *window.Store
 	authority     *authority.Authority
 	jobs          *resolver.Jobs
@@ -25,7 +30,17 @@ func openMainState(config Config) (*mainState, error) {
 	if err != nil {
 		return nil, err
 	}
-	state := &mainState{owner: owners, directSlots: make(chan struct{}, 4)}
+	state := &mainState{owner: owners, directSlots: make(chan struct{}, 4), capsuleSlots: make(chan struct{}, 4)}
+	state.content, err = installation.Open(config.StateDir, config.windowLimits())
+	if err != nil {
+		state.close()
+		return nil, err
+	}
+	state.capsules, err = capsule.Attach(state.content, config.capsuleLimit())
+	if err != nil {
+		state.close()
+		return nil, err
+	}
 	if config.Zone == "" {
 		return state, nil
 	}
@@ -38,7 +53,7 @@ func openMainState(config Config) (*mainState, error) {
 		state.close()
 		return nil, errors.New("production authority rejects an explicit lab key")
 	}
-	state.windows, err = window.OpenWithLimits(config.StateDir, signer, config.windowLimits())
+	state.windows, err = window.Attach(state.content, signer)
 	if err != nil {
 		state.close()
 		return nil, err
@@ -69,10 +84,18 @@ func (s *mainState) close() {
 	if s.windows != nil {
 		_ = s.windows.Close()
 	}
+	if s.capsules != nil {
+		_ = s.capsules.Close()
+	}
+	if s.content != nil {
+		_ = s.content.Close()
+	}
 	_ = s.owner.Close()
 }
 
 func (s *mainState) routes(mux *http.ServeMux, lab bool) {
+	api := &capsuleAPI{store: s.capsules, now: func() time.Time { return time.Now().UTC().Truncate(time.Second) }, slots: s.capsuleSlots, timeout: 10 * time.Second, beacon: capsule.QuicknetRelay()}
+	api.routes(mux, s.owner, lab)
 	s.publicWindowRoutes(mux, lab)
 	s.observationRoutes(mux, lab)
 	mux.Handle("/api/v1/windows", owner.SecureHandler(lab, s.owner.RequireOwner(windowHandler(s.windows, time.Now))))

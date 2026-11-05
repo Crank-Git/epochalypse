@@ -90,6 +90,7 @@ A separate research epic assesses loss of all project-operated servers.
 | CSRF | noun | Cross-site request forgery. | authentication |
 | VPS | noun | Virtual private server. | managed service guarantee |
 | CI | noun | Continuous integration checks. | coverage alone |
+| JWE | noun | JSON Web Encryption compact serialization for authenticated capsule content. | unframed ciphertext |
 | TDD | noun | Test-driven development through fail, pass, and refactor steps. | tests after behavior only |
 | E2E | noun | End-to-end verification through public interfaces. | unit test |
 | create | verb | Make a new entity. | provision when entity creation applies |
@@ -165,12 +166,12 @@ Use `cmd/epochalypse` for the executable and `internal/` for domain modules.
 Separate modules cover authentication, DNS, capsules, switches, agent state, content, and the clock.
 Use injected clocks for deterministic tests. Use monotonic durations for local scheduling, with explicit UTC release boundaries.
 
-Select [codeberg.org/miekg/dns v0.6.128](https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128) after the compatibility spike.
+Use [codeberg.org/miekg/dns v0.6.128](https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128) for the authoritative server and DNS clients.
 Keep [miekg/dns v1.1.73](https://github.com/miekg/dns/tree/v1.1.73) as an isolated comparison dependency.
 The [compatibility report](../research/dns-compatibility.md) records real resolver evidence and API limits.
-ADR 0004 records the choice. Production integration remains separate.
-Use [tlock v1.2.0](https://github.com/drand/tlock/tree/v1.2.0) as the initial compatibility target.
-Verify quicknet configuration explicitly. Legacy examples contain conflicting network references.
+ADR 0004 records the choice. The implemented contracts are in docs/windows.md and docs/observations.md.
+The tlock v1.2.0 compatibility report verifies an explicit quicknet identity.
+Use docs/research/tlock-compatibility.md before production integration; example defaults have no authority.
 Owner state uses bbolt v1.5.0 and Argon2id from golang.org/x/crypto v0.58.0.
 ADR 0003 and docs/owner.md define the verified storage and password contracts.
 The foundation pins the lint tools in its check scripts.
@@ -270,6 +271,9 @@ Use these environment variables for process-level configuration:
 | EPOCHALYPSE_LOG_LEVEL | Set log detail. | info |
 
 Configuration holds the zone name, agent endpoints, failure domains, public keys, beacon chain, and protocol version.
+Configure distinct subdomains and signing-key references for signature-window experiments and countdowns.
+Countdown record names derive from their opaque identifiers under the configured countdown subdomain.
+Return the actual record name in public metadata. The project does not change delegation automatically.
 Private key files require owner-only filesystem access. Configuration contains key references rather than key values.
 Production startup rejects lab keys and insecure public origins.
 Use a small synthetic capsule, switch, countdown, and window as demo records.
@@ -388,6 +392,8 @@ No unanswered product question blocks the approved plan. Technical gates block t
 
 ## Changelog
 
+- 2026-11-04: The owner selects separate DNS subdomains for signature-window experiments and countdowns. Keep delegation operator-controlled. Capsule foundation supplies shared storage before countdown implementation.
+
 - 2026-11-04: Run tlock compatibility research independently of live DNS-window implementation. Keep production capsules gated on DNS completion and the verified compatibility result.
 
 - 2026-11-04: After replacement research and independent review, the owner retains the original guarantee and leaves switch implementation blocked. Continue other features. See ADR 0005.
@@ -452,7 +458,7 @@ The owner approved issue creation on 2026-11-04. Each requirement has at least o
 | FR-owner-6 | [#15](https://github.com/Crank-Git/epochalypse/issues/15) |
 | FR-owner-7 | [#16](https://github.com/Crank-Git/epochalypse/issues/16) |
 | FR-owner-8 | [#16](https://github.com/Crank-Git/epochalypse/issues/16) |
-| FR-capsules-1 | [#18](https://github.com/Crank-Git/epochalypse/issues/18), [#20](https://github.com/Crank-Git/epochalypse/issues/20) |
+| FR-capsules-1 | [#20](https://github.com/Crank-Git/epochalypse/issues/20) |
 | FR-capsules-2 | [#18](https://github.com/Crank-Git/epochalypse/issues/18) |
 | FR-capsules-3 | [#18](https://github.com/Crank-Git/epochalypse/issues/18) |
 | FR-capsules-4 | [#19](https://github.com/Crank-Git/epochalypse/issues/19), [#20](https://github.com/Crank-Git/epochalypse/issues/20) |
@@ -460,7 +466,7 @@ The owner approved issue creation on 2026-11-04. Each requirement has at least o
 | FR-capsules-6 | [#22](https://github.com/Crank-Git/epochalypse/issues/22) |
 | FR-capsules-7 | [#21](https://github.com/Crank-Git/epochalypse/issues/21) |
 | FR-capsules-8 | [#22](https://github.com/Crank-Git/epochalypse/issues/22) |
-| FR-capsules-9 | [#18](https://github.com/Crank-Git/epochalypse/issues/18), [#21](https://github.com/Crank-Git/epochalypse/issues/21) |
+| FR-capsules-9 | [#21](https://github.com/Crank-Git/epochalypse/issues/21) |
 | FR-switch-protocol-1 | [#24](https://github.com/Crank-Git/epochalypse/issues/24) |
 | FR-switch-protocol-2 | [#24](https://github.com/Crank-Git/epochalypse/issues/24) |
 | FR-switch-protocol-3 | [#25](https://github.com/Crank-Git/epochalypse/issues/25) |

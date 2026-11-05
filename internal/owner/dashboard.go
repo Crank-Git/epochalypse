@@ -48,7 +48,7 @@ func (s *Store) Dashboard(limit int) (DashboardSummary, error) {
 	}
 	// Future feature stores supply metadata here after their implementation passes its gates.
 	return DashboardSummary{
-		Capsules:   SummaryList{"not_implemented", "No capsules. Capsule creation is not available yet.", []SummaryItem{}},
+		Capsules:   SummaryList{"available", "Use the capsule controls to create or publish content. This summary does not list retained capsules.", []SummaryItem{}},
 		Switches:   SummaryList{"blocked", "No switches. Switch production use remains blocked by the owner decision.", []SummaryItem{}},
 		Countdowns: SummaryList{"not_implemented", "No countdowns. Countdown creation is not available yet.", []SummaryItem{}},
 		Agents:     SummaryList{"unavailable", "Agent health is unavailable. This dashboard has no verified agent observations.", []SummaryItem{}},

@@ -1,29 +1,18 @@
 package window
 
 import (
-	"errors"
+	"github.com/Crank-Git/epochalypse/internal/installation"
 	bolt "go.etcd.io/bbolt"
 )
 
 // Limits bounds retained windows and observation runs in one installation budget.
-type Limits struct {
-	MaxObjects int
-	MaxBytes   int64
-}
+type Limits = installation.Limits
 
 // ErrQuota identifies a rejected creation that exceeds the retained-state budget.
-var ErrQuota = errors.New("retained state quota exceeded")
+var ErrQuota = installation.ErrQuota
 
 // DefaultLimits returns the installation defaults for retained public documents.
-func DefaultLimits() Limits { return Limits{MaxObjects: 100, MaxBytes: 1 << 30} }
-
-// Validate rejects nonpositive retention limits.
-func (l Limits) Validate() error {
-	if l.MaxObjects <= 0 || l.MaxBytes <= 0 {
-		return errors.New("retention limits must be positive")
-	}
-	return nil
-}
+func DefaultLimits() Limits { return installation.DefaultLimits() }
 
 // OpenWithLimits opens window state with explicit positive retention limits.
 func OpenWithLimits(stateDir string, signer *Signer, limits Limits) (*Store, error) {
@@ -34,32 +23,11 @@ func OpenWithLimits(stateDir string, signer *Signer, limits Limits) (*Store, err
 }
 
 func (s *Store) admits(tx *bolt.Tx, size int) error {
-	l := s.limits
-	used := int64(size)
-	count := 1
-	if used > l.MaxBytes {
-		return ErrQuota
+	if err := tx.Bucket(observationBucket).ForEach(func(key, value []byte) error {
+		_, err := s.runAt(tx, key, value)
+		return err
+	}); err != nil {
+		return err
 	}
-	for _, name := range [][]byte{windowBucket, observationBucket} {
-		err := tx.Bucket(name).ForEach(func(key, value []byte) error {
-			count++
-			retained := len(value)
-			if string(name) == string(observationBucket) {
-				doc, err := s.runAt(tx, key, value)
-				if err != nil {
-					return err
-				}
-				retained = max(len(value), doc.ReservedBytes)
-			}
-			used += int64(retained)
-			if used > l.MaxBytes || count > l.MaxObjects {
-				return ErrQuota
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return s.db.Admit(tx, 1, int64(size))
 }

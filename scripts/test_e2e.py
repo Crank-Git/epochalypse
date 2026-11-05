@@ -32,8 +32,61 @@ class CLITests(unittest.TestCase):
             self.assertEqual(json.loads(result.stdout)["status"], "indeterminate")
             self.assertEqual(json.loads(result.stdout)["trust_source"], "none")
             self.check_tokens(binary, env, Path(directory))
+            self.check_capsules(binary, env, Path(directory))
             Path(".test-artifacts").mkdir(exist_ok=True)
             subprocess.run(["go", "tool", "covdata", "textfmt", f"-i={coverdir}", "-o=.test-artifacts/cli.out"], check=True)
+
+    def check_capsules(self, binary, env, directory):
+        state = directory / "capsules"
+        content = directory / "synthetic.bin"
+        content.write_bytes(bytes([0, 255, 128, 1]))
+        args = [binary, "capsule", "create", "--state-dir", str(state), "--mode", "server-held", "--kind", "file", "--content-file", str(content), "--release-at", "2099-01-01T00:00:00Z", "--plaintext-limit", "4"]
+        created = subprocess.run(args, env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(created.returncode, 0, created.stderr)
+        draft = json.loads(created.stdout)
+        self.assertIsNone(draft["published_at"])
+        self.assertEqual(draft["plaintext_bytes"], 4)
+        self.assertNotIn("object", draft)
+        self.assertNotIn("key", draft)
+        published = subprocess.run([binary, "capsule", "publish", "--state-dir", str(state), "--id", draft["id"]], env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(published.returncode, 0, published.stderr)
+        self.assertEqual(json.loads(published.stdout)["effective_release_at"], "2099-01-01T00:00:00Z")
+        bundle = directory / "held-bundle.json"
+        exported = subprocess.run([binary, "capsule", "export", "--state-dir", str(state), "--id", draft["id"], "--output", str(bundle)], env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(exported.returncode, 0, exported.stderr)
+        self.assertIn("ciphertext-only", exported.stdout)
+        self.assertNotIn("released_key", json.loads(bundle.read_text()))
+        canceled = subprocess.run([binary, "capsule", "delete", "--state-dir", str(state), "--id", draft["id"], "--confirm", "yes"], env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(canceled.returncode, 2)
+        deleted = subprocess.run([binary, "capsule", "delete", "--state-dir", str(state), "--id", draft["id"], "--confirm", draft["id"]], env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(deleted.returncode, 0, deleted.stderr)
+        self.assertIn("Public copies", deleted.stdout)
+        output = directory / "unreleased.bin"
+        opened = subprocess.run([binary, "capsule", "open", "--bundle", str(bundle), "--output", str(output)], env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(opened.returncode, 1)
+        self.assertFalse(output.exists())
+        public_args = list(args)
+        public_args[public_args.index("server-held")] = "public"
+        public_created = subprocess.run(public_args, env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(public_created.returncode, 0, public_created.stderr)
+        public_id = json.loads(public_created.stdout)["id"]
+        for action in ("publish", "export", "delete"):
+            command = [binary, "capsule", action, "--state-dir", str(state), "--id", public_id]
+            if action == "export":
+                command += ["--output", str(directory / "public-bundle.json")]
+            if action == "delete":
+                command += ["--confirm", public_id]
+            result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        recovered = directory / "recovered.bin"
+        opened = subprocess.run([binary, "capsule", "open", "--bundle", str(directory / "public-bundle.json"), "--output", str(recovered)], env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(opened.returncode, 0, opened.stderr)
+        self.assertEqual(recovered.read_bytes(), bytes([0, 255, 128, 1]))
+        content.write_bytes(b"12345")
+        rejected = subprocess.run(args, env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(rejected.returncode, 1)
+        self.assertEqual(rejected.stdout, "")
+        self.assertIn("exceeds its limit", rejected.stderr)
 
     def check_service_processes(self, binary, env, directory):
         config = directory / "local.json"

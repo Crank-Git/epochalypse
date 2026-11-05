@@ -22,6 +22,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return runToken(args, stdout, stderr)
 		case "window":
 			return runWindow(args, stdout, stderr)
+		case "capsule":
+			return runCapsule(args, stdout, stderr)
 		case "lab":
 			return runLab(args, stdout, stderr)
 		case "status", "demo", "clean-demo":
@@ -38,7 +40,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		}
 		return 2
 	}
-	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  help        Show command help\n  owner       Create or recover the local owner\n  token       Create a scoped token with host access\n  window      Create or inspect signed windows offline\n  lab         Verify an explicit public DNSSEC anchor\n  server      Start the web server\n  dns         Start the local DNS scaffold\n  agent       Start a local agent scaffold\n  status      Verify a deployed commit\n  demo        Create synthetic fixtures\n  clean-demo  Remove the explicit demo namespace"); err != nil {
+	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  help        Show command help\n  owner       Create or recover the local owner\n  token       Create a scoped token with host access\n  window      Create or inspect signed windows offline\n  capsule     Create or publish local capsule content\n  lab         Verify an explicit public DNSSEC anchor\n  server      Start the web server\n  dns         Start the local DNS scaffold\n  agent       Start a local agent scaffold\n  status      Verify a deployed commit\n  demo        Create synthetic fixtures\n  clean-demo  Remove the explicit demo namespace"); err != nil {
 		return 1
 	}
 	return 0
@@ -68,8 +70,8 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 	flags.StringVar(&config.KeyFile, "key-file", os.Getenv("EPOCHALYPSE_KEY_FILE"), "Protected BIND private key file")
 	flags.StringVar(&config.NameServer, "nameserver", "", "Canonical nameserver outside the experimental zone")
 	flags.StringVar(&config.PublicURL, "public-url", os.Getenv("EPOCHALYPSE_PUBLIC_URL"), "Public HTTPS origin outside the experimental zone")
-	maxObjects := flags.String("max-objects", envDefault("EPOCHALYPSE_MAX_OBJECTS", "100"), "Maximum retained windows and observation runs")
-	maxBytes := flags.String("quota-bytes", envDefault("EPOCHALYPSE_QUOTA_BYTES", "1073741824"), "Maximum retained JSON bytes and pending reservations")
+	maxObjects := flags.String("max-objects", envDefault("EPOCHALYPSE_MAX_OBJECTS", "100"), "Maximum retained content objects")
+	maxBytes := flags.String("quota-bytes", envDefault("EPOCHALYPSE_QUOTA_BYTES", "1073741824"), "Maximum retained content bytes and pending reservations")
 	if err := flags.Parse(args[1:]); err != nil {
 		return 2
 	}
@@ -98,6 +100,7 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 		config.PublicURL = settings.PublicURL
 	}
 	config.Resolvers = settings.Resolvers
+	config.CapsulePlaintextLimit = settings.CapsulePlaintextLimit
 	if err := service.Serve(ctx, config, func(service.Addresses) {}); err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1

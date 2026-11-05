@@ -58,6 +58,14 @@ The dashboard checks verify the empty feature lists, the switch production block
 The browser checks the section links with real Tab and Enter key events.
 The container has no external network access. The server listens on loopback inside the container.
 The test mounts the repository read-only and its own temporary directory with write access.
+The browser fixture keeps databases on the container's Linux filesystem. Coverage files and result artifacts use the writable mount.
+The public capsule flow uses a separate test executable with a fake clock and the signed quicknet round 1000 fixture.
+Its control routes exist only in the test executable. The production server exposes no clock or beacon override.
+Chromium checks all three modes before and after release, delayed availability, failed authentication, opaque attachments, and escaped text.
+It also checks the preview byte limit, keyboard focus, accessible status, and narrow viewport layout.
+The fixture performs no external network request. The container retains its disabled external network.
+Docker Desktop bind mounts can permit a second database opener despite an active advisory lock.
+The browser check retains its cross-process lock assertion on the Linux filesystem.
 The container removes itself after the test. The test stops its server and browser.
 The image runs trusted test code as root, as the official Playwright test guidance permits.
 Native macOS Chrome exits with SIGABRT in the current restricted environment.

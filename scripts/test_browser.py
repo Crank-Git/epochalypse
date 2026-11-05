@@ -17,6 +17,7 @@ class OwnerBrowserTests(unittest.TestCase):
             self.assertIn(architecture, ("amd64", "arm64"))
             env = dict(os.environ, GOOS="linux", GOARCH=architecture, CGO_ENABLED="0")
             subprocess.run(["go", "build", "-cover", "-coverpkg=github.com/Crank-Git/epochalypse/...", "-o", str(directory / "epochalypse"), "./cmd/epochalypse"], env=env, check=True, timeout=120)
+            subprocess.run(["go", "test", "-c", "-o", str(directory / "capsule-fixture"), "./internal/service"], env=env, check=True, timeout=120)
             subprocess.run(["docker", "run", "--rm", "--init", "--network", "none", "--shm-size", "512m", "--mount", f"type=bind,src={Path.cwd()},dst=/work,readonly", "--mount", f"type=bind,src={directory},dst=/state", BROWSER_IMAGE, "sh", "-c", 'node /work/scripts/container_owner.mjs; result=$?; chmod -R a+rwX /state; exit "$result"'], check=True, timeout=120)
             subprocess.run(["go", "tool", "covdata", "textfmt", f"-i={directory / 'coverage'}", "-o=.test-artifacts/browser.out"], check=True, timeout=20)
 

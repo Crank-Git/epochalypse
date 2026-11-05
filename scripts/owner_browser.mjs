@@ -3,8 +3,10 @@ import {spawn} from 'node:child_process';
 import {readFile, writeFile} from 'node:fs/promises';
 import {setTimeout as pause} from 'node:timers/promises';
 import {checkPublicWindow} from './public_window_browser.mjs';
+import {checkCapsules} from './capsule_browser.mjs';
+import {checkPublicCapsules} from './public_capsule_browser.mjs';
 
-const [chrome, profile, origin, windowResult] = process.argv.slice(2);
+const [chrome, profile, origin, windowResult, preparedPath] = process.argv.slice(2);
 const sandbox = process.getuid?.() === 0 ? ['--no-sandbox'] : [];
 const browser = spawn(chrome, ['--headless', '--no-first-run', '--no-default-browser-check', '--disable-breakpad', '--disable-crash-reporter',
   ...sandbox, `--user-data-dir=${profile}`, '--remote-debugging-port=0', 'about:blank'], {stdio: ['ignore', 'ignore', 'pipe']});
@@ -52,6 +54,7 @@ try {
     }
     throw new Error(`Page assertion times out: ${expression}`);
   };
+  await checkPublicCapsules(call, evaluate, waitFor, 'http://127.0.0.1:8081');
   await call('Page.navigate', {url: `${origin}/owner`});
   await waitFor("document.querySelector('h1')?.textContent === 'Owner sign-in'");
   assert.equal(await evaluate("document.querySelector('label').htmlFor"), 'password');
@@ -93,6 +96,7 @@ try {
   assert.equal(await evaluate("document.querySelector('#agents').textContent.includes('no verified agent observations')"), true);
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.sections')).display"), 'grid');
   assert.equal(await evaluate("document.querySelector('nav').getAttribute('aria-label')"), 'Dashboard sections');
+  await checkCapsules(call, evaluate, waitFor, origin, await readFile(preparedPath, 'utf8'));
   await evaluate("document.querySelector('nav a').focus()");
   await call('Input.dispatchKeyEvent', {type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9});
   await call('Input.dispatchKeyEvent', {type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9});
