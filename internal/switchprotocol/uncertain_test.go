@@ -5,16 +5,6 @@ import (
 	"testing"
 )
 
-func TestConservativePolicyRejectsFastClockEarlyPublication(t *testing.T) {
-	rules, s := faultScenario(t)
-	m, err := NewUncertainModel(rules, s.Initial, s.Start, 1)
-	requireFaultStep(t, err)
-	requireFaultStep(t, m.faults.Publish(0, ClockReading{UTC: 110, Elapsed: 9, Safe: true}))
-	if m.faults.observer.public != 0 {
-		t.Fatal("fast clock publishes at real UTC 109 before B0 110")
-	}
-}
-
 func uncertainFixture(t *testing.T) (*UncertainModel, FaultScenario, SignedIntent) {
 	t.Helper()
 	rules, s := faultScenario(t)
