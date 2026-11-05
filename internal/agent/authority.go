@@ -51,6 +51,7 @@ type State struct {
 	PossibleDisclosure bool
 	UnsafeClock        bool
 	AcceptedRequest    []byte
+	PrepareRequest     []byte
 	Enrollment         []byte
 	Ciphertext         []byte
 	Manifest           []byte
@@ -743,7 +744,7 @@ func checkpointChecksum(saved checkpoint) (string, error) {
 func equalAuthorityState(left, right State) bool {
 	return left.Generation == right.Generation && left.Phase == right.Phase &&
 		left.PossibleDisclosure == right.PossibleDisclosure && left.UnsafeClock == right.UnsafeClock &&
-		bytes.Equal(left.AcceptedRequest, right.AcceptedRequest) && bytes.Equal(left.Enrollment, right.Enrollment) &&
+		bytes.Equal(left.AcceptedRequest, right.AcceptedRequest) && bytes.Equal(left.PrepareRequest, right.PrepareRequest) && bytes.Equal(left.Enrollment, right.Enrollment) &&
 		bytes.Equal(left.Ciphertext, right.Ciphertext) && bytes.Equal(left.Manifest, right.Manifest) &&
 		bytes.Equal(left.EncryptedShare, right.EncryptedShare) && bytes.Equal(left.Receipt, right.Receipt) &&
 		bytes.Equal(left.ReleaseEnvelope, right.ReleaseEnvelope)
@@ -751,6 +752,7 @@ func equalAuthorityState(left, right State) bool {
 
 func cloneAuthorityState(state State) State {
 	state.AcceptedRequest = cloneBytes(state.AcceptedRequest)
+	state.PrepareRequest = cloneBytes(state.PrepareRequest)
 	state.Enrollment = cloneBytes(state.Enrollment)
 	state.Ciphertext = cloneBytes(state.Ciphertext)
 	state.Manifest = cloneBytes(state.Manifest)

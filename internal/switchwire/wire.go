@@ -100,6 +100,7 @@ type AdmittedEnrollment struct {
 	key      [32]byte
 	content  [32]byte
 	grace    uint64
+	interval uint64
 	valid    bool
 }
 
@@ -306,8 +307,11 @@ func AdmitCertificate(body, signature []byte, ownerKey ed25519.PublicKey) (Admit
 		return AdmittedEnrollment{}, fmt.Errorf("%w: owner signature", errInvalid)
 	}
 	digest := sha256.Sum256(body)
-	return AdmittedEnrollment{Digest: digest, Agents: c.Agents, OwnerKey: c.OwnerKey, digest: digest, agents: c.Agents, ownerKey: c.OwnerKey, key: c.Key, content: c.Content, grace: c.Grace, valid: true}, nil
+	return AdmittedEnrollment{Digest: digest, Agents: c.Agents, OwnerKey: c.OwnerKey, digest: digest, agents: c.Agents, ownerKey: c.OwnerKey, key: c.Key, content: c.Content, grace: c.Grace, interval: c.Interval, valid: true}, nil
 }
+
+// IntervalSeconds returns the authenticated interval from the admitted certificate.
+func (e AdmittedEnrollment) IntervalSeconds() uint64 { return e.interval }
 
 // VerifyOwnerRequest authenticates and admits an owner operation against enrollment.
 func VerifyOwnerRequest(e Envelope, enrollment AdmittedEnrollment) (Frame, error) {

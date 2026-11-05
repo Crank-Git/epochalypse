@@ -2,7 +2,8 @@
 
 Issue #31 introduces runtime contracts for the reviewed version-two protocol.
 These contracts do not enable production switches.
-The prepare, export, and arm commands remain incomplete until the orchestration slice passes its checks.
+The CLI and main-service arm routes remain incomplete.
+The local runtime slice provides content, agent transitions, HTTPS transport, and owner orchestration APIs.
 
 ## Canonical wire data
 
@@ -44,6 +45,8 @@ Directory separation alone does not prove independent storage or failure domains
 
 `Journal.Commit` appends complete state with an increasing generation and a hash chain.
 The record contains exact accepted bytes, enrollment, ciphertext, manifest, encrypted share, receipt, and release envelope.
+The runtime also retains the original signed prepare request after arm.
+This request binds the retained share to the original owner intent during retries.
 The journal persists the body before the final commit marker.
 It persists the committed marker before it updates and syncs the checkpoint.
 The caller receives the committed result after that order completes.
@@ -61,7 +64,9 @@ Common rollback of the entire authority remains outside the intact-state premise
 This storage API retains opaque protocol material.
 The transition adapter must authenticate that material and enforce one immutable enrollment before each commit.
 It must validate freshness before a new clock assessment and before any receipt or share.
-The journal does not provide a prepare endpoint, receipt signer, release scheduler, or public recovery endpoint.
+The journal does not provide protocol semantics.
+The transition adapter supplies prepare and arm endpoints.
+The release scheduler and public recovery endpoint remain incomplete.
 
 Verified interface: [x/sys v0.49.0 Flock](https://pkg.go.dev/golang.org/x/sys@v0.49.0/unix#Flock), retrieved 2026-11-05.
 The implementation also uses the pinned Go filesystem APIs for bounded files and directory persistence.
@@ -116,12 +121,64 @@ The selected version and graph exclude that finding.
 This observation does not claim an exhaustive security audit.
 The content adapter must complete the selected graph review before production use.
 
-The PM selects Vault v1.21.4 for the later raw-byte Shamir adapter.
-This checkpoint imports no Vault code.
+The content adapter imports `github.com/hashicorp/vault/shamir` at Vault v1.21.4.
+The selected package uses only standard library dependencies.
+The exact `go list -deps github.com/hashicorp/vault/shamir` graph contains 95 packages, including the selected package.
+The imported graph excludes the Vault server and its KVv2 implementation.
 [GO-2026-5487](https://pkg.go.dev/vuln/GO-2026-5487) reports a Vault server policy bypass.
-The later adapter must verify applicability against its actual import graph.
+The selected graph cannot reach that server behavior.
+The advisory can still appear in a module-level report.
+This package review does not assert module-wide security or an exhaustive security audit.
+The package-local MPL-2.0 license applies to the selected Shamir source.
+Vault's top-level application license differs.
+The retained notice is `third_party/vault-shamir/LICENSE`.
 Raw shares still require authenticated enrollment and content authentication.
 
 Verified against the [age v1.3.2 API](https://pkg.go.dev/filippo.io/age@v1.3.2) and shipped license, retrieved 2026-11-05.
 The versioned [Vault Shamir source](https://github.com/hashicorp/vault/blob/v1.21.4/shamir/shamir.go) imports only standard library packages.
-The actual production import and license review remain part of the content slice.
+The [selected package API](https://pkg.go.dev/github.com/hashicorp/vault@v1.21.4/shamir) supplies `Split` and `Combine`.
+The [package license](https://github.com/hashicorp/vault/blob/v1.21.4/shamir/LICENSE) supplies the retained MPL-2.0 notice.
+These references were retrieved on 2026-11-05.
+
+## Local prepare and arm APIs
+
+`switchcontent.Prepare` reads at most 10 MiB of plaintext.
+It creates one random AES-256 key and a separate random key identity.
+Its versioned ciphertext authenticates the key identity with AES-GCM.
+The public frame contains no plaintext hash.
+The complete frame adds 65 bytes to the plaintext length.
+The content digest covers the complete ciphertext frame.
+Vault Shamir splits the key into three raw shares with a threshold of two.
+age encrypts each share to a distinct canonical X25519 recipient.
+`DecryptShare` accepts only one complete 33-byte share.
+`Recover` checks authenticated ciphertext before it returns plaintext.
+Wrong or corrupt shares cannot produce accepted plaintext.
+
+`agent.NewTransitions` requires operator-pinned enrollment and local signing and age keys.
+Its `Prepare` and `Arm` methods use the independent journal.
+Its `Handler` exposes bounded JSON requests under `/agent/v1/switches/{id}/prepare` and `/arm`.
+An injected clock assessment remains mandatory.
+A missing clock producer blocks acceptance.
+The local tests supply explicit synthetic evidence.
+These tests establish no actual-host readiness or numeric release guarantee.
+
+`switchclient.NewPlan` consumes the existing version-one draft and encrypted material.
+It calculates one deadline from the issue time and interval.
+It signs one immutable prepare request with the local owner key.
+`PrepareAndArm` persists exact owner intent before transmission.
+It requires three matching prepared receipts.
+It exports, syncs, reopens, and validates the recovery bundle before arm transmission.
+The public bundle omits private prepare bytes and encrypted shares.
+It retains enrollment, ciphertext, the exact state, and three prepared receipts.
+The owner pins the public key when `ReadBundle` validates the bundle.
+An arm retry uses the existing bundle and identical signed arm bytes.
+Only three matching armed receipts set `ArmResult.Confirmed`.
+An incomplete response reports uncertainty and retains each response.
+Partial arm can disclose content while too few armed agents prevent recovery.
+
+`HTTPSReplica` requires operator-pinned endpoint public-key hashes and normal TLS certificate validation.
+It enforces TLS 1.3, a five-second timeout, a bounded response, and no redirects.
+Agent signatures still provide protocol authentication.
+The private owner key never enters the agent request or bundle.
+These APIs do not update the main draft to an armed state.
+Main-state migration, CLI, API, UI, and deployment integration remain incomplete.
