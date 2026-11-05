@@ -1,0 +1,92 @@
+# Capsule foundation
+
+The current foundation provides public and server-held domain operations.
+The HTTP, CLI, and web interfaces remain incomplete in this checkpoint of #18.
+Tlock preparation remains unavailable until #20 supplies its verified adapter.
+
+## Content and trust
+
+Both supported modes use the authenticated content object defined in [ADR 0008](adr/0008-capsule-authenticated-object.md).
+Each draft receives a fresh identifier and 32-byte content key.
+The record contains the object and its SHA-256 digest. The private-key bucket stores the key separately.
+Neither the manifest nor the record contains a key.
+
+Public mode is public data after publication. Its key becomes available immediately at publication.
+Its requested release time is advisory. It does not withhold content until that date.
+Server-held mode trusts the server operator. The operator holds the key and can read the content.
+A server outage or lost key can delay or prevent availability. A lost server-held key has no automatic recovery.
+
+Web preparation passes plaintext through the server in v1. The web interface must state this fact before upload.
+CLI tlock preparation occurs on the owner's machine. #20 supplies that separate preparation path.
+
+## Bounded preparation
+
+`capsule.Input` supplies mode, content kind, title, filename, and requested release time.
+Text content must be UTF-8. File content remains opaque bytes.
+An empty filename becomes `capsule.txt` for text or `capsule.bin` for a file.
+Titles permit 256 UTF-8 bytes. Filenames permit 255 UTF-8 bytes.
+Both fields exclude control characters. Filenames also exclude path separators.
+
+`Store.Create` reads at most the configured plaintext limit plus one byte before it rejects excessive content.
+The default plaintext limit is 10 MiB. The extra byte detects an excessive upload without an unbounded read.
+The content object has the independent encoded limits from ADR 0008.
+The encoded record permits another 8192 bytes for bounded metadata and JSON structure.
+Creation rejects past requested times. Stored times use UTC seconds.
+
+The content reader's errors can contain private data. The public domain error excludes those source error strings.
+Preparation exposes no plaintext through errors or returned records.
+
+## State and lifetime
+
+[ADR 0009](adr/0009-shared-installation-state.md) defines the shared layout, budget, and migration limits.
+`capsule.Open` owns the shared installation handle for an offline command.
+`capsule.Attach` shares an existing installation handle. It does not open another writer.
+Closing an attached capsule store stops capsule access and preserves other domain handles.
+
+Creation commits the record and its private key in one transaction.
+Admission charges one object, the exact encoded record bytes, and 32 private-key bytes.
+A failed quota check retains neither a partial record nor an orphan key.
+Publication replaces the draft in the same budget transaction.
+If publication exceeds the byte allowance, the transaction restores the private draft.
+
+Record reads validate the stored size and profile independently of the current upload limit.
+Lowering the upload limit affects new preparation. It preserves access to larger retained capsules.
+The version 1 record fixture preserves release metadata and the authenticated content profile.
+
+## Producer contracts
+
+| Operation | Result |
+|---|---|
+| `Create(input, reader, now)` | A private `Record` after bounded preparation and atomic persistence |
+| `Get(id)` | An owner record, including an unpublished draft |
+| `Published(id)` | A published record; drafts return `ErrNotFound` |
+| `Publish(id, now)` | A published record after full content authentication and atomic budget admission |
+| `Key(id, now)` | A key after publication and the selected release condition |
+| `OpenObject(id, version, object, key, limit)` | Plaintext after complete authentication; no plaintext on failure |
+
+Domain methods do not authenticate HTTP requests. Owner transport adapters must apply the existing authorization safeguards.
+Use `Published` for anonymous object reads. Use `Get` only through an owner-authorized interface.
+Record reads verify the object profile and stored digest. Consumers must use `OpenObject` before they expose plaintext.
+
+`Manifest` contains version, identifier, mode, content kind, labels, size, digest, and these times:
+
+| Field | Meaning |
+|---|---|
+| `created_at` | The accepted draft time |
+| `requested_release_at` | The owner's requested time |
+| `effective_release_at` | Server-held release time; public publication time; absent for a public-mode draft |
+| `published_at` | The publication time; absent for a private draft |
+
+For server-held mode, the effective time equals the requested time.
+For public mode, publication sets the effective time to the publication time and preserves the advisory requested time.
+Repeated publication preserves both stored times.
+
+Before publication, `Key` returns `ErrNotFound`, including after the requested date.
+Before the server-held release time, it returns `ErrTooEarly` without a key.
+At the exact release time, it can return the authenticated key.
+A missing or malformed private key returns `ErrUnavailable` after release becomes eligible.
+A key that fails object authentication returns `ErrIntegrity` without a key.
+These results let later interfaces distinguish release eligibility from content availability.
+
+The later capsule slices extend this producer for tlock, public pages, and recovery bundles.
+They must preserve bounded authenticated object handling and the shared installation transaction.

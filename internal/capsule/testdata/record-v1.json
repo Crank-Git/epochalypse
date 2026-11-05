@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "0123456789abcdef0123456789abcdef",
+  "mode": "server-held",
+  "kind": "text",
+  "title": "Synthetic capsule",
+  "filename": "capsule.txt",
+  "created_at": "2026-11-05T12:00:00Z",
+  "requested_release_at": "2026-11-05T13:00:00Z",
+  "effective_release_at": "2026-11-05T13:00:00Z",
+  "published_at": "2026-11-05T12:00:00Z",
+  "plaintext_bytes": 25,
+  "object_sha256": "a0eaadb613b62a04e83f1545983a7b54e2d2ca9e3b2574713a03957f6481094a",
+  "object": "eyJhbGciOiJkaXIiLCJjYXBzdWxlX2lkIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYiLCJjYXBzdWxlX3ZlcnNpb24iOjEsImVuYyI6IkEyNTZHQ00iLCJ0eXAiOiJlcG9jaGFseXBzZS1jYXBzdWxlK2p3ZSJ9..qamdlsWkB9KpjD7I.yN-kh9NzaxdWr8vCfMmSxzZaIj-9NhXfRQ.Md7BECyVVaYjTwdG_ifF6Q"
+}
