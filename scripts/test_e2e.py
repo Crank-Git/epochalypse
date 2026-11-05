@@ -65,6 +65,23 @@ class CLITests(unittest.TestCase):
         opened = subprocess.run([binary, "capsule", "open", "--bundle", str(bundle), "--output", str(output)], env=env, capture_output=True, text=True, timeout=5)
         self.assertEqual(opened.returncode, 1)
         self.assertFalse(output.exists())
+        public_args = list(args)
+        public_args[public_args.index("server-held")] = "public"
+        public_created = subprocess.run(public_args, env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(public_created.returncode, 0, public_created.stderr)
+        public_id = json.loads(public_created.stdout)["id"]
+        for action in ("publish", "export", "delete"):
+            command = [binary, "capsule", action, "--state-dir", str(state), "--id", public_id]
+            if action == "export":
+                command += ["--output", str(directory / "public-bundle.json")]
+            if action == "delete":
+                command += ["--confirm", public_id]
+            result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        recovered = directory / "recovered.bin"
+        opened = subprocess.run([binary, "capsule", "open", "--bundle", str(directory / "public-bundle.json"), "--output", str(recovered)], env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(opened.returncode, 0, opened.stderr)
+        self.assertEqual(recovered.read_bytes(), bytes([0, 255, 128, 1]))
         content.write_bytes(b"12345")
         rejected = subprocess.run(args, env=env, capture_output=True, text=True, timeout=5)
         self.assertEqual(rejected.returncode, 1)

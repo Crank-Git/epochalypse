@@ -66,6 +66,7 @@ The version 1 record fixture preserves release metadata and the authenticated co
 | `Publish(id, now)` | A published record after mode-specific preparation verification and atomic budget admission |
 | `Key(id, now)` | A key after publication and the selected release condition |
 | `Bundle(id, now)` | A typed recovery bundle after publication; an early server-held bundle excludes its key |
+| `Delete(ctx, id, confirmation)` | Atomic local deletion after exact identifier confirmation; public copies remain outside owner control |
 | `OpenObject(id, version, object, key, limit)` | Plaintext after complete authentication; no plaintext on failure |
 
 Domain methods do not authenticate HTTP requests. Owner transport adapters must apply the existing authorization safeguards.
@@ -262,3 +263,57 @@ Recovery verifies the beacon signature and authenticates both encrypted layers b
 ADR 0010 defines this trust boundary.
 
 Verified against Go 1.27.3 shipped documentation for `os.OpenFile`, `io.LimitReader`, and `context.Context` (2026-11-05 UTC).
+
+## Export and local recovery
+
+Stop the main server before an offline command opens installation state.
+Export a published capsule to a new recovery bundle file:
+
+```sh
+epochalypse capsule export --state-dir var/state --id CAPSULE_ID --output recovery.json
+```
+
+The command writes canonical bundle bytes. Drafts remain private and return an error.
+Standard output states the available recovery material:
+
+- `ciphertext-only`: an early server-held export excludes its key. Later recovery still requires the retained server-held key.
+- `released-key`: the export includes an already released key. Retain this bundle as public recovery material.
+- `beacon-wrapper`: the tlock export includes the wrapped key and complete pinned beacon identity.
+
+All exports include ciphertext, SHA-256 digest, identifier, format version, mode, and requested and effective release times.
+Tlock recovery requires the pinned beacon signature. Beacon failure can delay recovery.
+An early server-held export cannot recover content after loss of its unreleased key.
+
+```sh
+epochalypse capsule open --bundle recovery.json --output recovered.bin
+epochalypse capsule open --bundle recovery.json --output recovered.bin --beacon-signature-file quicknet-signature.bin
+```
+
+The optional signature file contains exactly 48 raw signature bytes for the bundle's pinned round.
+The verifier authenticates the signature locally. Without this file, tlock recovery uses the bounded quicknet relay.
+Recovery needs no installation database. It verifies both encrypted layers before it exposes any plaintext.
+Unsupported versions, oversized input, wrong identities, wrong keys, corrupt content, and invalid signatures fail without a plaintext output file.
+Export and recovery use owner-only temporary files in the output directory.
+They publish complete bytes through an exclusive hard link. Existing files remain unchanged.
+The output filesystem must support hard links. The commands remove their temporary names after success or failure.
+
+## Delete local content
+
+Retain the recovery bundle before deletion. Public copies and backups remain outside the owner's control.
+Deletion does not promise recall or secure erasure.
+
+```sh
+epochalypse capsule delete --state-dir var/state --id CAPSULE_ID --confirm CAPSULE_ID
+```
+
+The confirmation must match the exact capsule identifier. Missing or incorrect confirmation preserves local state.
+`DELETE /api/v1/capsules/{id}` accepts the exact JSON body `{"confirm":"CAPSULE_ID"}` with `Content-Type: application/json`.
+The route requires owner authorization or `capsule:write`. Owner sessions require CSRF proof. TLS safeguards remain active.
+A successful deletion returns 204. Invalid confirmation returns 400. A missing capsule returns 404.
+The transaction removes the record and its private key or preparation digest together.
+This removal releases their installation quota charges. It preserves windows, observations, and unrelated capsules.
+Cancellation observed before commit rolls back both removals. A disconnect after commit can leave deletion complete.
+The owner page provides an export link after publication, exact identifier confirmation, and a cancel control.
+A retained published tlock bundle remains usable after local deletion or main-server loss, subject to the pinned beacon's availability.
+
+Verified against Go 1.27.3 shipped documentation for `os.CreateTemp`, `os.File.Sync`, `os.Link`, and `os.Remove` (2026-11-05 UTC).
