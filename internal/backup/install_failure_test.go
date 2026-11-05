@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -146,16 +147,81 @@ func TestInstallRejectsQuotaBelowRetainedState(t *testing.T) {
 
 func TestInstallCancelsBeforePublication(t *testing.T) {
 	a := installationArchive(t, nil)
-	for _, cancelAt := range []int{5, 15, 30} {
-		ctx := &ownerValidationContext{Context: context.Background(), cancelAt: cancelAt}
-		destination := restoreDestination(t, a)
-		if err := a.Install(ctx, destination, testLimits(t)); !errors.Is(err, context.Canceled) {
-			t.Fatalf("restore ignores cancellation at %d: %v", cancelAt, err)
+	for _, boundary := range []string{"read", "prepared", "existing destination"} {
+		t.Run(boundary, func(t *testing.T) {
+			destination := restoreDestination(t, a)
+			parent := filepath.Dir(destination.Path)
+			var before os.FileInfo
+			if boundary == "existing destination" {
+				before = existingCancellationDestination(t, destination.Path)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			triggered := false
+			controlled := &boundaryCancellation{Context: ctx, atBoundary: func() {
+				stages, err := filepath.Glob(filepath.Join(parent, ".epochalypse-install-*"))
+				if err != nil || len(stages) != 1 {
+					return
+				}
+				if boundary != "read" && !preparedInstallation(t, a, stages[0]) {
+					return
+				}
+				triggered = true
+				cancel()
+			}}
+			if err := a.Install(controlled, destination, testLimits(t)); !errors.Is(err, context.Canceled) {
+				t.Fatalf("restore ignores cancellation at %s: %v", boundary, err)
+			}
+			if !triggered || ctx.Err() != context.Canceled {
+				t.Fatal("restore does not reach the cancellation boundary")
+			}
+			<-ctx.Done()
+			assertCancelledDestination(t, destination.Path, before)
+		})
+	}
+}
+
+func existingCancellationDestination(t *testing.T, path string) os.FileInfo {
+	t.Helper()
+	if err := os.Mkdir(path, 0700); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return info
+}
+
+func assertCancelledDestination(t *testing.T, path string, before os.FileInfo) {
+	t.Helper()
+	want := 0
+	if before != nil {
+		after, err := os.Stat(path)
+		if err != nil || !os.SameFile(before, after) {
+			t.Fatal("cancelled restore replaces the destination")
 		}
-		if _, err := os.Lstat(destination.Path); !os.IsNotExist(err) {
-			t.Fatal("cancelled restore publishes state")
+		assertEmpty(t, path)
+		want = 1
+	} else if _, err := os.Lstat(path); !os.IsNotExist(err) {
+		t.Fatal("cancelled restore publishes state")
+	}
+	entries, err := os.ReadDir(filepath.Dir(path))
+	if err != nil || len(entries) != want {
+		t.Fatal("cancelled restore leaves partial state")
+	}
+}
+
+func preparedInstallation(t *testing.T, a Archive, stage string) bool {
+	t.Helper()
+	// Complete bytes identify prepared state without depending on read chunk sizes.
+	for _, file := range a.Files {
+		data, err := os.ReadFile(filepath.Join(stage, file.Path)) // #nosec G304 -- The fixture selects the private stage and archive paths.
+		if err != nil || !bytes.Equal(data, readContent(t, file)) {
+			return false
 		}
 	}
+	return true
 }
 
 func TestInstallUsesReadOnlyInstallationAccess(t *testing.T) {

@@ -190,9 +190,55 @@ Go format, vet, and configured lint pass. The linter reports zero issues.
 Linux amd64 and arm64 builds pass with the test-only worktree marked dirty in their version metadata.
 The integration pull request still requires its own complete check at its final commit.
 
+## Native cancellation fixture repair
+
+The native batch run `42087772042` tests commit `720b9ac5ea314687e7bddc9a6682ab69b01250bf`.
+It fails at `TestInstallCancelsBeforePublication` with `restore ignores cancellation at 30: <nil>`.
+That run stops before aggregate coverage. It supplies no native coverage result.
+
+The old fixture returns `context.Canceled` only after a fixed number of `Err` calls.
+It embeds `context.Background`, so its `Done` channel never closes.
+The call count includes `contextReader.Read` calls. File sizes and read chunks affect that count.
+Linux completes this installation before the thirtieth check. The context therefore never reports cancellation.
+The successful installation does not demonstrate a production cancellation defect.
+
+A Linux arm64 test executable reproduces the exact failure from the unchanged batch source.
+The executable runs inside the pinned Alpine image with external networking disabled.
+The repair changes tests and this record only. It changes no production source or archive format.
+
+The replacement fixture invokes a real `context.CancelFunc` at observable file boundaries.
+The complete `Install` path cancels when its private publication stage exists, before its first payload read.
+A second case waits until every staged file matches the authenticated archive bytes.
+The test asserts the trigger, canceled context, closed `Done` channel, absent destination, and complete stage cleanup.
+An existing empty destination retains its original directory identity and contents after cancellation.
+Complete staged bytes prove cancellation before publication. They do not distinguish a final read check from the final publication check.
+The existing entry-cancellation test still exercises the complete `Install` path.
+
+The audit finds two other count-based fixtures in owner validation and snapshot tests.
+The owner payload test now uses a real file and cancels after its controlled reader returns one byte.
+It verifies the shared `copyPayload` read path that owner validation uses, rather than claiming an internal owner-validation phase.
+The snapshot test cancels after its first private output file exists.
+It still verifies partial-stage cleanup and release of both database locks.
+Each fixture asserts that its cancellation boundary occurs.
+
+The repaired backup package passes 112 host unit tests and 112 host race tests, with zero skips.
+The Linux arm64 package passes every test with zero skips.
+The three repaired tests also pass ten consecutive Linux runs.
+Go format, vet, configured lint, and the 11 Python check-script tests pass.
+The initial lint check rejects test complexity. The final test extracts destination assertions and passes the same check.
+
+These checks supplement the preceding full-stage record from production source `91188a8453eacb23150993ef70571cbeefa72236`.
+The earlier aggregate remains 4708 of 4955 statements, or 95.0151 percent.
+This fixture repair does not rerun browser, resolver, integration, fuzz, build, or aggregate coverage stages.
+It adds no behavior change, public interface, production path, or coverage exclusion.
+The failing old fixture and passing replacement provide the test-first evidence; correct production code needs no artificial failure.
+The batch integration pull request requires another complete native check and aggregate gate after this repair merges.
+
 Verified interfaces, retrieved 2026-11-05:
 
 - Docker 29.9.2 installed help and [container run](https://docs.docker.com/reference/cli/docker/container/run/) and [container copy](https://docs.docker.com/reference/cli/docker/container/cp/).
 - Node.js 26.13.0 [HTTPS](https://nodejs.org/api/https.html), [TCP](https://nodejs.org/api/net.html), and [UDP](https://nodejs.org/api/dgram.html) APIs.
 - [RFC 6891, section 6.1.2](https://www.rfc-editor.org/rfc/rfc6891#section-6.1.2) for the OPT wire format.
 - [RFC 4035, section 3.2.1](https://www.rfc-editor.org/rfc/rfc4035#section-3.2.1) for the DNSSEC OK query requirement.
+- Go 1.27.3 installed `go doc context.WithCancel`, `go doc context.Context`, and `go help testflag`.
+  The [context documentation](https://pkg.go.dev/context) defines cancellation and the `Done` channel.

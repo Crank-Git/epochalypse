@@ -279,25 +279,24 @@ func TestSnapshotRejectsCopyCancellationAndMissingStage(t *testing.T) {
 	}
 }
 
-type copyCancellation struct {
-	context.Context
-	calls int
-}
-
-func (c *copyCancellation) Err() error {
-	c.calls++
-	if c.calls > 2 {
-		return context.Canceled
-	}
-	return nil
-}
-
 func TestSnapshotRemovesPartialCopiesAfterCancellation(t *testing.T) {
 	source := snapshotSource(t)
 	limits := testLimits(t)
-	ctx := &copyCancellation{Context: context.Background()}
-	if a, err := Snapshot(ctx, source, limits); !errors.Is(err, context.Canceled) || len(a.Files) != 0 {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	triggered := false
+	controlled := &boundaryCancellation{Context: ctx, atBoundary: func() {
+		files, err := filepath.Glob(filepath.Join(limits.TempDir, "*", "file-*"))
+		if err == nil && len(files) > 0 {
+			triggered = true
+			cancel()
+		}
+	}}
+	if a, err := Snapshot(controlled, source, limits); !errors.Is(err, context.Canceled) || len(a.Files) != 0 {
 		t.Fatalf("copy cancellation exposes partial state: %v", err)
+	}
+	if !triggered || ctx.Err() != context.Canceled {
+		t.Fatal("snapshot does not reach the copy boundary")
 	}
 	assertEmpty(t, limits.TempDir)
 	for _, path := range paths[:2] {
