@@ -91,7 +91,7 @@ try {
   assert.equal(await evaluate('document.cookie'), '');
   await evaluate("document.body.dataset.beforeReload = 'true'");
   await call('Page.reload');
-  await waitFor("document.body.dataset.beforeReload !== 'true' && document.querySelector('h1')?.textContent === 'Signed in'");
+  await waitFor("document.body.dataset.beforeReload !== 'true' && document.querySelector('h1')?.textContent === 'Signed in' && document.readyState === 'complete'");
   assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('section h2'), heading => heading.textContent)"), ['Capsules', 'Switches', 'Countdowns', 'Agent health']);
   assert.equal(await evaluate("document.querySelector('#switches').textContent.includes('production use remains blocked')"), true);
   assert.equal(await evaluate("document.querySelector('#agents').textContent.includes('no verified agent observations')"), true);
