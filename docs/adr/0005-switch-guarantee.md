@@ -6,6 +6,8 @@
 
 ## Status
 
+Superseded by [ADR 0012](0012-switch-uncertainty.md) on 2026-11-05. The historical decision below remains unchanged.
+
 Accepted owner decision to retain the guarantee and keep switch implementation blocked.
 No production protocol has acceptance.
 

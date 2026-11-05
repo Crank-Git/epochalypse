@@ -177,7 +177,7 @@ body.rv-open .layout { padding-right:21rem; }
 <h2 id="overview">Overview</h2>
 <p>epochalypse provides time capsules, renewable dead man’s switches, and DNS countdowns. Developers use a Go CLI and a resolver lab. Individuals use an owner dashboard and public release pages. The project supports local containers and Linux VPS hosts.</p>
 <p>DNSSEC signature windows demonstrate validator behavior. They do not keep published data secret. Encrypted capsules use server-held keys or a verified drand beacon. Independent agents support switch release after the main server fails.</p>
-<p>The owner states: “outage shouldnt stop this as it undermines the entire deadman switch behavior.” The initial guarantee covers main-server loss plus one unavailable agent. A separate research epic assesses loss of all project-operated servers.</p>
+<p>The owner states: “outage shouldnt stop this as it undermines the entire deadman switch behavior.” The accepted direction covers main-server loss plus one unavailable agent by Bmax plus the reviewed allowance E. After incomplete receipts, the client reports uncertainty from B0 through Bmax. B0 is the earliest possible disclosure boundary. Three durable receipts confirm renewal. No replacement protocol has production acceptance. See <a href="../adr/0012-switch-uncertainty.md">ADR 0012</a> and the <a href="../research/switch-protocol/directions.md">direction report</a>. A separate research epic assesses loss of all project-operated servers.</p>
 <h2 id="terms">Terms</h2>
 <div class="table-wrap"><table>
 <tr><th>Term</th><th>Part of speech</th><th>Meaning in this project</th><th>Do not use</th></tr>
@@ -192,6 +192,11 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>deadline</td><td>noun</td><td>The latest accepted owner check-in boundary.</td><td>expiration</td></tr>
 <tr><td>grace</td><td>noun</td><td>The duration between the deadline and release eligibility.</td><td>timeout</td></tr>
 <tr><td>release boundary</td><td>noun</td><td>The deadline plus grace for one accepted state.</td><td>deadline alone</td></tr>
+<tr><td>B0</td><td>noun</td><td>The last release boundary confirmed by three matching durable receipts; the earliest possible disclosure after uncertain renewal.</td><td>exact authority after receipt loss</td></tr>
+<tr><td>Bmax</td><td>noun</td><td>The latest release boundary in any owner-signed renewal already issued for transmission.</td><td>latest received receipt</td></tr>
+<tr><td>E</td><td>noun</td><td>The reviewed allowance for clock error and publication work; no numeric value has acceptance yet.</td><td>exact UTC guarantee</td></tr>
+<tr><td>uncertain outcome</td><td>noun</td><td>An incomplete response that can hide partial or complete renewal acceptance.</td><td>failed renewal</td></tr>
+<tr><td>client journal</td><td>noun</td><td>Durable signed intent stored before transmission, including exact bytes, sequence, deadline, and proposed boundary.</td><td>memory-only retry</td></tr>
 <tr><td>share</td><td>noun</td><td>One agent's part of the content key.</td><td>whole key</td></tr>
 <tr><td>receipt</td><td>noun</td><td>A signed acknowledgment of durable agent state.</td><td>success hint</td></tr>
 <tr><td>recovery bundle</td><td>noun</td><td>Exported data needed for independent content recovery.</td><td>backup alone</td></tr>
@@ -293,6 +298,8 @@ body.rv-open .layout { padding-right:21rem; }
  CAPSULE ||--|| OBJECT : references
  SWITCH ||--|| OBJECT : references
  SWITCH ||--|{ RECEIPT : records
+ SWITCH ||--o{ CLIENT_JOURNAL : retains
+ CLIENT_JOURNAL ||--o{ RECEIPT : reconciles
  AGENT ||--o{ RECEIPT : signs
  AGENT ||--o{ SHARE : stores
  SWITCH ||--|{ SHARE : protects
@@ -303,9 +310,10 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>Token</td><td>ID, digest, scopes, expiry, revocation time.</td><td>Active to expired or revoked.</td></tr>
 <tr><td>Capsule</td><td>ID, title, mode, requested time, effective time, object digest, format version.</td><td>Draft, sealed, available, deleted.</td></tr>
 <tr><td>Object</td><td>Digest, byte count, media type, encrypted bytes, format version.</td><td>Prepared to retained or locally deleted.</td></tr>
-<tr><td>Switch</td><td>ID, owner public key, interval, grace, sequence, accepted state, object digest.</td><td>Draft, armed, degraded, released.</td></tr>
+<tr><td>Switch</td><td>ID, owner public key, interval, grace, sequence, confirmed state, B0, Bmax, allowance assumptions, object digest.</td><td>Draft, armed, uncertain, released.</td></tr>
+<tr><td>Client journal</td><td>Switch ID, exact signed bytes, sequence, deadline, proposed boundary, receipt evidence.</td><td>Durable before transmission; retained through reconciliation.</td></tr>
 <tr><td>Agent</td><td>ID, public key, endpoints, failure domain, protocol version.</td><td>Enrolled to ready, unavailable, or retired.</td></tr>
-<tr><td>Share</td><td>Switch ID, agent ID, encrypted share, release status.</td><td>Private to irreversibly public.</td></tr>
+<tr><td>Share</td><td>Switch ID, agent ID, content key reference, encrypted share, irreversible release history.</td><td>Private to irreversibly public; observer copies persist.</td></tr>
 <tr><td>Receipt</td><td>Agent ID, switch ID, sequence, deadline, digest, signature.</td><td>Append-only evidence.</td></tr>
 <tr><td>Countdown</td><td>ID, title, event time, DNS name.</td><td>Active, completed, deleted.</td></tr>
 <tr><td>Window</td><td>ID, zone, content, inception, expiration, key reference.</td><td>Draft, published, expired.</td></tr>
@@ -316,10 +324,10 @@ body.rv-open .layout { padding-right:21rem; }
  [*] --&gt; Draft
  Draft --&gt; Armed: All durable receipts and export
  Armed --&gt; Armed: Confirmed renewal
- Armed --&gt; Degraded: Missing receipt
- Degraded --&gt; Armed: Reviewed recovery
- Armed --&gt; Released: Release boundary
- Degraded --&gt; Released: Reviewed release rule
+ Armed --&gt; Uncertain: Incomplete response
+ Uncertain --&gt; Armed: Three matching durable receipts
+ Armed --&gt; Released: Two shares at confirmed boundary plus E
+ Uncertain --&gt; Released: By Bmax plus E under reviewed assumptions
  Released --&gt; [*]</pre></div>
 <h2 id="cross-cutting-concerns">Cross-cutting concerns</h2>
 <p>Authenticate mutations. Authorize each token scope. Sign direct check-ins with an owner key. Use TLS outside the isolated local lab. Require anti-replay checks on agent messages. Use generic authentication errors and specific validation errors. The API error shape is <code>{error:{code,message,fields,request_id}}</code>. Use 400 for malformed input, 401 for missing authentication, and 403 for insufficient scope. Use 404 for absent public objects, 409 for state conflicts, 413 for size limits, and 429 for rate limits. Use 503 for an unavailable dependency. Use 425 for a server-held key before release. Use request IDs across logs. Exclude plaintext, passwords, tokens, private keys, and key shares from logs. Bound request time, memory, disk quotas, and concurrent work. Default to 100 retained objects and 1 GiB per installation. The owner can change storage quotas. Failed quota checks leave no armed switch.</p>
@@ -371,8 +379,8 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>Epic 4: Switch protocol review</td><td>5</td><td>0</td><td>The model and maintainer decision permit implementation.</td></tr>
 <tr><td>Epic 5: Dead man’s switches</td><td>6</td><td>2, 4</td><td>Independent recovery passes the stated outage test.</td></tr>
 <tr><td>Epic 6: DNS countdowns</td><td>3</td><td>1, 2</td><td>Signed countdown records pass resolver tests.</td></tr>
-<tr><td>Epic 7: Deployment and recovery</td><td>5</td><td>3, 5, 6</td><td>A staged deployment passes the recovery exercise.</td></tr>
-<tr><td>Epic 8: External release research</td><td>5</td><td>4</td><td>The report supports a maintainer decision.</td></tr>
+<tr><td>Epic 7: Deployment and recovery</td><td>5</td><td>3, 6; switch slice also 5</td><td>Completed features pass staging; switch drills await protocol acceptance.</td></tr>
+<tr><td>Epic 8: External release research</td><td>5</td><td>0; independent of production switch acceptance</td><td>The report supports a maintainer decision.</td></tr>
 </table></div>
 <p>Feature files define each epic's complete behavior. Split an epic before issue creation if the work exceeds six focused changes. Do not compress the protocol review to preserve an estimate.</p>
 <h2 id="milestones">Milestones</h2>
@@ -385,7 +393,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>Provide switches and countdowns behind verified behavior gates.
 </li>
-<li>Validate the Linux deployment and independent recovery.
+<li>Validate completed-feature deployment independently; validate live switch recovery after protocol acceptance.
 </li>
 <li>Present the external release report as a separate decision.
 </li>
@@ -396,6 +404,10 @@ body.rv-open .layout { padding-right:21rem; }
 <h2 id="risks-open-questions" class="callout-h">Risks &amp; open questions</h2>
 <h3 id="review-decisions">Review decisions</h3>
 <ul>
+<li>The owner accepts the bounded receipt-loss tradeoff on 2026-11-05. Clock and publication allowances remain protocol-review outputs.
+</li>
+</ul>
+<ul>
 <li>The owner approved three-agent renewal and its availability tradeoff on 2026-11-04.
 </li>
 <li>The owner approved the scaffold proposal on 2026-11-04.
@@ -405,7 +417,13 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <h3 id="technical-gates">Technical gates</h3>
 <ul>
-<li>Partial renewal can leave inconsistent deadlines. The model must establish safe semantics before production switch use.
+<li>Incomplete receipts create uncertainty from B0 through Bmax, plus E. The owner accepts almost 24 hours under the default interval.
+</li>
+<li>B0 does not prove actual authority after receipt loss. A missing response can hide a fully accepted renewal.
+</li>
+<li>The revised model must verify Bmax plus E after main loss and one outage with two reachable, honest, durable agents.
+</li>
+<li>Permanent client loss, retry journals, delayed requests, and irreversible observer history remain protocol-review obligations.
 </li>
 <li>Published shares can survive later renewals. The protocol must account for their cumulative disclosure.
 </li>
@@ -430,6 +448,12 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>No unanswered product question blocks the approved plan. Technical gates block the affected implementation or production claim.</p>
 <h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-11-05: The owner accepts bounded switch uncertainty after receipt loss. ADR 0012 supersedes ADR 0005's exact-confirmation requirement. Keep production gated.
+</li>
+<li>2026-11-05: Separate completed-feature deployment and comparative external research from production switch acceptance. Keep live switch operations gated.
+</li>
+</ul>
 <ul>
 <li>2026-11-04: The owner selects separate DNS subdomains for signature-window experiments and countdowns. Keep delegation operator-controlled. Capsule foundation supplies shared storage before countdown implementation.
 </li>
