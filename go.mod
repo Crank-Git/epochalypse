@@ -5,6 +5,7 @@ go 1.27.3
 replace codeberg.org/miekg/dns v0.6.128 => ./third_party/miekg-dns
 
 require (
+	filippo.io/age v1.3.2
 	codeberg.org/miekg/dns v0.6.128
 	github.com/drand/drand/v2 v2.1.8
 	github.com/drand/kyber v1.3.3
@@ -15,7 +16,6 @@ require (
 )
 
 require (
-	filippo.io/age v1.3.2 // indirect
 	filippo.io/hpke v0.4.0 // indirect
 	github.com/drand/kyber-bls12381 v0.3.5 // indirect
 	github.com/kilic/bls12-381 v0.1.0 // indirect
