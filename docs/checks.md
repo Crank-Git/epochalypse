@@ -12,6 +12,7 @@ The command requires every currently applicable check to pass:
 - Go unit tests and check-script tests.
 - Live HTTP and DNS listener tests with three agent instances.
 - CLI E2E tests through an instrumented executable.
+- Encrypted backup CLI tests with direct main-process recovery in an isolated Linux container.
 - Browser dashboard states, keyboard access, scoped summary access, sign-in, sign-out, CSRF rejection, token administration, and cooldown tests through Chromium.
 - A TLS Compose lab with immediate signed UDP/TCP records, explicit fallback, a new executable process, four independent volumes, and three healthy agents.
 - The pinned default Unbound, strict Unbound, and BIND matrix with real failure-cache transitions across inception.
@@ -26,7 +27,7 @@ If a command exceeds this limit, the runner fails with the command to inspect.
 Malformed JSON events fail with the event line number and output requirements.
 Empty suites, skipped tests, and nonzero command results fail the check.
 
-Coverage combines unit tests, CLI executions, and browser executions.
+Coverage combines unit tests, CLI executions, browser executions, and backup executions.
 Instrumentation uses the explicit first-party module path to exclude dependencies.
 The CLI profile includes the executable entry point.
 The gate compares integer statement totals before it formats the percentage.

@@ -214,6 +214,101 @@ Exclude `owner.initialized`, synthetic passwords, setup metadata, and the countd
 The `owner.initialized` marker controls fresh lab setup only. It does not authenticate or validate an owner database.
 Include the effective configuration and limits, rather than assuming defaults on restore.
 
+The internal archive codec uses age v1 encryption with a separate X25519 recipient.
+Its plaintext contains an eight-byte manifest length, one version 1 JSON manifest, and the declared file payloads in manifest order.
+The manifest has a 64 KiB limit. File payloads use bounded streams instead of JSON byte arrays.
+The codec requires an explicit positive byte limit for the complete plaintext, including the manifest.
+The suggested default is 4 GiB. This permits the default 1 GiB retained installation plus database overhead.
+Select a larger finite limit when the complete databases and required files exceed that limit.
+Private temporary disk holds up to twice the selected plaintext limit during restore.
+The codec uses mode 0700 for temporary directories and mode 0600 for temporary files.
+It authenticates the complete age stream before it parses the manifest or exposes restored file paths.
+It removes temporary plaintext after failure. The caller removes successful temporary state through the archive's `Close` method.
+The internal `Snapshot` function copies a stopped installation with the canonical paths above.
+It holds exclusive bbolt locks on both complete databases until every file copy completes.
+It rejects either active database, replaced database files, source links, unsafe file modes, cancellation, and excess bytes.
+It records numeric file ownership and copies files into a private temporary directory.
+The caller must call the returned archive's `Close` method to remove these copies.
+Keep configuration and key writers stopped throughout the call. Database locks do not control those files.
+The `backup create` command copies this stopped installation into an encrypted archive.
+The internal `owner.ValidateSnapshot` function checks a read transaction from a private, authenticated owner database copy.
+It requires the four version 1 owner buckets and their supported record formats.
+It checks the password profile, credential owner identifiers, token digests and scopes, and audit sequences.
+It preserves expired credentials and their original deadlines without a database mutation.
+This domain check does not open the database, validate the installation database, or authorize service startup.
+The archive's `ValidateOwner` method applies this domain check to the authenticated private owner file.
+It rechecks the file path, protected mode, size, and digest before bbolt reads the database.
+It uses read-only access and preserves all database bytes. Cancellation and unavailable temporary state fail the check.
+The archive's `Install` method completes validation before it publishes a fresh installation.
+Supply a destination path, an expected source commit, and the destination service's numeric user and group identifiers.
+The expected commit must match the separately retained executable artifact.
+Installation rejects existing destinations, including empty directories and links.
+It validates all six installation buckets through the existing domain decoders in a read-only transaction.
+It requires the original window DNSKEY binding and authenticated capsule private state.
+It checks the archived quotas, version 1 settings, separate DNSSEC pairs, and matching TLS certificate and key.
+It rejects changed authenticated files and unsupported numeric ownership before publication.
+It preserves both complete databases and every original deadline without record reconstruction.
+It maps file ownership to the explicitly selected destination service identity.
+It copies files into a private directory beside the destination, then syncs files and directories before publication.
+An exclusive rename publishes the complete directory without replacement.
+Linux requires `renameat2` with `RENAME_NOREPLACE`. macOS uses `renameatx_np` with `RENAME_EXCL` for local tests.
+The implementation returns an error when the filesystem cannot support exclusive publication.
+It removes unpublished temporary files after cancellation or failure.
+If the final parent-directory sync fails, the complete destination can exist despite the error.
+Inspect that destination before a retry. The retry never replaces it.
+Use a trusted destination parent. Keep source configuration, keys, and temporary state inaccessible to other writers.
+Successful installation does not start a service or run a bootstrap job.
+The CLI exposes these checks through `backup restore`.
+`scripts/test_backup.py` exercises encrypted backup and direct recovery in isolated Linux volumes.
+Run it through `make test-e2e` or `python3 -m unittest discover -s scripts -p 'test_backup.py'`.
+The exercise uses synthetic state, a private network namespace, and no published ports.
+It verifies the existing owner, retained window signature, server-held capsule recovery, countdown state, and source isolation.
+The [verification record](operations-verification.md#isolated-encrypted-recovery) reports its evidence and limits.
+
+### Backup commands
+
+Keep the source process and all offline writers stopped until `backup create` returns.
+Create a separate age X25519 identity through the operator's trusted age tool.
+Keep its private recovery copy outside the installation and archive.
+Place its single public recipient string in a separate file. Use mode 0600 for both files.
+The CLI accepts a raw recipient or identity string with optional surrounding whitespace.
+It rejects age key files with comments, multiple keys, links, public permissions, or more than 1024 bytes.
+Use trusted parent directories for the source, input, keys, output, destination, and temporary state.
+The default finite plaintext limit is 4294967296 bytes. Select a larger limit for a larger supported installation.
+Temporary plaintext can require several times that capacity. Keep that storage private.
+
+```sh
+epochalypse backup create --source "$STOPPED_ROOT" --output "$NEW_ARCHIVE" \
+  --recipient-file "$BACKUP_RECIPIENT" --commit "$SOURCE_COMMIT" \
+  --max-objects "$SOURCE_MAX_OBJECTS" --quota-bytes "$SOURCE_QUOTA_BYTES" \
+  --max-bytes 4294967296 --temp-dir "$PRIVATE_TEMP"
+
+epochalypse backup restore --input "$NEW_ARCHIVE" --destination "$FRESH_ROOT" \
+  --identity-file "$BACKUP_IDENTITY" --commit "$EXECUTABLE_COMMIT" \
+  --uid "$MAIN_UID" --gid "$MAIN_GID" \
+  --max-bytes 4294967296 --temp-dir "$PRIVATE_TEMP"
+```
+
+Use the source's actual effective quotas. Retain its tested executable separately with the exact commit.
+The restore command requires that commit to match the authenticated archive.
+Both commands report JSON with `commit`, `max_objects`, and `quota_bytes` after success.
+Use those quotas for the restored main process's `--max-objects` and `--quota-bytes` flags.
+Neither command starts the main process.
+The create command syncs encrypted output before an exclusive rename to its fresh path.
+It syncs the parent directory before reporting success. Existing output remains unchanged.
+If that final sync or result output fails, a complete archive can exist despite the error.
+Inspect the path before a retry. The command never replaces it.
+The restore command has the same fresh-path and final-sync rules for the installation directory.
+
+Verified interface: [age v1.3.2 source](https://github.com/FiloSottile/age/blob/v1.3.2/age.go), retrieved 2026-11-05.
+`Encrypt` requires the caller to close its writer. `Decrypt` returns a plaintext stream that authenticates through its final chunk.
+Verified interface: [age v1.3.2 X25519 parser](https://github.com/FiloSottile/age/blob/v1.3.2/x25519.go), retrieved 2026-11-05.
+The CLI uses `ParseX25519Recipient` and `ParseX25519Identity`. It keeps parser input outside error messages.
+Verified interface: [bbolt v1.5.0 source](https://github.com/etcd-io/bbolt/blob/v1.5.0/db.go), retrieved 2026-11-05.
+Read-write `Open` obtains an exclusive file lock. `Options.Timeout` bounds the wait. `Options.OpenFile` permits an existing-file check.
+Verified interface: [x/sys v0.49.0 source](https://cs.opensource.google/go/x/sys/+/v0.49.0:unix/), retrieved 2026-11-05.
+The pinned Unix package supplies exclusive directory rename operations for Linux and macOS.
+
 For a coherent snapshot, block external access and stop the main process with SIGTERM through its service manager.
 Wait for process exit and database lock release. Stop all offline CLI writers before copying either database.
 Copy both complete databases and all referenced configuration and key files while they remain unchanged.

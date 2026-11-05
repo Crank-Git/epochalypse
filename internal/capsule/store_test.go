@@ -17,6 +17,42 @@ import (
 
 var capsuleNow = time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)
 
+func TestSnapshotValidationRejectsInvalidDependencies(t *testing.T) {
+	if err := ValidateSnapshot(nil, -1); err == nil {
+		t.Fatal("snapshot accepts an invalid plaintext limit")
+	}
+	if err := ValidateSnapshot(nil, DefaultPlaintextLimit); err == nil {
+		t.Fatal("snapshot accepts a missing transaction")
+	}
+}
+
+func TestSnapshotValidationRejectsUnpairedPrivateState(t *testing.T) {
+	for _, name := range []string{"missing keys", "orphan key", "changed key"} {
+		t.Run(name, func(t *testing.T) {
+			s := capsuleStore(t, DefaultPlaintextLimit)
+			record, err := s.Create(capsuleInput(ServerHeld), strings.NewReader("private text"), capsuleNow)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.db.Update(func(tx *bolt.Tx) error {
+				switch name {
+				case "missing keys":
+					return tx.DeleteBucket([]byte(installation.CapsuleKeysBucket))
+				case "orphan key":
+					return tx.Bucket([]byte(installation.CapsuleKeysBucket)).Put([]byte("orphan"), make([]byte, 32))
+				default:
+					return tx.Bucket([]byte(installation.CapsuleKeysBucket)).Put([]byte(record.ID), make([]byte, 32))
+				}
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.db.View(func(tx *bolt.Tx) error { return ValidateSnapshot(tx, DefaultPlaintextLimit) }); !errors.Is(err, ErrIntegrity) {
+				t.Fatalf("snapshot accepts unpaired private state: %v", err)
+			}
+		})
+	}
+}
+
 func capsuleInput(mode Mode) Input {
 	return Input{Mode: mode, Kind: Text, Title: "Synthetic capsule", ReleaseAt: capsuleNow.Add(time.Hour)}
 }
@@ -45,6 +81,25 @@ func TestServerHeldDraftWithholdsObjectAndKeyUntilPublication(t *testing.T) {
 	}
 	if key, err := s.Key(record.ID, capsuleNow.Add(2*time.Hour)); !errors.Is(err, ErrNotFound) || key != [32]byte{} {
 		t.Fatalf("draft exposes a key: %v", err)
+	}
+}
+
+func TestSnapshotValidationChecksCapsulePrivateState(t *testing.T) {
+	s := capsuleStore(t, 32)
+	record, err := s.Create(capsuleInput(ServerHeld), strings.NewReader("private text"), capsuleNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.View(func(tx *bolt.Tx) error { return ValidateSnapshot(tx, 32) }); err != nil {
+		t.Fatalf("valid capsule snapshot: %v", err)
+	}
+	if err := s.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket([]byte(installation.CapsuleKeysBucket)).Delete([]byte(record.ID))
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.View(func(tx *bolt.Tx) error { return ValidateSnapshot(tx, 32) }); err == nil {
+		t.Fatal("snapshot accepts a capsule without its private state")
 	}
 }
 
