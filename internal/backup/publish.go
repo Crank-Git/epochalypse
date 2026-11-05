@@ -9,6 +9,11 @@ import (
 	"path/filepath"
 )
 
+func validIdentity(uid, gid int) bool {
+	// The all-ones identifier means no ownership change to the host syscall.
+	return uid >= 0 && gid >= 0 && uint64(uid) < 1<<32-1 && uint64(gid) < 1<<32-1
+}
+
 func (a Archive) publish(ctx context.Context, destination string, uid, gid int) (err error) {
 	if err := ctx.Err(); err != nil {
 		return err

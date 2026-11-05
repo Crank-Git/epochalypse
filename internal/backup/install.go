@@ -86,11 +86,6 @@ func (a Archive) validateFiles(ctx context.Context) error {
 	return nil
 }
 
-func validIdentity(uid, gid int) bool {
-	// The all-ones identifier means no ownership change to the host syscall.
-	return uid >= 0 && gid >= 0 && uint64(uid) < 1<<32-1 && uint64(gid) < 1<<32-1
-}
-
 func (a Archive) validateConfiguration() (service.Settings, *window.Signer, error) {
 	settings, err := service.ReadSettings(filepath.Join(a.stage, "config/main.json"))
 	if err != nil {
