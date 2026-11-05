@@ -2,6 +2,7 @@ package service
 
 import (
 	"codeberg.org/miekg/dns"
+	"github.com/Crank-Git/epochalypse/internal/owner"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,30 @@ func TestSettingsAcceptSeparateCountdownZone(t *testing.T) {
 	}
 	if settings, err := ReadSettings(path); err != nil || settings.CountdownZone != "countdown.example." {
 		t.Fatalf("the separate countdown zone fails: %v", err)
+	}
+}
+
+func TestCountdownStartupFailureReleasesInstallationState(t *testing.T) {
+	key := countdownServiceKey(t)
+	for _, change := range []func(*Config){
+		func(c *Config) { c.CountdownZone = "invalid" },
+		func(c *Config) { c.CountdownKeyFile = filepath.Join(t.TempDir(), "missing.private") },
+		func(c *Config) { c.NameServer = "ns.countdown.example." },
+		func(c *Config) { c.Zone, c.KeyFile = c.CountdownZone, key },
+	} {
+		c := Config{StateDir: t.TempDir(), CountdownZone: "countdown.example.", CountdownKeyFile: key, Environment: "lab"}
+		change(&c)
+		if s, err := openMainState(c); err == nil {
+			s.close()
+			t.Fatal("invalid countdown state starts")
+		}
+		owners, err := owner.Open(c.StateDir)
+		if err != nil {
+			t.Fatal("failed startup retains the owner lock", err)
+		}
+		if err := owners.Close(); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 

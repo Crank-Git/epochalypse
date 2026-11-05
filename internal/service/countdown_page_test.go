@@ -8,7 +8,7 @@ import (
 )
 
 func TestCountdownOwnerPageRequiresSession(t *testing.T) {
-	h, _, _ := newCountdownAPIHTTP(t)
+	h, _, api := newCountdownAPIHTTP(t)
 	r := httptest.NewRequest("GET", "https://localhost/owner/countdowns", nil)
 	if w := h.send(r); w.Code != 401 {
 		t.Fatalf("the owner page bypasses authorization: %d", w.Code)
@@ -16,5 +16,9 @@ func TestCountdownOwnerPageRequiresSession(t *testing.T) {
 	r.AddCookie(&http.Cookie{Name: "__Host-epochalypse-session", Value: h.session, Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 	if w := h.send(r); w.Code != 200 || !strings.Contains(w.Body.String(), "Create a countdown") {
 		t.Fatalf("the owner controls are unavailable: %d %s", w.Code, w.Body)
+	}
+	_ = api.store.Close()
+	if w := h.send(r); w.Code != 503 {
+		t.Fatalf("the owner page hides failed storage: %d %s", w.Code, w.Body)
 	}
 }
