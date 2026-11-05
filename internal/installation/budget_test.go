@@ -142,6 +142,42 @@ func TestBudgetRejectsNestedContentBuckets(t *testing.T) {
 	}
 }
 
+func TestSnapshotLayoutRejectsUnknownAndNestedBuckets(t *testing.T) {
+	for _, nested := range []bool{false, true} {
+		s := budgetStore(t, DefaultLimits())
+		if err := s.Update(func(tx *bolt.Tx) error {
+			bucket, err := tx.CreateBucketIfNotExists([]byte(WindowsBucket))
+			if err != nil {
+				return err
+			}
+			if nested {
+				_, err = bucket.CreateBucket([]byte("unsupported"))
+				return err
+			}
+			_, err = tx.CreateBucket([]byte("unsupported-v2"))
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.View(ValidateSnapshotLayout); err == nil {
+			t.Fatal("unsupported snapshot layout passes")
+		}
+	}
+}
+
+func TestSnapshotLayoutRequiresEveryKnownBucket(t *testing.T) {
+	s := budgetStore(t, DefaultLimits())
+	if err := s.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucket([]byte(WindowsBucket))
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.View(ValidateSnapshotLayout); err == nil {
+		t.Fatal("snapshot with missing buckets passes")
+	}
+}
+
 func TestBudgetAdmitsOnlyOneConcurrentCreation(t *testing.T) {
 	s := budgetStore(t, Limits{MaxObjects: 1, MaxBytes: 1 << 30})
 	results := make(chan error, 2)
@@ -174,6 +210,12 @@ func TestBudgetAdmitsOnlyOneConcurrentCreation(t *testing.T) {
 	}
 	if accepted != 1 || rejected != 1 {
 		t.Fatalf("admission accepts %d and rejects %d", accepted, rejected)
+	}
+}
+
+func TestSnapshotLayoutRejectsMissingTransaction(t *testing.T) {
+	if err := ValidateSnapshotLayout(nil); err == nil {
+		t.Fatal("snapshot layout accepts a missing transaction")
 	}
 }
 
