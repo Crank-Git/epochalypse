@@ -20,7 +20,7 @@ func (s *Signer) SignCurrentTXT(txt *dns.TXT, now time.Time) (*dns.RRSIG, *dns.D
 		return nil, nil, errors.New("ordinary TXT record must use a canonical name below the configured zone")
 	}
 	// A five-minute allowance tolerates clock differences without coupling validity to an event.
-	sig := dns.NewRRSIG(s.key.Hdr.Name, s.key.Algorithm, s.key.KeyTag(), uint32(seconds-300), uint32(seconds+48*3600)) // #nosec G115 -- The clock check bounds both timestamps.
+	sig := dns.NewRRSIG(s.key.Hdr.Name, s.key.Algorithm, s.keyTag, uint32(seconds-300), uint32(seconds+48*3600)) // #nosec G115 -- The clock check bounds both timestamps.
 	if err := sig.Sign(s.private, []dns.RR{txt}, &dns.SignOption{}); err != nil {
 		return nil, nil, fmt.Errorf("sign ordinary public TXT: %w", err)
 	}

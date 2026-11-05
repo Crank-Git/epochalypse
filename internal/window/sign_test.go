@@ -40,6 +40,81 @@ func testSigner(t *testing.T) *Signer {
 	return s
 }
 
+func TestSignerAcceptsZeroKeyTag(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "zero.private")
+	for _, extension := range []string{"private", "key"} {
+		data, err := os.ReadFile("../../testdata/dnssec/zero." + extension) // #nosec G304 -- Both extensions select the tracked synthetic fixture.
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeTestFile(t, strings.TrimSuffix(path, ".private")+"."+extension, string(data))
+	}
+	s, err := LoadSigner("windows.example.", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, err := s.create(strings.Repeat("a", 32), validInput(), testNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	txt, sig, key, err := w.Records()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key.KeyTag() != 0 || sig.KeyTag != 0 {
+		t.Fatal("fixture loses key tag zero")
+	}
+	if err := sig.Verify(key, []dns.RR{txt}, &dns.SignOption{}); err != nil {
+		t.Fatal(err)
+	}
+	infrastructure, err := s.SignInfrastructure([]dns.RR{key}, testNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if infrastructure.KeyTag != 0 {
+		t.Fatal("infrastructure loses key tag zero")
+	}
+	if err := infrastructure.Verify(key, []dns.RR{key}, &dns.SignOption{}); err != nil {
+		t.Fatal(err)
+	}
+	testConcurrentSignatures(t, s)
+}
+
+func TestSignerPreservesConcurrentSignatures(t *testing.T) {
+	testConcurrentSignatures(t, testSigner(t))
+}
+
+func testConcurrentSignatures(t *testing.T, s *Signer) {
+	t.Helper()
+	for i := range 4 {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			t.Parallel()
+			if _, err := s.create(strings.Repeat("a", 32), validInput(), testNow); err != nil {
+				t.Error(err)
+			}
+			txt := makeTXT("event.windows.example.", "synthetic")
+			sig, key, err := s.SignCurrentTXT(txt, testNow)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if sig.KeyTag != key.KeyTag() {
+				t.Fatal("concurrent signature changes the key tag")
+			}
+			if err := sig.Verify(key, []dns.RR{txt}, &dns.SignOption{}); err != nil {
+				t.Fatal(err)
+			}
+			public := s.PublicKey()
+			infrastructure, err := s.SignInfrastructure([]dns.RR{public}, testNow)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := infrastructure.Verify(public, []dns.RR{public}, &dns.SignOption{}); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestSignerPreservesExplicitWindow(t *testing.T) {
 	s := testSigner(t)
 	in := validInput()

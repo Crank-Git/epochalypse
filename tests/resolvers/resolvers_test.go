@@ -278,14 +278,24 @@ stub-zone:
 
 func createFixture(t *testing.T, directory string) (*dns.DNSKEY, map[string]window.Window) {
 	t.Helper()
-	key := dns.NewDNSKEY("windows.example.", dns.ECDSAP256SHA256)
-	key.Flags = 257
-	private, err := key.Generate(256)
+	public, err := os.ReadFile("../../testdata/dnssec/zero.key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr, err := dns.New(string(public))
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := rr.(*dns.DNSKEY)
+	if key.Algorithm != dns.ECDSAP256SHA256 || key.KeyTag() != 0 {
+		t.Fatal("resolver fixture loses algorithm 13 or key tag zero")
+	}
+	private, err := os.ReadFile("../../testdata/dnssec/zero.private")
 	if err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(directory, "synthetic.private")
-	for path, text := range map[string]string{path: key.PrivateKeyString(private), filepath.Join(directory, "synthetic.key"): key.String()} {
+	for path, text := range map[string]string{path: string(private), filepath.Join(directory, "synthetic.key"): key.String()} {
 		if err := os.WriteFile(path, []byte(text), 0600); err != nil {
 			t.Fatal(err)
 		}
