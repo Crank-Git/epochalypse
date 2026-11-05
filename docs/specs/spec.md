@@ -48,7 +48,10 @@ Encrypted capsules use server-held keys or a verified drand beacon.
 Independent agents support switch release after the main server fails.
 
 The owner states: “outage shouldnt stop this as it undermines the entire deadman switch behavior.”
-The initial guarantee covers main-server loss plus one unavailable agent.
+The accepted direction covers main-server loss plus one unavailable agent by Bmax plus the reviewed allowance E.
+After incomplete receipts, the client reports uncertainty from B0 through Bmax. B0 is the earliest possible disclosure boundary.
+Three durable receipts confirm renewal. No replacement protocol has production acceptance.
+See [ADR 0012](../adr/0012-switch-uncertainty.md) and the [direction report](../research/switch-protocol/directions.md).
 A separate research epic assesses loss of all project-operated servers.
 
 ## Terms
@@ -66,6 +69,11 @@ A separate research epic assesses loss of all project-operated servers.
 | deadline | noun | The latest accepted owner check-in boundary. | expiration |
 | grace | noun | The duration between the deadline and release eligibility. | timeout |
 | release boundary | noun | The deadline plus grace for one accepted state. | deadline alone |
+| B0 | noun | The last release boundary confirmed by three matching durable receipts; the earliest possible disclosure after uncertain renewal. | exact authority after receipt loss |
+| Bmax | noun | The latest release boundary in any owner-signed renewal already issued for transmission. | latest received receipt |
+| E | noun | The reviewed allowance for clock error and publication work; no numeric value has acceptance yet. | exact UTC guarantee |
+| uncertain outcome | noun | An incomplete response that can hide partial or complete renewal acceptance. | failed renewal |
+| client journal | noun | Durable signed intent stored before transmission, including exact bytes, sequence, deadline, and proposed boundary. | memory-only retry |
 | share | noun | One agent's part of the content key. | whole key |
 | receipt | noun | A signed acknowledgment of durable agent state. | success hint |
 | recovery bundle | noun | Exported data needed for independent content recovery. | backup alone |
@@ -194,6 +202,8 @@ erDiagram
  CAPSULE ||--|| OBJECT : references
  SWITCH ||--|| OBJECT : references
  SWITCH ||--|{ RECEIPT : records
+ SWITCH ||--o{ CLIENT_JOURNAL : retains
+ CLIENT_JOURNAL ||--o{ RECEIPT : reconciles
  AGENT ||--o{ RECEIPT : signs
  AGENT ||--o{ SHARE : stores
  SWITCH ||--|{ SHARE : protects
@@ -206,9 +216,10 @@ erDiagram
 | Token | ID, digest, scopes, expiry, revocation time. | Active to expired or revoked. |
 | Capsule | ID, title, mode, requested time, effective time, object digest, format version. | Draft, sealed, available, deleted. |
 | Object | Digest, byte count, media type, encrypted bytes, format version. | Prepared to retained or locally deleted. |
-| Switch | ID, owner public key, interval, grace, sequence, accepted state, object digest. | Draft, armed, degraded, released. |
+| Switch | ID, owner public key, interval, grace, sequence, confirmed state, B0, Bmax, allowance assumptions, object digest. | Draft, armed, uncertain, released. |
+| Client journal | Switch ID, exact signed bytes, sequence, deadline, proposed boundary, receipt evidence. | Durable before transmission; retained through reconciliation. |
 | Agent | ID, public key, endpoints, failure domain, protocol version. | Enrolled to ready, unavailable, or retired. |
-| Share | Switch ID, agent ID, encrypted share, release status. | Private to irreversibly public. |
+| Share | Switch ID, agent ID, content key reference, encrypted share, irreversible release history. | Private to irreversibly public; observer copies persist. |
 | Receipt | Agent ID, switch ID, sequence, deadline, digest, signature. | Append-only evidence. |
 | Countdown | ID, title, event time, DNS name. | Active, completed, deleted. |
 | Window | ID, zone, content, inception, expiration, key reference. | Draft, published, expired. |
@@ -223,10 +234,10 @@ stateDiagram-v2
  [*] --> Draft
  Draft --> Armed: All durable receipts and export
  Armed --> Armed: Confirmed renewal
- Armed --> Degraded: Missing receipt
- Degraded --> Armed: Reviewed recovery
- Armed --> Released: Release boundary
- Degraded --> Released: Reviewed release rule
+ Armed --> Uncertain: Incomplete response
+ Uncertain --> Armed: Three matching durable receipts
+ Armed --> Released: Two shares at confirmed boundary plus E
+ Uncertain --> Released: By Bmax plus E under reviewed assumptions
  Released --> [*]
 ```
 
@@ -337,8 +348,8 @@ Research can return a blocker without enabling unsafe production behavior.
 | Epic 4: Switch protocol review | 5 | 0 | The model and maintainer decision permit implementation. |
 | Epic 5: Dead man’s switches | 6 | 2, 4 | Independent recovery passes the stated outage test. |
 | Epic 6: DNS countdowns | 3 | 1, 2 | Signed countdown records pass resolver tests. |
-| Epic 7: Deployment and recovery | 5 | 3, 5, 6 | A staged deployment passes the recovery exercise. |
-| Epic 8: External release research | 5 | 4 | The report supports a maintainer decision. |
+| Epic 7: Deployment and recovery | 5 | 3, 6; switch slice also 5 | Completed features pass staging; switch drills await protocol acceptance. |
+| Epic 8: External release research | 5 | 0; independent of production switch acceptance | The report supports a maintainer decision. |
 
 Feature files define each epic's complete behavior. Split an epic before issue creation if the work exceeds six focused changes.
 Do not compress the protocol review to preserve an estimate.
@@ -349,7 +360,7 @@ Do not compress the protocol review to preserve an estimate.
 2. Provide owner access and all capsule modes.
 3. Complete the protocol review before switch implementation.
 4. Provide switches and countdowns behind verified behavior gates.
-5. Validate the Linux deployment and independent recovery.
+5. Validate completed-feature deployment independently; validate live switch recovery after protocol acceptance.
 6. Present the external release report as a separate decision.
 
 A shippable v1 passes all required checks and the deployment exercise.
@@ -372,13 +383,18 @@ Keep provider selection and actual infrastructure cost outside this planning dec
 
 ### Review decisions
 
+- The owner accepts the bounded receipt-loss tradeoff on 2026-11-05. Clock and publication allowances remain protocol-review outputs.
+
 - The owner approved three-agent renewal and its availability tradeoff on 2026-11-04.
 - The owner approved the scaffold proposal on 2026-11-04.
 - The owner accepted server exposure during v1 web preparation on 2026-11-04.
 
 ### Technical gates
 
-- Partial renewal can leave inconsistent deadlines. The model must establish safe semantics before production switch use.
+- Incomplete receipts create uncertainty from B0 through Bmax, plus E. The owner accepts almost 24 hours under the default interval.
+- B0 does not prove actual authority after receipt loss. A missing response can hide a fully accepted renewal.
+- The revised model must verify Bmax plus E after main loss and one outage with two reachable, honest, durable agents.
+- Permanent client loss, retry journals, delayed requests, and irreversible observer history remain protocol-review obligations.
 - Published shares can survive later renewals. The protocol must account for their cumulative disclosure.
 - Two colluding agents can disclose a secret early. V1 does not cover this attack.
 - Agent clock error can cause early or late release. The protocol review defines a measured bound and an unsafe-clock response.
@@ -393,6 +409,9 @@ Keep provider selection and actual infrastructure cost outside this planning dec
 No unanswered product question blocks the approved plan. Technical gates block the affected implementation or production claim.
 
 ## Changelog
+
+- 2026-11-05: The owner accepts bounded switch uncertainty after receipt loss. ADR 0012 supersedes ADR 0005's exact-confirmation requirement. Keep production gated.
+- 2026-11-05: Separate completed-feature deployment and comparative external research from production switch acceptance. Keep live switch operations gated.
 
 - 2026-11-04: The owner selects separate DNS subdomains for signature-window experiments and countdowns. Keep delegation operator-controlled. Capsule foundation supplies shared storage before countdown implementation.
 
