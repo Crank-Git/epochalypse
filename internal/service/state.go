@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Crank-Git/epochalypse/internal/authority"
+	"github.com/Crank-Git/epochalypse/internal/installation"
 	"github.com/Crank-Git/epochalypse/internal/owner"
 	"github.com/Crank-Git/epochalypse/internal/resolver"
 	"github.com/Crank-Git/epochalypse/internal/window"
@@ -13,6 +14,7 @@ import (
 
 type mainState struct {
 	owner         *owner.Store
+	content       *installation.Store
 	windows       *window.Store
 	authority     *authority.Authority
 	jobs          *resolver.Jobs
@@ -26,6 +28,11 @@ func openMainState(config Config) (*mainState, error) {
 		return nil, err
 	}
 	state := &mainState{owner: owners, directSlots: make(chan struct{}, 4)}
+	state.content, err = installation.Open(config.StateDir, config.windowLimits())
+	if err != nil {
+		state.close()
+		return nil, err
+	}
 	if config.Zone == "" {
 		return state, nil
 	}
@@ -38,7 +45,7 @@ func openMainState(config Config) (*mainState, error) {
 		state.close()
 		return nil, errors.New("production authority rejects an explicit lab key")
 	}
-	state.windows, err = window.OpenWithLimits(config.StateDir, signer, config.windowLimits())
+	state.windows, err = window.Attach(state.content, signer)
 	if err != nil {
 		state.close()
 		return nil, err
@@ -66,8 +73,8 @@ func (s *mainState) close() {
 	if s.jobs != nil {
 		s.jobs.Close()
 	}
-	if s.windows != nil {
-		_ = s.windows.Close()
+	if s.content != nil {
+		_ = s.content.Close()
 	}
 	_ = s.owner.Close()
 }

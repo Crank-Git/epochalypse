@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Crank-Git/epochalypse/internal/installation"
 	"github.com/Crank-Git/epochalypse/internal/observation"
 	bolt "go.etcd.io/bbolt"
 	"reflect"
@@ -13,12 +14,12 @@ import (
 	"time"
 )
 
-var observationBucket = []byte("observations-v1")
+var observationBucket = []byte(installation.ObservationsBucket)
 
 // ErrRunCompleted rejects a second completion of an immutable run.
 var ErrRunCompleted = errors.New("observation run is complete")
 
-const runReservation = 16384
+const runReservation = installation.ObservationReservationBytes
 
 type runDocument struct {
 	Run           observation.Run `json:"run"`

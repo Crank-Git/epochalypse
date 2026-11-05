@@ -46,7 +46,7 @@ func TestWindowAdmissionCountsSeparateCapsuleKeyBytes(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	// A zero-size probe isolates retained key bytes from the new window document.
+	// The probe excludes a signed document so only the retained key can exhaust this budget.
 	if err := s.db.Update(func(tx *bolt.Tx) error { return s.admits(tx, 1) }); !errors.Is(err, ErrQuota) {
 		t.Fatalf("private keys bypass the installation bytes: %v", err)
 	}

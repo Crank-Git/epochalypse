@@ -97,16 +97,18 @@ Inspection verifies the stored records. It retains expired records and the origi
 `EPOCHALYPSE_MAX_OBJECTS` defaults to 100. `EPOCHALYPSE_QUOTA_BYTES` defaults to 1073741824.
 The server and window commands accept corresponding `--max-objects` and `--quota-bytes` flags.
 Each override must be a positive integer.
-The store atomically checks its document count and encoded JSON bytes before creation.
+The store atomically checks its document count and encoded content bytes before creation.
 A quota failure leaves accepted records unchanged.
-Database page overhead and the fixed configuration record do not enter the JSON-byte count.
+Database page overhead and the fixed configuration record do not enter the content-byte count.
 
-Windows and observation runs use one installation budget in `v1/windows.db`.
+Windows, observation runs, and capsule storage use one installation budget in `v1/windows.db`.
 A pending run reserves one document and 16384 bytes before a resolver job starts.
 Completion atomically replaces the reservation with the final encoded document size.
 The shared transaction prevents a window from consuming bytes that a pending run needs.
-Future capsules, switches, and countdowns must contribute to this installation budget before they admit retained state.
-Their implementation must define the shared transaction or reservation mechanism.
+The shared scan counts all retained domains even when their feature wrappers remain unopened.
+Each capsule record counts as one object. Its encoded record and separate private content key consume the byte allowance.
+An unknown content bucket or corrupt reservation envelope blocks admission.
+Switches and countdowns must extend this shared layout before they admit retained state.
 
 ## Producer contracts
 
@@ -116,6 +118,11 @@ Observation runs and public pages consume these reads without another TXT signat
 The store binds its zone and DNSKEY at first access. A changed DNSKEY requires an explicit migration.
 
 The main service owns store lifetime in `internal/service/state.go`.
+`installation.Open` owns the retained-content database handle, including when the server has no DNS configuration.
+`window.Attach` shares that handle and its budget. It does not acquire another database writer.
+Closing an attached window store stops window access while other domains retain their handles.
+The installation closes after its domain users stop. Offline window commands retain their existing `window.Open` interface.
+Budget accounting requires no private DNS signing key. Domain reads still verify signed window context.
 `mainState.routes` registers owner routes and window creation.
 New owner mutations use `owner.RequireOwner` inside `owner.SecureHandler`.
 `owner.APIError` supplies the shared error shape.
