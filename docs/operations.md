@@ -236,6 +236,10 @@ It requires the four version 1 owner buckets and their supported record formats.
 It checks the password profile, credential owner identifiers, token digests and scopes, and audit sequences.
 It preserves expired credentials and their original deadlines without a database mutation.
 This domain check does not open the database, validate the installation database, or authorize service startup.
+The archive's `ValidateOwner` method applies this domain check to the authenticated private owner file.
+It rechecks the file path, protected mode, size, and digest before bbolt reads the database.
+It uses read-only access and preserves all database bytes. Cancellation and unavailable temporary state fail the check.
+This partial check does not validate the other installation files or authorize service startup.
 
 Verified interface: [age v1.3.2 source](https://github.com/FiloSottile/age/blob/v1.3.2/age.go), retrieved 2026-11-05.
 `Encrypt` requires the caller to close its writer. `Decrypt` returns a plaintext stream that authenticates through its final chunk.
