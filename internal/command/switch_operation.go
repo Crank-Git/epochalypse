@@ -82,6 +82,12 @@ func runSwitchArm(args []string, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
+	if result.Confirmed {
+		if err := initializeCheckins(options.bundlePath, inputs, result); err != nil {
+			_, _ = fmt.Fprintln(stderr, err)
+			return 1
+		}
+	}
 	if err := json.NewEncoder(stdout).Encode(record); err != nil {
 		return 1
 	}
@@ -94,6 +100,14 @@ func runSwitchArm(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+func initializeCheckins(bundle string, inputs armInputs, result switchclient.ArmResult) error {
+	request, err := readArmEvidence(bundle+".arm", inputs.plan, inputs.key, result)
+	if err != nil {
+		return err
+	}
+	return switchclient.InitializeRenewal(bundle+".checkins", inputs.plan, inputs.key, request.Request, result.Armed)
 }
 
 func parseArmOptions(args []string, stderr io.Writer) (armOptions, error) {

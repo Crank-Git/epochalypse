@@ -2,7 +2,7 @@
 
 Issue #31 introduces runtime contracts for the reviewed version-two protocol.
 These contracts do not enable production switches.
-The CLI provides local prepare, arm, and export commands.
+The CLI provides local prepare, arm, check-in, status, and export commands.
 The main API retains authenticated public arm evidence.
 The agent runtime supports explicit local experiments over HTTPS.
 Actual-host readiness and complete product verification remain incomplete.
@@ -84,7 +84,54 @@ Arrival time never extends either signed deadline.
 The agent persists accepted intent before it signs and persists a receipt.
 Restart validates renewed material against the retained original prepare request and the complete authority journal.
 Possible disclosure and unsafe clocks prevent renewal.
-The owner-local client journal, CLI renewal, and public status reconciliation remain incomplete in this slice of issue #32.
+The owner-local client journal and CLI support direct renewal.
+Main API and browser reconciliation remain incomplete in this slice of issue #32.
+
+## Owner-local renewal
+
+`switchclient.InitializeRenewal` retains the exact arm request and three matching durable receipts.
+The CLI calls it after confirmed arm. Its journal directory is `<bundle>.checkins`.
+The directory contains canonical signed envelopes. It contains no second protocol encoding.
+Each sequence has one immutable `<sequence>.request` file.
+Each received agent receipt has one immutable `<sequence>.<agent-id>.receipt` file.
+The owner keeps this directory outside main-server backups.
+
+`switchclient.Renew` locks the journal against concurrent owner processes.
+It signs the next sequence only after it authenticates the retained chain.
+It derives the deadline from the issue time plus the enrolled interval.
+The signed state also binds the grace and release boundary.
+The client synchronizes the exact request and its directory before any agent request.
+Before a successor, it synchronizes the preceding confirmed request and every receipt again.
+This order handles visible bytes after a failed file or directory synchronization.
+
+An incomplete renewal retains the original signed bytes after process restart.
+A retry preserves its sequence, deadline, and proposed release boundary.
+The client validates each receipt against the enrolled agent and identical signed state.
+Only three matching durable receipts confirm renewal.
+Missing or invalid responses preserve an uncertain outcome.
+A partial-transmission error returns the retained bounds and each agent's evidence.
+It does not discard that evidence with the error.
+
+Run a direct check-in with a locally held owner key:
+
+```sh
+epochalypse switch checkin --plan private-plan.json --owner-key owner.key \
+  --journal recovery.json.checkins --pins agent-pins.json
+```
+
+Read authenticated local status without a main-server request:
+
+```sh
+epochalypse switch status --plan private-plan.json --owner-key owner.key \
+  --journal recovery.json.checkins
+```
+
+The JSON reports `confirmed`, `b0`, `bmax`, `deadline`, `grace_seconds`, and `allowance_assumptions`.
+The `agents` array reports each agent's durable receipt or uncertain response independently.
+B0 remains the earliest possible disclosure boundary after receipt loss.
+Bmax includes the retained signed intent even when its receipts remain incomplete.
+The allowance assumptions distinguish the candidate E from actual-host acceptance.
+The main service holds no owner private key. A scoped API token cannot replace an owner signature.
 
 Verified interface: [x/sys v0.49.0 Flock](https://pkg.go.dev/golang.org/x/sys@v0.49.0/unix#Flock), retrieved 2026-11-05.
 The implementation also uses the pinned Go filesystem APIs for bounded files and directory persistence.

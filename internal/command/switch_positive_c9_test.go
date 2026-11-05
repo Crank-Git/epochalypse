@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Crank-Git/epochalypse/internal/switchclient"
 )
 
 func verifySwitchArmRetries(t *testing.T, binary string, paths switchFixturePaths, fixture *switchEndpointFixture) {
@@ -29,6 +31,7 @@ func verifySwitchArmRetries(t *testing.T, binary string, paths switchFixturePath
 	assertSwitchEvidence(t, paths.bundle+".arm", requestBefore)
 	assertSwitchEvidence(t, paths.bundle, bundleBefore)
 
+	verifySwitchCheckinConfirmed(t, binary, paths, trust)
 	stopSwitchAgentProcess(fixture.processes[0])
 	stdout, stderr, err := runSwitchExecutableResult(binary, args, trust)
 	if err == nil {
@@ -46,6 +49,44 @@ func verifySwitchArmRetries(t *testing.T, binary string, paths switchFixturePath
 	assertSwitchEvidence(t, paths.bundle+".intent", intentBefore)
 	assertSwitchEvidence(t, paths.bundle+".arm", requestBefore)
 	assertSwitchEvidence(t, paths.bundle, bundleBefore)
+	verifySwitchCheckinUncertain(t, binary, paths, trust)
+}
+
+func switchCheckinArguments(paths switchFixturePaths) []string {
+	return []string{"switch", "checkin", "--plan", paths.plan, "--owner-key", paths.ownerKey, "--journal", paths.bundle + ".checkins", "--pins", paths.pins}
+}
+
+func verifySwitchCheckinConfirmed(t *testing.T, binary string, paths switchFixturePaths, trust map[string]string) {
+	t.Helper()
+	output := runSwitchExecutable(t, binary, switchCheckinArguments(paths), trust)
+	var result switchclient.Renewal
+	if err := json.Unmarshal(output, &result); err != nil || !result.Confirmed || len(result.Receipts) != 3 || result.B0 != result.Bmax {
+		t.Fatalf("direct renewal lacks three receipts: %s %v", output, err)
+	}
+}
+
+func verifySwitchCheckinUncertain(t *testing.T, binary string, paths switchFixturePaths, trust map[string]string) {
+	t.Helper()
+	args := switchCheckinArguments(paths)
+	stdout, stderr, err := runSwitchExecutableResult(binary, args, trust)
+	var result switchclient.Renewal
+	if decodeErr := json.Unmarshal(stdout.Bytes(), &result); err == nil || decodeErr != nil || result.Confirmed || len(result.Receipts) != 2 || len(result.Agents) != 3 || !strings.Contains(stderr.String(), "uncertain") {
+		t.Fatalf("one outage hides uncertainty: stdout=%q stderr=%q error=%v", stdout.String(), stderr.String(), err)
+	}
+	intent := readSwitchEvidence(t, paths.bundle+".checkins/3.request")
+	stdout, _, err = runSwitchExecutableResult(binary, args, trust)
+	if err == nil {
+		t.Fatal("client restart reports confirmation during an outage")
+	}
+	assertSwitchEvidence(t, paths.bundle+".checkins/3.request", intent)
+	var retried switchclient.Renewal
+	if err := json.Unmarshal(stdout.Bytes(), &retried); err != nil || retried.B0 != result.B0 || retried.Bmax != result.Bmax {
+		t.Fatalf("restart changes bounds: %s %v", stdout.String(), err)
+	}
+	status := runSwitchExecutable(t, binary, []string{"switch", "status", "--plan", paths.plan, "--owner-key", paths.ownerKey, "--journal", paths.bundle + ".checkins"}, nil)
+	if err := json.Unmarshal(status, &retried); err != nil || retried.Confirmed || retried.B0 != result.B0 || retried.Bmax != result.Bmax {
+		t.Fatalf("standalone status loses uncertainty: %s %v", status, err)
+	}
 }
 
 func switchArmArguments(paths switchFixturePaths) []string {
