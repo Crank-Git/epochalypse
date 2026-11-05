@@ -2,7 +2,9 @@
 
 Issue #31 introduces runtime contracts for the reviewed version-two protocol.
 These contracts do not enable production switches.
-The CLI and main-service arm routes remain incomplete.
+The CLI provides local prepare, arm, and export commands.
+The main API retains authenticated public arm evidence.
+The agent service, readiness producers, and complete product verification remain incomplete.
 The local runtime slice provides content, agent transitions, HTTPS transport, and owner orchestration APIs.
 
 ## Canonical wire data
@@ -141,6 +143,67 @@ The [package license](https://github.com/hashicorp/vault/blob/v1.21.4/shamir/LIC
 These references were retrieved on 2026-11-05.
 
 ## Local prepare and arm APIs
+
+The owner stops the main server before the offline CLI opens the shared installation database.
+The owner supplies the existing local Ed25519 private key as base64 text in a mode-0600 regular file.
+The project does not generate or store a web-use signing key.
+The operator separately enrolls that public key on each agent.
+The operator supplies three distinct agent identities, signature keys, age recipients, and HTTPS endpoints.
+The agent array uses the JSON fields from `switchwire.Agent`.
+Each `SigningKey` contains 32 numeric bytes.
+
+```sh
+epochalypse switch create --state-dir var/state
+epochalypse switch prepare --state-dir var/state --id DRAFT_ID \
+  --content content.txt --agents agents.json --owner-key owner.key --plan private-plan.json
+epochalypse switch arm --state-dir var/state --plan private-plan.json \
+  --owner-key owner.key --pins tls-pins.json --bundle recovery.json
+epochalypse switch status --state-dir var/state --id DRAFT_ID
+epochalypse switch export --bundle recovery.json \
+  --owner-public-key owner-public.key --output retained-recovery.json
+```
+
+`prepare` saves a protected private plan before any network request.
+It refuses to replace a different existing plan.
+The plan contains ciphertext and three encrypted shares. Keep it private.
+`tls-pins.json` maps each enrolled HTTPS endpoint to its hexadecimal SHA-256 digest of the TLS public-key information.
+The HTTPS client requires normal system trust validation and the configured pin.
+It currently has no custom certificate-authority option.
+`owner-public.key` contains the separately retained public key as base64 text.
+
+`arm` persists exact local intent, obtains three prepared receipts, and exports the verified public recovery bundle.
+It then persists the exact signed arm request beside the bundle with the `.arm` suffix.
+Before the first arm send, it records that issued intent in the main database as an uncertain outcome.
+After transmission, it records available authenticated armed receipts.
+Only three matching durable receipts produce `state = "armed"` and exit code zero.
+Repeat the same arm command with the same private plan and bundle path after an uncertain outcome.
+The retry preserves the exact request and all previously retained receipts.
+A failed update after transmission reports uncertainty.
+
+The main `switches-v1` bucket retains the version-one configuration and optional `arm` evidence.
+The evidence contains the public owner key, signed enrollment, exact signed arm request, and available armed receipts.
+It contains no private key, plaintext, ciphertext, or encrypted share.
+The shared installation quota charges each complete replacement record once.
+The strict record decoder bounds each record to 64 KiB.
+Older drafts keep their original six fields and bytes.
+Backup restore uses the same decoder and signature validation.
+Older six-bucket installations can omit the switch bucket.
+Restore never installs live-agent authority.
+
+`POST /api/v1/switches/{id}/arm` accepts `ArmEvidence` JSON with the `switch:write` scope or an owner session and CSRF proof.
+This route records an owner-local attempt. It does not create signatures or transmit agent requests.
+Its JSON fields are `owner_key`, `certificate`, `certificate_signature`, `request`, and `armed`.
+The request contains three authenticated prepared receipts for the identical state.
+The route verifies the draft identifier, configured durations, enrollment, and every supplied armed receipt.
+It freezes the enrollment and signed request on the first observation.
+Subsequent observations preserve all prior receipts.
+It returns 202 for an uncertain outcome and 200 only for three matching armed receipts.
+The request limit is 64 KiB. The route rejects unknown fields and trailing JSON values.
+`GET /api/v1/switches/{id}` returns the same retained evidence.
+The owner page distinguishes confirmed arm, uncertainty, and an absent observation.
+An absent main observation does not prove that remote agents remain unarmed.
+The main API cannot independently prove that the owner retains a local bundle file.
+The owner-local arm implementation enforces the actual export order.
 
 `switchcontent.Prepare` reads at most 10 MiB of plaintext.
 It creates one random AES-256 key and a separate random key identity.

@@ -16,6 +16,7 @@ import (
 	"github.com/Crank-Git/epochalypse/internal/countdown"
 	"github.com/Crank-Git/epochalypse/internal/installation"
 	"github.com/Crank-Git/epochalypse/internal/service"
+	"github.com/Crank-Git/epochalypse/internal/switches"
 	"github.com/Crank-Git/epochalypse/internal/window"
 	bolt "go.etcd.io/bbolt"
 )
@@ -180,6 +181,9 @@ func (a Archive) validateDomains(ctx context.Context, tx *bolt.Tx, settings serv
 		return err
 	}
 	if err := countdown.ValidateSnapshot(tx); err != nil {
+		return err
+	}
+	if err := switches.ValidateSnapshot(tx); err != nil {
 		return err
 	}
 	return ctx.Err()

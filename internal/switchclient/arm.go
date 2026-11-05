@@ -33,6 +33,12 @@ type ArmResult struct {
 
 // PrepareAndArm exports verified recovery data before it transmits arm requests.
 func PrepareAndArm(ctx context.Context, p Plan, key ed25519.PrivateKey, replicas Replica, bundlePath string) (ArmResult, error) {
+	return PrepareAndArmWithIntent(ctx, p, key, replicas, bundlePath, nil)
+}
+
+// PrepareAndArmWithIntent registers the durable signed arm intent before the first arm send.
+// A registration error prevents transmission. The local bundle and intent remain available for retry.
+func PrepareAndArmWithIntent(ctx context.Context, p Plan, key ed25519.PrivateKey, replicas Replica, bundlePath string, beforeArm func(switchwire.Envelope) error) (ArmResult, error) {
 	r := ArmResult{Prepared: map[string]switchwire.Envelope{}, Armed: map[string]switchwire.Envelope{}, Errors: map[string]string{}}
 	enrollment, frame, err := validatePlan(p, key)
 	if err != nil || replicas == nil {
@@ -66,6 +72,11 @@ func PrepareAndArm(ctx context.Context, p Plan, key ed25519.PrivateKey, replicas
 	}
 	if err := persistExact(bundlePath+".arm", armIntent); err != nil {
 		return r, err
+	}
+	if beforeArm != nil {
+		if err := beforeArm(request); err != nil {
+			return r, err
+		}
 	}
 	if err := r.collect(ctx, enrollment, func(a switchwire.Agent) (switchwire.Envelope, error) { return replicas.Arm(ctx, a, request) }, true); err != nil {
 		return r, err

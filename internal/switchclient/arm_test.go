@@ -100,6 +100,29 @@ func armFixture(t *testing.T) (Plan, ed25519.PrivateKey, *replicaFixture) {
 	return p, key, r
 }
 
+func TestArmRegistersDurableIntentBeforeTransmission(t *testing.T) {
+	p, key, replicas := armFixture(t)
+	called := false
+	_, err := PrepareAndArmWithIntent(context.Background(), p, key, replicas, replicas.bundle, func(request switchwire.Envelope) error {
+		called = true
+		if replicas.armCalls != 0 {
+			t.Fatal("registration follows arm transmission")
+		}
+		data, err := os.ReadFile(replicas.bundle + ".arm")
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected, err := switchwire.MarshalEnvelope(request)
+		if err != nil || string(data) != string(expected) {
+			t.Fatal("registration precedes durable signed intent")
+		}
+		return errors.New("synthetic registration failure")
+	})
+	if !called || err == nil || replicas.armCalls != 0 {
+		t.Fatalf("registration called=%t sends=%d err=%v", called, replicas.armCalls, err)
+	}
+}
+
 func TestArmExportsBundleBeforeAllThreeArmedReceipts(t *testing.T) {
 	p, key, r := armFixture(t)
 	result, err := PrepareAndArm(context.Background(), p, key, r, r.bundle)

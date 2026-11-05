@@ -49,6 +49,20 @@ func TestSwitchHTTPRetainsUnarmedConfiguration(t *testing.T) {
 	}
 }
 
+func TestSwitchHTTPArmRejectsInvalidEvidenceAndRequiresOwnerProof(t *testing.T) {
+	h, token := newSwitchHTTP(t)
+	for _, credential := range []string{"", h.bearer, token} {
+		w := h.send(countdownRequest("POST", "/api/v1/switches/"+strings.Repeat("a", 32)+"/arm", `{}`, credential))
+		if credential == token {
+			if w.Code != 400 {
+				t.Fatalf("invalid arm evidence: %d %s", w.Code, w.Body)
+			}
+		} else if w.Code != 401 && w.Code != 403 {
+			t.Fatalf("unauthorized arm: %d", w.Code)
+		}
+	}
+}
+
 func TestSwitchHTTPRejectsInvalidRequests(t *testing.T) {
 	h, token := newSwitchHTTP(t)
 	for _, body := range []string{"", "null", "[]", `{} {}`, `{"unknown":1}`, `{"interval_seconds":3599}`, `{"interval_seconds":31536001}`, `{"grace_seconds":-1}`, `{"grace_seconds":2592001}`, `{"interval_seconds":1.5}`, string([]byte{255})} {
@@ -147,7 +161,7 @@ func TestSwitchOwnerPageRequiresSession(t *testing.T) {
 	r.Header.Del("Authorization")
 	r.AddCookie(&http.Cookie{Name: "__Host-epochalypse-session", Value: h.session, Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 	w := h.send(r)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "unarmed and unreplicated") || !strings.Contains(w.Header().Get("Content-Security-Policy"), "script-src 'self'") {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "irreversible release") || !strings.Contains(w.Body.String(), "An absent receipt does not prove") || !strings.Contains(w.Header().Get("Content-Security-Policy"), "script-src 'self'") {
 		t.Fatalf("owner page: %d %s", w.Code, w.Body)
 	}
 	r.URL.Path = "/owner/switches.js"

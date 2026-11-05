@@ -43,13 +43,17 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return runService(ctx, args, stderr)
 		}
 	}
+	return runHelp(args, stdout, stderr)
+}
+
+func runHelp(args []string, stdout, stderr io.Writer) int {
 	if len(args) > 1 || (len(args) == 1 && !slices.Contains([]string{"help", "-h", "--help"}, args[0])) {
 		if _, err := fmt.Fprintln(stderr, "invalid command: use epochalypse help"); err != nil {
 			return 1
 		}
 		return 2
 	}
-	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  backup      Encrypt or restore stopped main-service state\n  help        Show command help\n  owner       Create or recover the local owner\n  token       Create a scoped token with host access\n  window      Create or inspect signed windows offline\n  switch      Create or inspect unarmed switch drafts offline\n  countdown   Create or inspect absolute events offline\n  capsule     Create or publish local capsule content\n  lab         Verify an explicit public DNSSEC anchor\n  server      Start the web server\n  dns         Start the local DNS scaffold\n  agent       Start a local agent scaffold\n  status      Verify a deployed commit\n  demo        Create synthetic fixtures\n  clean-demo  Remove the explicit demo namespace"); err != nil {
+	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  backup      Encrypt or restore stopped main-service state\n  help        Show command help\n  owner       Create or recover the local owner\n  token       Create a scoped token with host access\n  window      Create or inspect signed windows offline\n  switch      Create, arm, or export a switch with owner-local tools\n  countdown   Create or inspect absolute events offline\n  capsule     Create or publish local capsule content\n  lab         Verify an explicit public DNSSEC anchor\n  server      Start the web server\n  dns         Start the local DNS scaffold\n  agent       Start a local agent scaffold\n  status      Verify a deployed commit\n  demo        Create synthetic fixtures\n  clean-demo  Remove the explicit demo namespace"); err != nil {
 		return 1
 	}
 	return 0

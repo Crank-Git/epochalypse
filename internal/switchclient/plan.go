@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -11,6 +12,18 @@ import (
 	"github.com/Crank-Git/epochalypse/internal/switches"
 	"github.com/Crank-Git/epochalypse/internal/switchwire"
 )
+
+// WritePlan persists exact owner-local intent without exposing its encrypted shares publicly.
+func WritePlan(path string, plan Plan, key ed25519.PrivateKey) error {
+	if _, _, err := validatePlan(plan, key); err != nil {
+		return err
+	}
+	data, err := json.Marshal(plan)
+	if err != nil {
+		return err
+	}
+	return persistExact(path, data)
+}
 
 // NewPlan signs encrypted content for an existing main-state draft.
 // The owner keeps the private key outside the main service.

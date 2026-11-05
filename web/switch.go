@@ -1,17 +1,18 @@
 package web
 
-// SwitchHTML keeps draft configuration separate from agent authority.
+// SwitchHTML distinguishes retained observations from independent agent authority.
 const SwitchHTML = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Owner switches — epochalypse</title><link rel="stylesheet" href="/owner/style.css"><script src="/owner/switches.js" defer></script></head>
 <body><main><a href="/owner">Owner dashboard</a><h1>Configure a switch draft</h1>
-<p>A draft is unarmed and unreplicated. It has no accepted deadline or release boundary. Switch production use remains disabled.</p>
+<p>Switch production use remains disabled. The owner signs arm requests with a local key through the CLI. Export the recovery bundle before arm.</p>
+<p>A network partition can trigger irreversible release despite an available owner. Missing receipts leave an uncertain outcome.</p>
 <form id="switch-form"><fieldset id="switch-fields" disabled><legend>Draft configuration</legend>
 <p><label for="switch-interval">Check-in interval (seconds)</label> <input id="switch-interval" type="number" min="3600" max="31536000" step="1" value="86400" required></p>
 <p><label for="switch-grace">Grace period (seconds)</label> <input id="switch-grace" type="number" min="0" max="2592000" step="1" value="3600" required></p>
 <p>Interval: 1 hour to 365 days. Grace: zero to 30 days.</p>
 <p id="switch-preview" aria-live="polite"></p><button type="submit">Create draft</button></fieldset></form>
 <p id="switch-status" role="status" tabindex="-1">Check the owner session.</p>
-<section><h2>Retained drafts</h2><ul id="switch-list">{{range .}}<li data-id="{{.ID}}"><code>{{.ID}}</code><p>Draft — unarmed and unreplicated</p><p>Interval: {{.IntervalSeconds}} seconds. Grace: {{.GraceSeconds}} seconds.</p></li>{{end}}</ul></section></main></body></html>`
+<section><h2>Retained switches</h2><p>These records show retained evidence. An absent receipt does not prove that an agent rejects an arm request.</p><ul id="switch-list">{{range .}}<li data-id="{{.ID}}"><code>{{.ID}}</code>{{if .Arm}}<p>{{if eq .State "armed"}}Armed — three matching durable receipts{{else}}Uncertain outcome — the owner issues an arm request{{end}}</p><p>Armed receipts: {{len .Arm.Armed}} of 3.</p>{{else}}<p>Draft — no arm evidence reported. Remote agent state is unknown.</p>{{end}}<p>Interval: {{.IntervalSeconds}} seconds. Grace: {{.GraceSeconds}} seconds.</p><a href="/api/v1/switches/{{.ID}}">Inspect signed arm evidence</a></li>{{end}}</ul></section></main></body></html>`
 
 // SwitchJS labels proposed times before the owner creates a draft.
 const SwitchJS = `'use strict';

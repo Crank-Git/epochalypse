@@ -14,8 +14,20 @@ import (
 )
 
 func runSwitch(args []string, stdout, stderr io.Writer) int {
-	if len(args) < 2 || (args[1] != "create" && args[1] != "status") {
-		_, _ = fmt.Fprintln(stderr, "use switch create or switch status; these commands keep the switch unarmed")
+	if len(args) < 2 {
+		_, _ = fmt.Fprintln(stderr, "use switch create, prepare, status, arm, or export")
+		return 2
+	}
+	switch args[1] {
+	case "prepare":
+		return runSwitchPrepare(args[2:], stdout, stderr)
+	case "arm":
+		return runSwitchArm(args[2:], stdout, stderr)
+	case "export":
+		return runSwitchExport(args[2:], stdout, stderr)
+	case "create", "status":
+	default:
+		_, _ = fmt.Fprintln(stderr, "use switch create, prepare, status, arm, or export")
 		return 2
 	}
 	flags := flag.NewFlagSet("switch "+args[1], flag.ContinueOnError)

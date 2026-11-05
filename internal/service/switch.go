@@ -27,6 +27,66 @@ func (api *switchAPI) routes(mux *http.ServeMux, owners *owner.Store, lab bool) 
 	for _, path := range []string{"/api/v1/switches", "/api/v1/switches/{id}"} {
 		mux.Handle(path, owner.SecureHandler(lab, owners.RequireScope("switch:write", http.HandlerFunc(api.serve))))
 	}
+	mux.Handle("/api/v1/switches/{id}/arm", owner.SecureHandler(lab, owners.RequireScope("switch:write", http.HandlerFunc(api.armEvidence))))
+}
+
+func (api *switchAPI) armEvidence(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	r = r.WithContext(ctx)
+	if err := http.NewResponseController(w).SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+		switchDomainError(w, err)
+		return
+	}
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		switchError(w, 405, "method_not_allowed", "Use POST.")
+		return
+	}
+	if api.store == nil || api.slots == nil {
+		switchDomainError(w, switches.ErrUnavailable)
+		return
+	}
+	select {
+	case api.slots <- struct{}{}:
+		defer func() { <-api.slots }()
+	default:
+		switchError(w, 429, "too_many_requests", "Switch work is busy. Try again.")
+		return
+	}
+	evidence, err := switchArmBody(w, r)
+	if err != nil {
+		switchDomainError(w, err)
+		return
+	}
+	record, err := api.store.ObserveArm(r.Context(), r.PathValue("id"), evidence)
+	if err != nil {
+		switchDomainError(w, err)
+		return
+	}
+	status := http.StatusAccepted
+	if record.State == switches.StateArmed {
+		status = http.StatusOK
+	}
+	switchJSON(w, status, record)
+}
+
+func switchArmBody(w http.ResponseWriter, r *http.Request) (switches.ArmEvidence, error) {
+	var evidence switches.ArmEvidence
+	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || media != "application/json" || r.URL.RawQuery != "" {
+		return evidence, switches.ErrInput
+	}
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, switches.MaxRecordBytes))
+	if err != nil {
+		return evidence, err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if !utf8.Valid(data) || decoder.Decode(&evidence) != nil || decoder.Decode(&struct{}{}) != io.EOF || evidence.OwnerKey == [32]byte{} {
+		return switches.ArmEvidence{}, switches.ErrInput
+	}
+	return evidence, nil
 }
 
 func (api *switchAPI) serve(w http.ResponseWriter, r *http.Request) {
@@ -145,9 +205,9 @@ func switchDomainError(w http.ResponseWriter, err error) {
 	var size *http.MaxBytesError
 	switch {
 	case errors.Is(err, switches.ErrInput):
-		switchError(w, 400, "invalid_request", "Provide interval_seconds from 3600 to 31536000 and grace_seconds from 0 to 2592000.")
+		switchError(w, 400, "invalid_request", "Provide valid switch configuration or authenticated arm evidence.")
 	case errors.As(err, &size):
-		switchError(w, 413, "request_too_large", "The switch request exceeds 4096 bytes.")
+		switchError(w, 413, "request_too_large", "The switch request exceeds its byte limit.")
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		switchError(w, 408, "request_timeout", "The switch request times out.")
 	case errors.Is(err, switches.ErrNotFound):
