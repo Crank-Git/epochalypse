@@ -1,6 +1,6 @@
 # Tlock adapter checkpoint
 
-This checkpoint supplies the key adapter and durable draft producer for #20. Transport and recovery integration remain incomplete.
+This checkpoint supplies the key adapter, durable draft producer, and authenticated recovery producer for #20. Transport integration remains incomplete.
 The production service still rejects tlock creation. This checkpoint does not complete AC-capsules-1 or AC-capsules-4.
 
 ## Dependency review
@@ -114,7 +114,19 @@ The final focused profile measures 93.9 percent for the capsule package. It is n
 The merge-base check removes both new implementation files while it retains the tests.
 The tests fail with missing adapter symbols. The restore leaves a clean Git status.
 
-The next slice must add CLI local preparation, the web disclosure and mode, typed recovery values, and authenticated content open.
+The recovery slice supplies `Store.Bundle`, `RecoveryBundle.Open`, and bounded `DecodeBundle`.
+The bundle retains the complete record and an optional released public or server-held key.
+Tlock bundles contain no unwrapped key. Open verifies the pinned beacon and authenticates both encrypted layers before it returns plaintext.
+The typed open producer needs no store access after bundle creation.
+The decoder accepts the version 1 canonical envelope from `json.Marshal`. It rejects duplicate fields and unknown fields.
+`docs/capsules.md` records the complete interface and input bounds.
+ADR 0010 records the accepted preparation digest decision.
+
+Committed stub `4ac7ea3` records four failing recovery behavior tests with seven failure subtests.
+The complete capsule race suite passes after implementation. The focused linter reports zero issues.
+Focused capsule coverage is 93.9 percent. The project aggregate gate remains pending.
+
+The next slice must add CLI local preparation, the web disclosure and mode, and transport integration for authenticated recovery.
 It must test all three modes through the real CLI and browser interfaces.
 It must preserve the legacy record fixture and classify release separately from availability.
 The final verification must run the full required suite with zero required skips and at least 95 percent aggregate coverage.

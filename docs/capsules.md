@@ -65,6 +65,7 @@ The version 1 record fixture preserves release metadata and the authenticated co
 | `Published(id)` | A published record; drafts return `ErrNotFound` |
 | `Publish(id, now)` | A published record after mode-specific preparation verification and atomic budget admission |
 | `Key(id, now)` | A key after publication and the selected release condition |
+| `Bundle(id, now)` | A typed recovery bundle after publication; an early server-held bundle excludes its key |
 | `OpenObject(id, version, object, key, limit)` | Plaintext after complete authentication; no plaintext on failure |
 
 Domain methods do not authenticate HTTP requests. Owner transport adapters must apply the existing authorization safeguards.
@@ -93,6 +94,33 @@ These results let later interfaces distinguish release eligibility from content 
 
 The later capsule slices extend this producer for tlock, public pages, and recovery bundles.
 They must preserve bounded authenticated object handling and the shared installation transaction.
+
+### Recovery producer
+
+`RecoveryBundle` version 1 contains a complete `Record` and an optional `released_key`.
+The key uses canonical base64url without padding and decodes to exactly 32 bytes.
+Tlock bundles always exclude this key. Their records retain the complete pinned `Timelock`.
+Public bundles include their authenticated key after publication.
+Server-held bundles include their authenticated key only at or after the effective release time.
+`Store.Bundle` returns `ErrNotFound` for a draft. It reads the record and permitted key in one transaction.
+It returns no bundle if a required released key is unavailable or fails authentication.
+
+Serialize the typed bundle with `json.Marshal` for the version 1 canonical envelope.
+`DecodeBundle(reader, limit)` bounds the input before JSON allocation.
+Its allowance combines `EncodedObjectLimit(limit)`, 8192 metadata bytes, and 256 envelope bytes.
+It rejects unknown fields, duplicate fields, noncanonical envelopes, unsupported versions, and excessive declared plaintext size.
+Callers must pass an explicit content limit. A changed upload limit does not change retained-record access through `Store.Bundle`.
+
+`RecoveryBundle.Open(ctx, source, now)` authenticates the complete JWE object before it returns plaintext.
+Tlock recovery verifies the pinned beacon and authenticates the complete key wrapper first.
+Recovery uses the stored content size rather than a current upload setting.
+It requires no store access after bundle creation.
+Before the effective release time, encrypted modes return `ErrTooEarly` without a beacon request.
+Missing recovery material returns `ErrUnavailable`. Invalid content or recovery material returns `ErrIntegrity`.
+Every failure returns no plaintext. Cancellation also returns no plaintext.
+HTTP consumers must retain the four shared capsule slots and a bounded request context.
+
+[ADR 0010](adr/0010-tlock-preparation-proof.md) records the preparation digest and its trust boundary.
 
 ## HTTP interfaces
 

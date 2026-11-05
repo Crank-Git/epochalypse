@@ -9,6 +9,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Crank-Git/epochalypse/internal/installation"
+	bolt "go.etcd.io/bbolt"
 )
 
 func publishedRecovery(t *testing.T, mode Mode) (*Store, Record) {
@@ -54,6 +57,9 @@ func TestRecoveryAuthenticatesAllModes(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if err := s.Close(); err != nil {
+				t.Fatal(err)
+			}
 			plaintext, err := decoded.Open(context.Background(), fixtureBeacon(t), now)
 			if err != nil || string(plaintext) != "private text" {
 				t.Fatal("content differs", err)
@@ -66,6 +72,59 @@ func TestRecoveryAuthenticatesAllModes(t *testing.T) {
 				t.Fatal("changed content exposes plaintext")
 			}
 		})
+	}
+}
+
+func TestRecoveryBoundsUntrustedInput(t *testing.T) {
+	maximum, err := EncodedObjectLimit(32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := &countedReader{Reader: strings.NewReader(strings.Repeat("x", maximum+metadataAllowance+1000))}
+	if _, err := DecodeBundle(reader, 32); err == nil {
+		t.Fatal("oversized envelope succeeds")
+	}
+	if reader.read != maximum+metadataAllowance+257 {
+		t.Fatal("decoder reads beyond its allowance", reader.read)
+	}
+	if _, err := DecodeBundle(privateReaderFailure{}, 32); !errors.Is(err, ErrIntegrity) {
+		t.Fatal("reader failure succeeds", err)
+	}
+	for _, limit := range []int{0, -1, int(^uint(0) >> 1)} {
+		if _, err := DecodeBundle(strings.NewReader("{}"), limit); !errors.Is(err, ErrLimit) {
+			t.Fatal("invalid limit succeeds", err)
+		}
+	}
+	if _, err := DecodeBundle(nil, 32); !errors.Is(err, ErrLimit) {
+		t.Fatal("absent input succeeds")
+	}
+}
+
+func TestRecoveryBundleRejectsUnavailablePrivateState(t *testing.T) {
+	s, record := publishedRecovery(t, ServerHeld)
+	for _, value := range [][]byte{nil, make([]byte, 32)} {
+		if err := s.db.Update(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket([]byte(installation.CapsuleKeysBucket))
+			if value == nil {
+				return bucket.Delete([]byte(record.ID))
+			}
+			return bucket.Put([]byte(record.ID), value)
+		}); err != nil {
+			t.Fatal(err)
+		}
+		bundle, err := s.Bundle(record.ID, record.RequestedReleaseAt)
+		if err == nil || bundle.ReleasedKey != "" || bundle.Record.ID != "" {
+			t.Fatal("invalid private state returns recovery data", err)
+		}
+	}
+	if _, err := s.Bundle("invalid", record.RequestedReleaseAt); !errors.Is(err, ErrInput) {
+		t.Fatal("invalid identifier succeeds")
+	}
+	if _, err := s.Bundle(record.ID, time.Time{}); !errors.Is(err, ErrInput) {
+		t.Fatal("invalid clock succeeds")
+	}
+	if _, err := s.Bundle(strings.Repeat("a", 32), record.RequestedReleaseAt); !errors.Is(err, ErrNotFound) {
+		t.Fatal("absent record succeeds")
 	}
 }
 
