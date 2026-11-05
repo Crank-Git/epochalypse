@@ -7,6 +7,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"testing"
+
+	"filippo.io/age"
 )
 
 func fixture() (Message, ed25519.PrivateKey, map[string]ed25519.PublicKey) {
@@ -308,6 +310,55 @@ func TestRequiresThreeMatchingAuthenticatedReceipts(t *testing.T) {
 	m.Durable = 0
 	if confirm(m.State, []Envelope{receipts[0], receipts[1], signed(t, m, k)}, keys, agents) {
 		t.Fatal("owner message substitutes for receipt")
+	}
+}
+
+func enrollmentAgents(t *testing.T) [3]enrolledAgent {
+	t.Helper()
+	var agents [3]enrolledAgent
+	for i, id := range [3]string{"agent-a", "agent-b", "agent-c"} {
+		key := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{byte(i + 10)}, 32))
+		recipient, err := age.GenerateX25519Identity()
+		if err != nil {
+			t.Fatal(err)
+		}
+		agents[i] = enrolledAgent{ID: id, SigningKey: [32]byte(key.Public().(ed25519.PublicKey)), Recipient: recipient.Recipient().String()}
+	}
+	return agents
+}
+
+func TestRejectsRepeatedEnrollmentKeysAndRecipients(t *testing.T) {
+	agents := enrollmentAgents(t)
+	for _, duplicate := range []string{"signature-key", "recipient"} {
+		t.Run(duplicate, func(t *testing.T) {
+			n := agents
+			if duplicate == "signature-key" {
+				n[1].SigningKey = n[0].SigningKey
+			} else {
+				n[1].Recipient = n[0].Recipient
+			}
+			if err := validateEnrollment(n); err == nil {
+				t.Fatal("accepts repeated enrollment key material")
+			}
+		})
+	}
+}
+
+func TestRejectsOneSignatureKeyUnderThreeAgentIdentities(t *testing.T) {
+	m, key, _ := fixture()
+	keys := map[string]ed25519.PublicKey{}
+	ids := [3]string{"agent-a", "agent-b", "agent-c"}
+	var receipts []Envelope
+	for _, id := range ids {
+		keys[id] = key.Public().(ed25519.PublicKey)
+		m.Operation = "receipt"
+		m.Signer = id
+		m.Phase = 2
+		m.Durable = m.State.Sequence
+		receipts = append(receipts, signed(t, m, key))
+	}
+	if confirm(m.State, receipts, keys, ids) {
+		t.Fatal("one signature key confirms three agents")
 	}
 }
 

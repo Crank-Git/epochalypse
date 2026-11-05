@@ -36,6 +36,14 @@ type Message struct {
 }
 type Envelope struct{ Body, Signature []byte }
 
+type enrolledAgent struct {
+	ID         string
+	SigningKey [32]byte
+	Recipient  string
+}
+
+func validateEnrollment(agents [3]enrolledAgent) error { return nil }
+
 const domain = "epochalypse/switch/research-v2/"
 const maxBody = 16384
 
