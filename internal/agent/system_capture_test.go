@@ -204,6 +204,40 @@ func TestSystemCaptureRejectsIncompleteProvider(t *testing.T) {
 	}
 }
 
+func TestSystemCaptureResetsAfterClockReadFailure(t *testing.T) {
+	readCount := 0
+	failAt := 0
+	clock := func(_ int32) (time.Duration, error) {
+		readCount++
+		if readCount == failAt {
+			return 0, errors.New("clock read failed")
+		}
+		return time.Duration(readCount) * 10 * time.Millisecond, nil
+	}
+	read, err := newSystemCapture(systemCaptureConfig{
+		readClock: clock, readBootID: func() (string, error) { return "boot-one", nil },
+		wallNow: advancingSystemWall(), processID: 42, processEpoch: "process-one",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	failAt = readCount + 1
+	if _, err := read(); !errors.Is(err, ErrClock) {
+		t.Fatalf("capture error = %v, want ErrClock", err)
+	}
+	recovered, err := read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recovered.Epoch == first.Epoch {
+		t.Fatal("recovered capture kept the failed assessment epoch")
+	}
+}
+
 func advancingSystemClock() systemClockRead {
 	boot, mono := time.Second, time.Second
 	return func(clockID int32) (time.Duration, error) {

@@ -21,6 +21,8 @@ func TestMaximumContentSurvivesHTTPSJournalAndBundle(t *testing.T) {
 	}
 	var handlers [3]http.Handler
 	agents, identities, keys, transport := localEndpoints(t, &handlers)
+	// Race instrumentation exceeds the production request budget at the content limit.
+	transport.requestTimeout = 30 * time.Second
 	plaintext := bytes.Repeat([]byte("x"), 10<<20)
 	material, err := switchcontent.Prepare(bytes.NewReader(plaintext), [3]string{agents[0].Recipient, agents[1].Recipient, agents[2].Recipient})
 	if err != nil {
@@ -33,7 +35,9 @@ func TestMaximumContentSurvivesHTTPSJournalAndBundle(t *testing.T) {
 	}
 	journals, configs := localJournals(t, p, owner, agents, keys, identities, &handlers)
 	bundlePath := filepath.Join(t.TempDir(), "recovery.json")
-	result, err := PrepareAndArm(context.Background(), p, key, transport, bundlePath)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	result, err := PrepareAndArm(ctx, p, key, transport, bundlePath)
 	if err != nil || !result.Confirmed {
 		t.Fatalf("maximum content arm: confirmed=%t error=%v", result.Confirmed, err)
 	}

@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -221,6 +222,39 @@ func TestTransitionsHandlerRejectsWrongSwitchPath(t *testing.T) {
 	transitions.Handler().ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("wrong switch path status = %d", recorder.Code)
+	}
+}
+
+func TestTransitionsHandlerHidesClockFailureAndPersistsLatch(t *testing.T) {
+	fixture := newTransitionFixture(t)
+	config := fixture.config(0)
+	config.ReadClock = func() (Reading, error) {
+		return Reading{}, errors.New("clock unavailable; secret clock token")
+	}
+	transitions, err := NewTransitions(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := fixture.prepareRequest(t, fixture.material.Ciphertext)
+	data, err := json.Marshal(transitionRequest{Request: request, Ciphertext: fixture.material.Ciphertext})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	httpRequest := httptest.NewRequest(http.MethodPost, "/agent/v1/switches/switch-1/prepare", bytes.NewReader(data))
+	transitions.Handler().ServeHTTP(recorder, httpRequest)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("clock failure status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
+	}
+	if strings.Contains(recorder.Body.String(), "secret clock token") {
+		t.Fatal("HTTP response exposed clock error details")
+	}
+	state, err := fixture.journal.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !state.UnsafeClock || state.Generation != 1 || state.Phase != 0 || len(state.AcceptedRequest) != 0 {
+		t.Fatalf("clock failure state = %+v", state)
 	}
 }
 

@@ -22,6 +22,8 @@ import (
 type HTTPSReplica struct {
 	Pins  map[string][32]byte
 	Roots *x509.CertPool
+	// Instrumented functional tests need a separate budget from production latency.
+	requestTimeout time.Duration
 }
 
 type replicaRequest struct {
@@ -60,7 +62,11 @@ func (h *HTTPSReplica) call(ctx context.Context, a switchwire.Agent, operation s
 		return switchwire.Envelope{}, err
 	}
 	defer transport.CloseIdleConnections()
-	client := &http.Client{Transport: transport, Timeout: 5 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return errors.New("agent redirect refused") }}
+	timeout := h.requestTimeout
+	if timeout <= 0 || timeout > 30*time.Second {
+		timeout = 5 * time.Second
+	}
+	client := &http.Client{Transport: transport, Timeout: timeout, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return errors.New("agent redirect refused") }}
 	endpoint, err := agentURL(a, frame.State.Switch, operation)
 	if err != nil {
 		return switchwire.Envelope{}, err

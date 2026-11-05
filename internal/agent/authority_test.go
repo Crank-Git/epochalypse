@@ -464,6 +464,48 @@ func TestAuthorityRejectsRecordLargerThanConfiguredLimit(t *testing.T) {
 	}
 }
 
+func TestAuthorityCheckpointFailureKeepsCommittedJournalState(t *testing.T) {
+	config := authorityTestConfig(t)
+	if err := Initialize(config); err != nil {
+		t.Fatal(err)
+	}
+	journal, err := Open(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(config.CheckpointDirectory, config.CheckpointDirectory+"-saved"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config.CheckpointDirectory, []byte("blocked"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	want := authorityTestState()
+	if _, err := journal.Commit(want); err == nil {
+		t.Fatal("Commit succeeded without a checkpoint directory")
+	}
+	if _, err := journal.Snapshot(); !errors.Is(err, ErrQuarantined) {
+		t.Fatalf("snapshot after checkpoint failure: %v", err)
+	}
+	if err := journal.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(config.CheckpointDirectory); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(config.CheckpointDirectory+"-saved", config.CheckpointDirectory); err != nil {
+		t.Fatal(err)
+	}
+	restarted, err := Open(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeAuthorityTestJournal(t, restarted)
+	got, err := restarted.Snapshot()
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Fatalf("restarted state = %#v, error = %v", got, err)
+	}
+}
+
 func TestAuthorityRejectsGenerationGap(t *testing.T) {
 	config := authorityTestConfig(t)
 	if err := Initialize(config); err != nil {

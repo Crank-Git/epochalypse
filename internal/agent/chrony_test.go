@@ -124,6 +124,30 @@ func TestChronyClockRejectsCommandFailure(t *testing.T) {
 	}
 }
 
+func TestChronyClockRejectsMalformedTrackingFields(t *testing.T) {
+	for name, mutate := range map[string]func(string) string{
+		"duplicate field": func(value string) string { return value + "Leap status     : Normal\n" },
+		"invalid number": func(value string) string {
+			return strings.Replace(value, "Skew            : 0.129 ppm", "Skew            : NaN ppm", 1)
+		},
+		"missing reference time": func(value string) string {
+			return strings.Replace(value, "Ref time (UTC)  : ", "Ref time (UTC)  : invalid\n", 1)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fixture := chronyFixtureRunner()
+			fixture.tracking = mutate(fixture.tracking)
+			clock, err := NewChronyClock(chronyTestConfig(fixture.run))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := clock.Read(); err == nil {
+				t.Fatal("clock accepted malformed chrony tracking data")
+			}
+		})
+	}
+}
+
 type chronyFixture struct {
 	version, tracking, sources string
 }

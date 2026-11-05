@@ -27,6 +27,11 @@ If a command exceeds this limit, the runner fails with the command to inspect.
 Malformed JSON events fail with the event line number and output requirements.
 Empty suites, skipped tests, and nonzero command results fail the check.
 
+The maximum-content HTTPS functional test permits 30 seconds per request and 90 seconds for arm.
+Race instrumentation can exceed the production request limit at 10 MiB.
+This package-private test budget preserves the production five-second request limit.
+It does not establish production latency or the publication allowance.
+
 Coverage combines unit tests, CLI executions, browser executions, and backup executions.
 Instrumentation uses the explicit first-party module path to exclude dependencies.
 The CLI profile includes the executable entry point.
