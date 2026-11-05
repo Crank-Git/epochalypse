@@ -94,7 +94,7 @@ func (s *mainState) close() {
 }
 
 func (s *mainState) routes(mux *http.ServeMux, lab bool) {
-	api := &capsuleAPI{store: s.capsules, now: time.Now, slots: s.capsuleSlots, timeout: 10 * time.Second, beacon: capsule.QuicknetRelay()}
+	api := &capsuleAPI{store: s.capsules, now: func() time.Time { return time.Now().UTC().Truncate(time.Second) }, slots: s.capsuleSlots, timeout: 10 * time.Second, beacon: capsule.QuicknetRelay()}
 	api.routes(mux, s.owner, lab)
 	s.publicWindowRoutes(mux, lab)
 	s.observationRoutes(mux, lab)

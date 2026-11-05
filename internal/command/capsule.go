@@ -22,6 +22,9 @@ type capsuleFlags struct {
 }
 
 func runCapsule(args []string, stdout, stderr io.Writer) int {
+	if len(args) > 1 && (args[1] == "export" || args[1] == "open" || args[1] == "delete") {
+		return runCapsuleRecovery(args, stdout, stderr)
+	}
 	if len(args) < 2 || (args[1] != "create" && args[1] != "publish") {
 		_, _ = fmt.Fprintln(stderr, "use capsule create or capsule publish; stop the main server first")
 		return 2
