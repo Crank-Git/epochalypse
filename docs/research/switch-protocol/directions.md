@@ -22,7 +22,7 @@ Define these values:
 | Value | Meaning |
 | --- | --- |
 | B0 | The last release boundary confirmed by three receipts. |
-| Bmax | The latest release boundary in any owner-signed renewal already sent. |
+| Bmax | The latest release boundary in any owner-signed renewal already issued for transmission. |
 | E | The measured allowance for clock error and publication work. |
 
 Before transmission, the client records the exact signed request and its proposed boundary durably.
@@ -146,11 +146,11 @@ The comparison research in #46 can also proceed without an accepted production s
 It should compare the assumptions and failure cases rather than inherit the implementation gate.
 This report recommends those dependency changes; it does not silently relabel existing issues.
 
-## Proposed next gate
+## Next protocol gate
 
-First obtain acceptance of direction A's explicit receipt-loss tradeoff.
-Then update the affected spec requirements and ADR through the normal review process.
-Replace the exact-confirmation assertion with separate confirmed, earliest-possible, and latest-issued boundary assertions.
+The owner accepts direction A's explicit receipt-loss tradeoff. ADR 0012 records the decision.
+The issued spec defines separate confirmed, earliest-possible, and latest-issued boundary assertions.
+Run the revised model and independent protocol review before production switch use.
 
 The model must cover:
 
@@ -177,7 +177,8 @@ No new project-wide test run is necessary for this report; it makes no new produ
 On 2026-11-05, the owner states: “I like the recommendation, plus it gets us moving again”.
 The owner accepts direction A and its possible almost-24-hour uncertainty under the default interval.
 [ADR 0012](../../adr/0012-switch-uncertainty.md) records this product tradeoff and supersedes ADR 0005.
-The recommendation and research record above preserve their original status at publication.
+The recommendation above describes the research assessment before owner acceptance.
+The Bmax definition and next gate reflect the accepted direction. The historical counterexamples remain unchanged.
 B0 is the earliest possible disclosure boundary after incomplete receipts, not proof of actual authority.
 Bmax includes every signed renewal already issued for transmission, recorded durably before transmission.
 The issued spec now requires the revised model, independent review, and explicit clock and publication assumptions.
