@@ -72,6 +72,29 @@ The default capsule plaintext limit is 10 MiB; the production configuration exam
 Measure uploads, beacon failures, resolver jobs, traffic, and disk growth before selecting a paid host or changing resource limits.
 This record supplies no cost estimate or paid-host recommendation.
 
+## Identity and startup review
+
+The production template requires `MAIN_UID` and `MAIN_GID` from the dedicated host service identity.
+Compose configuration with UID 12345 and GID 12346 resolves `web.user` to `12345:12346`.
+The local synthetic template retains its separate UID/GID 65534 contract.
+The Linux identity check creates fresh named volumes with protected synthetic configuration, DNSSEC pairs, TLS files, and owner state.
+Every fixture directory uses mode 0700. Every protected fixture file uses mode 0600.
+UID 12345 and GID 12346 own the fixtures and their private parent directories.
+The check uses those identifiers without creating a host account or changing host ownership.
+
+The identity can read each required file and create a file in its state directory.
+The same identity initializes the synthetic owner, then starts the main process with both authorities and verified HTTPS.
+The process uses a read-only root, no capabilities, and a network namespace without external access or published ports.
+Its protected files reside on the Linux volume. This check does not claim macOS bind mounts enforce Linux permissions.
+
+The check omits `owner.initialized` while preserving the existing owner database.
+Running `lab_owner.sh` returns `owner already exists` and a nonzero exit status.
+Direct main-process startup bypasses that job and succeeds without a marker.
+The existing synthetic password authenticates through `/api/v1/session` with the current CSRF proof.
+The authenticated `/api/v1/dashboard` read returns HTTP 200.
+This proves the direct startup contract for an existing owner database. It does not implement or verify encrypted archive restoration.
+The check removes only its own container and volumes.
+
 ## Applicability limits
 
 This change adds documentation and deployment examples. It changes no Go, web, or existing script behavior.

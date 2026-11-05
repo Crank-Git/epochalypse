@@ -122,16 +122,26 @@ export MAIN_STATE=/var/lib/epochalypse
 export MAIN_CONFIG=/etc/epochalypse/main.json
 export MAIN_KEYS=/etc/epochalypse/keys
 export MAIN_TLS=/etc/epochalypse/tls
+export MAIN_UID="$(id -u epochalypse)"
+export MAIN_GID="$(id -g epochalypse)"
 docker compose -f deploy/main/production.compose.yaml config --quiet
 docker compose -f deploy/main/production.compose.yaml up --detach
 ```
 
-Use the same UID 65534 for initialization and runtime in this container layout.
+The production template requires the dedicated host service user's numeric UID and GID.
+Use that identity for owner initialization and container runtime. The local synthetic template separately uses UID/GID 65534.
+Assign `MAIN_STATE`, its database files, `MAIN_CONFIG`, `MAIN_KEYS`, and `MAIN_TLS` to this host service identity.
+Use mode 0700 for state, configuration, DNSSEC, and TLS directories. Use mode 0600 for the configuration, databases, and key files.
+Give the service identity execute access through every parent directory, including `/etc/epochalypse` and `/var/lib`.
+For a private parent, use service ownership and mode 0700. Keep shared system parents under their existing administrative ownership.
+Verify that the identity can traverse those parents and read every mounted file before startup.
+Verify that it can create files in `MAIN_STATE`. Docker requires existing source paths and permits no automatic directory creation here.
+Docker's daemon also needs access to each source path. If user namespaces remap identifiers, verify the resulting host identity separately.
 Do not run the systemd service and the container against the same state or ports.
 Use the same server flags as the unit, with container ports 8080 and 1053.
 Map public TCP 443 to 8080 and both UDP/TCP 53 to 1053.
 Keep the service UID, read-only root, dropped capabilities, resource limits, and persistent state from the local template.
-Mount signing material and TLS material read-only. Match their numeric ownership to the container UID 65534.
+Mount signing material and TLS material read-only. Match their numeric ownership to `MAIN_UID:MAIN_GID`.
 Do not run the local template unchanged on public interfaces.
 A managed platform qualifies only when it supports both DNS transports, HTTPS, durable local filesystem locks, ownership, and protected key mounts.
 No provider purchase or paid-host recommendation follows from this guide.
@@ -201,6 +211,7 @@ Exclude the backup encryption key from its own archive. Keep its recovery copy t
 In the local example, map `/state/v1` to `state/v1` and both `/state/lab/window.*` files to `keys/window.*`.
 Map `/countdown/lab/window.*` to `keys/countdown.*`. Map `/state/lab/tls.*` to the corresponding TLS paths above.
 Exclude `owner.initialized`, synthetic passwords, setup metadata, and the countdown setup's unused TLS files.
+The `owner.initialized` marker controls fresh lab setup only. It does not authenticate or validate an owner database.
 Include the effective configuration and limits, rather than assuming defaults on restore.
 
 For a coherent snapshot, block external access and stop the main process with SIGTERM through its service manager.
@@ -216,6 +227,31 @@ Use a private container network without published ports or external egress. Keep
 Restore regular files only. Reject links, path traversal, duplicate paths, unexpected files, and unsupported formats before installation.
 Use mode 0700 for directories and 0600 for databases and private material, owned by the restored service identity.
 Start the same commit with paths redirected to the isolated files. Keep both zones and DNSKEY bindings unchanged.
+For restored state, bypass all material and owner bootstrap jobs. Run the main executable directly against the validated files.
+Do not run `lab_owner.sh` or `owner init` against the restored owner database.
+Without its excluded marker, the lab bootstrap attempts initialization and correctly rejects the existing owner.
+Issue #42 must validate the archive, required database files, format versions, and ownership before it starts the isolated main process.
+Startup must open both databases successfully. Then verify the restored owner identity through an authenticated owner read.
+Use the synthetic owner's existing credential for that read. Never use a marker's presence as evidence of a valid database.
+The production Compose template has no bootstrap job. The local Compose template requires a direct startup that bypasses its dependencies.
+After validation, use this direct startup shape for the canonical archive paths in a fresh restored volume:
+
+```sh
+docker run --rm --name isolated-restored-main --network none \
+  --user "$MAIN_UID:$MAIN_GID" --read-only --cap-drop ALL \
+  --security-opt no-new-privileges:true --tmpfs /tmp \
+  --mount type=volume,source="$RESTORED_VOLUME",target=/restore \
+  "$MAIN_IMAGE" server --environment lab \
+  --state-dir /restore/state --config /restore/config/main.json \
+  --http-addr 0.0.0.0:8080 --dns-addr 0.0.0.0:1053 \
+  --key-file /restore/keys/window.private \
+  --countdown-key-file /restore/keys/countdown.private \
+  --tls-cert /restore/tls/fullchain.pem --tls-key /restore/tls/private.pem
+```
+
+This command applies only to the isolated synthetic test. Set its image to the archived source commit's tested image.
+Issue #42 supplies archive validation and the fresh volume. The direct command starts no bootstrap job and publishes no port.
+Run test clients inside the same network namespace. Preserve TLS hostname verification with the restored synthetic certificate.
 Verify HTTPS, commit, both DNS transports, retained identifiers/signatures, capsule authenticated recovery, and countdown behavior inside that isolated network.
 Use synthetic released content for this test. Never expose restored owner sessions, tokens, or unreleased keys to public traffic.
 This procedure makes no live-agent monotonic-state or switch recovery claim.

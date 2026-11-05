@@ -2,7 +2,7 @@ name: epochalypse-main
 services:
   web:
     image: ${MAIN_IMAGE:?Set the tested immutable image digest}
-    user: "65534:65534"
+    user: "${MAIN_UID:?Set the host service UID}:${MAIN_GID:?Set the host service GID}"
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
