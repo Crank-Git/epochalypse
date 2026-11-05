@@ -45,7 +45,10 @@ func (s *Store) ImportPrepared(ctx context.Context, content io.Reader, now time.
 		if err := bucket.Put([]byte(record.ID), encoded); err != nil {
 			return err
 		}
-		return keys.Put([]byte(record.ID), proof[:])
+		if err := keys.Put([]byte(record.ID), proof[:]); err != nil {
+			return err
+		}
+		return ctx.Err()
 	})
 	if err != nil {
 		return Record{}, err

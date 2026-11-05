@@ -230,7 +230,8 @@ It accepts only the exact canonical tlock draft record. It rejects publication s
 It validates the pinned identity, ceiling round, object profile, digest, labels, and configured plaintext allowance.
 The requested release time must remain at or after import time. The creation time cannot exceed import time.
 Duplicate identifiers fail without replacement. The shared transaction charges the full record and its separate 32-byte preparation digest.
-Cancellation before the transaction commits retains no draft.
+The transaction checks cancellation at entry and after both writes. An observed cancellation rolls back both values.
+Commit can complete if cancellation follows the final check. A disconnected client must inspect the identifier before it retries.
 
 Import validates structure. It cannot authenticate future wrapper decryption or content without the discarded key.
 The preparation digest detects later draft changes. It does not prove that an external producer prepares valid encrypted content.
