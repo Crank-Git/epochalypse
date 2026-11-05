@@ -154,6 +154,38 @@ Malformed names receive FORMERR.
 These restrictions prevent the adapter's dotted text representation from changing wire-label boundaries.
 
 Direct access exposes public content. Resolver acceptance remains an observation, rather than an exact-time or confidentiality guarantee.
+
+## Public window page
+
+Open `GET /windows/{id}` with the identifier from window creation.
+The page permits anonymous reads over HTTPS. The loopback lab also permits HTTP.
+The page labels the content as public data before the records.
+It shows the original TXT and RRSIG, inception, expiration, and a live direct-authority result.
+All times use UTC. Public content and resolver metadata remain escaped text.
+
+Each page request queries the main process's actual DNS listener through `authority.Query`.
+The query requests TXT with DNSSEC records and uses the existing two-second UDP/TCP bound.
+Four concurrent probe slots bound public requests. A canceled request cancels its probe.
+The response must contain the original TXT and RRSIG with the authoritative flag before the page reports `observed`.
+An unreachable, busy, canceled, or unexpected response reports `unavailable`.
+Stored records remain visible when the probe fails. Refresh the page to retry the live query.
+A public GET creates no observation run and consumes no retained-state quota.
+Visitors cannot supply a DNS target.
+
+The page reads resolver observations through the existing public JSON API.
+The comparison button uses the owner session and current CSRF proof to start a run.
+Anonymous visitors receive an owner sign-in message when they select the button.
+The page follows at most ten pages per poll and polls at most twenty times for the accepted opaque identifier.
+Each poll starts from page one. The poll interval is at least one second.
+The refresh button reads retained observations after a client limit or an unavailable response.
+The public JSON link supports further inspection when the page limit applies.
+
+Complete means each resolver supplies a response. A complete run can contain SERVFAIL.
+Partial runs preserve absent response fields as unavailable.
+Unknown version and clock provenance remain explicit. False flags remain distinct from absent flags.
+Direct access and resolver observations establish no confidentiality or exact-time acceptance guarantee.
+The page uses only local assets. Owner routes retain their existing stricter content security policy.
+
 ## Deployment trust check
 
 Run the check while the main process serves DNS. The check requires no private key or database access.
