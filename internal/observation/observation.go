@@ -16,7 +16,7 @@ type Clock struct {
 // Target identifies a resolver from trusted installation configuration.
 type Target struct {
 	ID            string `json:"id"`
-	Address       string `json:"address"`
+	Address       string `json:"address,omitempty"`
 	Version       string `json:"version"`
 	VersionSource string `json:"version_source"`
 	Clock         Clock  `json:"clock"`

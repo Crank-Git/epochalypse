@@ -7,6 +7,7 @@ import (
 
 	"github.com/Crank-Git/epochalypse/internal/authority"
 	"github.com/Crank-Git/epochalypse/internal/owner"
+	"github.com/Crank-Git/epochalypse/internal/resolver"
 	"github.com/Crank-Git/epochalypse/internal/window"
 )
 
@@ -14,6 +15,7 @@ type mainState struct {
 	owner     *owner.Store
 	windows   *window.Store
 	authority *authority.Authority
+	jobs      *resolver.Jobs
 }
 
 func openMainState(config Config) (*mainState, error) {
@@ -44,10 +46,24 @@ func openMainState(config Config) (*mainState, error) {
 		state.close()
 		return nil, err
 	}
+	if err := state.windows.RecoverRuns(time.Now()); err != nil {
+		state.close()
+		return nil, err
+	}
+	if len(config.Resolvers) > 0 {
+		state.jobs, err = resolver.NewJobs(state.windows, config.Resolvers)
+		if err != nil {
+			state.close()
+			return nil, err
+		}
+	}
 	return state, nil
 }
 
 func (s *mainState) close() {
+	if s.jobs != nil {
+		s.jobs.Close()
+	}
 	if s.windows != nil {
 		_ = s.windows.Close()
 	}
@@ -55,6 +71,7 @@ func (s *mainState) close() {
 }
 
 func (s *mainState) routes(mux *http.ServeMux, lab bool) {
+	s.observationRoutes(mux, lab)
 	mux.Handle("/api/v1/windows", owner.SecureHandler(lab, s.owner.RequireOwner(windowHandler(s.windows, time.Now))))
 	ownerHandler := s.owner.Handler(lab)
 	for _, path := range []string{"/owner", "/owner/", "/api/v1/csrf", "/api/v1/session", "/api/v1/tokens", "/api/v1/tokens/", "/api/v1/dashboard"} {

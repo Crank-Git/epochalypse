@@ -11,7 +11,7 @@ import (
 
 // Observe queries one configured resolver for a public TXT record.
 func Observe(ctx context.Context, name string, target observation.Target) observation.Result {
-	result := observation.Result{Version: 1, Name: name, Resolver: target, Started: time.Now().UTC()}
+	result := observation.Result{Version: 1, Name: name, Resolver: target.Clone(), Started: time.Now().UTC()}
 	request := dns.NewMsg(name, dns.TypeTXT)
 	request.RecursionDesired = true
 	request.Security = true

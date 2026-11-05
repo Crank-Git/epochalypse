@@ -66,8 +66,8 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 	flags.StringVar(&config.KeyFile, "key-file", os.Getenv("EPOCHALYPSE_KEY_FILE"), "Protected BIND private key file")
 	flags.StringVar(&config.NameServer, "nameserver", "", "Canonical nameserver outside the experimental zone")
 	flags.StringVar(&config.PublicURL, "public-url", os.Getenv("EPOCHALYPSE_PUBLIC_URL"), "Public HTTPS origin outside the experimental zone")
-	maxObjects := flags.String("max-objects", envDefault("EPOCHALYPSE_MAX_OBJECTS", "100"), "Maximum retained window documents")
-	maxBytes := flags.String("quota-bytes", envDefault("EPOCHALYPSE_QUOTA_BYTES", "1073741824"), "Maximum retained window JSON bytes")
+	maxObjects := flags.String("max-objects", envDefault("EPOCHALYPSE_MAX_OBJECTS", "100"), "Maximum retained windows and observation runs")
+	maxBytes := flags.String("quota-bytes", envDefault("EPOCHALYPSE_QUOTA_BYTES", "1073741824"), "Maximum retained JSON bytes and pending reservations")
 	if err := flags.Parse(args[1:]); err != nil {
 		return 2
 	}
@@ -95,6 +95,7 @@ func runService(ctx context.Context, args []string, stderr io.Writer) int {
 	if config.PublicURL == "" {
 		config.PublicURL = settings.PublicURL
 	}
+	config.Resolvers = settings.Resolvers
 	if err := service.Serve(ctx, config, func(service.Addresses) {}); err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
