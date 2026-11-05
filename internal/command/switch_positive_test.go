@@ -44,6 +44,7 @@ func TestCLIArmsSwitchWithThreeDurableTLSAgents(t *testing.T) {
 	plan := readSwitchPlan(t, paths.plan)
 	startSwitchAgentProcesses(t, binary, paths, plan, fixture, ownerPublic)
 	armAndExportSwitch(t, binary, paths)
+	verifySwitchArmRetries(t, binary, paths, fixture)
 	stopSwitchAgentProcesses(fixture)
 	assertAgentsArmed(t, paths, fixture)
 }

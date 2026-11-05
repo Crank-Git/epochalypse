@@ -44,6 +44,13 @@ Owner-local export tests reject directory-sync failures before prepare or arm tr
 Owner-local file tests reject write, file-sync, and close failures before arm transmission.
 The export tests replace a package-local sync function and run without parallel tests.
 
+The executable switch test retries the exact arm request after three agents accept it.
+It checks that the bundle and both intent files preserve their bytes.
+After one agent stops, the CLI preserves prior armed evidence and reports the incomplete response.
+Public capsule cancellation tests withhold plaintext and released keys.
+Cancelled imports and publication requests preserve retained state.
+Clock acquisition tests require a fresh epoch after an unavailable baseline or a negative elapsed sample.
+
 Coverage combines unit tests, CLI executions, browser executions, and backup executions.
 Instrumentation uses the explicit first-party module path to exclude dependencies.
 The CLI profile includes the executable entry point.
