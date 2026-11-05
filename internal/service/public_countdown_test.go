@@ -20,12 +20,7 @@ func TestPublicCountdownPreservesAbsoluteEvent(t *testing.T) {
 	before, _ := api.store.List()
 	path := "https://localhost/events/" + record.ID
 	w := h.send(httptest.NewRequest("GET", path, nil))
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "&lt;script&gt;event&lt;/script&gt;") || !strings.Contains(w.Body.String(), record.Name) || !strings.Contains(w.Body.String(), "Recursive TTL values are advisory") {
-		t.Fatalf("public event: %d %s", w.Code, w.Body)
-	}
-	if w.Header().Get("Cache-Control") != "no-store" || !strings.Contains(w.Header().Get("Content-Security-Policy"), "script-src 'self'") || strings.Contains(w.Header().Get("Content-Security-Policy"), "unsafe-inline") {
-		t.Fatal("the public page omits its security headers")
-	}
+	assertPublicCountdownPage(t, w, record)
 	for _, offset := range []time.Duration{-time.Nanosecond, 0, time.Nanosecond} {
 		*h.clock = record.EventAt.Add(offset)
 		w = h.send(httptest.NewRequest("GET", "https://localhost/api/v1/public/countdowns/"+record.ID, nil))
@@ -44,6 +39,16 @@ func TestPublicCountdownPreservesAbsoluteEvent(t *testing.T) {
 	after, _ := api.store.List()
 	if len(after) != len(before) || after[0] != before[0] {
 		t.Fatal("public reads change retained state")
+	}
+}
+
+func assertPublicCountdownPage(t *testing.T, w *httptest.ResponseRecorder, record countdown.Record) {
+	t.Helper()
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "&lt;script&gt;event&lt;/script&gt;") || !strings.Contains(w.Body.String(), record.Name) || !strings.Contains(w.Body.String(), "Recursive TTL values are advisory") {
+		t.Fatalf("public event: %d %s", w.Code, w.Body)
+	}
+	if w.Header().Get("Cache-Control") != "no-store" || !strings.Contains(w.Header().Get("Content-Security-Policy"), "script-src 'self'") || strings.Contains(w.Header().Get("Content-Security-Policy"), "unsafe-inline") {
+		t.Fatal("the public page omits its security headers")
 	}
 }
 
