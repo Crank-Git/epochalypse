@@ -80,6 +80,7 @@ func (s *Store) Create(input Input, content io.Reader, now time.Time) (Record, e
 		return Record{}, ErrInput
 	}
 	plaintext, err := io.ReadAll(io.LimitReader(content, int64(s.plaintextLimit)+1))
+	defer clear(plaintext)
 	if err != nil {
 		// Reader failures can contain plaintext or paths, so this error excludes the source error.
 		return Record{}, ErrInput
@@ -91,6 +92,7 @@ func (s *Store) Create(input Input, content io.Reader, now time.Time) (Record, e
 		return Record{}, ErrInput
 	}
 	record, key, err := prepareRecord(input, plaintext, now, s.plaintextLimit)
+	defer clear(key[:])
 	if err != nil {
 		return Record{}, err
 	}
@@ -147,7 +149,7 @@ func (s *Store) Published(id string) (Record, error) {
 	return record, nil
 }
 
-// Publish commits publication after the stored key authenticates the object.
+// Publish commits publication after mode-specific draft verification.
 func (s *Store) Publish(id string, now time.Time) (Record, error) {
 	if _, err := expectedHeader(id, FormatVersion); err != nil {
 		return Record{}, ErrInput
@@ -173,7 +175,7 @@ func (s *Store) Publish(id string, now time.Time) (Record, error) {
 		if err != nil {
 			return err
 		}
-		if err := authenticate(record, key); err != nil {
+		if err := authenticateDraft(record, key); err != nil {
 			return err
 		}
 		record.PublishedAt = &now
@@ -209,8 +211,11 @@ func (s *Store) Key(id string, now time.Time) ([32]byte, error) {
 		if record.PublishedAt == nil {
 			return ErrNotFound
 		}
-		if record.Mode == ServerHeld && now.Before(*record.EffectiveReleaseAt) {
+		if record.Mode != Public && now.Before(*record.EffectiveReleaseAt) {
 			return ErrTooEarly
+		}
+		if record.Mode == Tlock {
+			return ErrUnavailable
 		}
 		candidate, err := keyAt(tx, id)
 		if err != nil {
@@ -230,6 +235,7 @@ func prepareRecord(input Input, plaintext []byte, now time.Time, limit int) (Rec
 	_, _ = rand.Read(random[:])
 	id := hex.EncodeToString(random[:])
 	object, key, err := SealObject(id, FormatVersion, plaintext, limit)
+	defer clear(key[:])
 	if err != nil {
 		return Record{}, [32]byte{}, err
 	}
@@ -237,7 +243,26 @@ func prepareRecord(input Input, plaintext []byte, now time.Time, limit int) (Rec
 	if input.Mode == ServerHeld {
 		manifest.EffectiveReleaseAt = &input.ReleaseAt
 	}
-	return Record{Manifest: manifest, Object: object}, key, nil
+	record := Record{Manifest: manifest, Object: object}
+	if input.Mode == Tlock {
+		return prepareTimelock(record, key)
+	}
+	return record, key, nil
+}
+
+func prepareTimelock(record Record, key [32]byte) (Record, [32]byte, error) {
+	defer clear(key[:])
+	if err := authenticate(record, key); err != nil {
+		return Record{}, [32]byte{}, err
+	}
+	wrapped, err := WrapKey(key, record.RequestedReleaseAt)
+	if err != nil {
+		return Record{}, [32]byte{}, err
+	}
+	record.Timelock = &wrapped
+	record.EffectiveReleaseAt = &wrapped.EffectiveAt
+	proof, err := preparationProof(record)
+	return record, proof, err
 }
 
 func (s *Store) replace(tx *bolt.Tx, record Record) error {

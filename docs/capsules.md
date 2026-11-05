@@ -1,7 +1,8 @@
 # Capsule foundation
 
-The current foundation provides public and server-held domain operations, HTTP interfaces, CLI commands, and owner controls.
-Tlock preparation remains unavailable until #20 supplies its verified adapter.
+The current foundation provides public and server-held HTTP interfaces, CLI commands, and owner controls.
+The internal tlock draft producer is available. The transport adapters keep tlock disabled until #20 completes recovery and interface verification.
+The [tlock integration record](research/tlock-production.md) defines its current contract and remaining work.
 
 ## Content and trust
 
@@ -42,8 +43,11 @@ Preparation exposes no plaintext through errors or returned records.
 `capsule.Attach` shares an existing installation handle. It does not open another writer.
 Closing an attached capsule store stops capsule access and preserves other domain handles.
 
-Creation commits the record and its private key in one transaction.
-Admission charges one object, the exact encoded record bytes, and 32 private-key bytes.
+Public and server-held creation commits the record and its private key in one transaction.
+Admission charges one object, the exact encoded record bytes, and 32 private-state bytes.
+Internal tlock creation stores its complete wrapper in the record. It stores a preparation digest instead of a private content key.
+Publication verifies that digest against the immutable draft. It authenticates the JWE object during preparation, before it discards the key.
+The digest detects draft changes. It does not authenticate a future wrapper independently of its preparation path.
 A failed quota check retains neither a partial record nor an orphan key.
 Publication replaces the draft in the same budget transaction.
 If publication exceeds the byte allowance, the transaction restores the private draft.
@@ -59,7 +63,7 @@ The version 1 record fixture preserves release metadata and the authenticated co
 | `Create(input, reader, now)` | A private `Record` after bounded preparation and atomic persistence |
 | `Get(id)` | An owner record, including an unpublished draft |
 | `Published(id)` | A published record; drafts return `ErrNotFound` |
-| `Publish(id, now)` | A published record after full content authentication and atomic budget admission |
+| `Publish(id, now)` | A published record after mode-specific preparation verification and atomic budget admission |
 | `Key(id, now)` | A key after publication and the selected release condition |
 | `OpenObject(id, version, object, key, limit)` | Plaintext after complete authentication; no plaintext on failure |
 

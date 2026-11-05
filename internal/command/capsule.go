@@ -77,6 +77,10 @@ func parseCapsuleFlags(args []string, stderr io.Writer) (capsuleFlags, error) {
 }
 
 func executeCapsule(action string, options capsuleFlags) (capsule.Manifest, error) {
+	// The transport gate excludes incomplete recovery formats.
+	if options.input.Mode == capsule.Tlock {
+		return capsule.Manifest{}, capsule.ErrUnsupportedMode
+	}
 	limits, err := parseWindowLimits(options.objects, options.bytes)
 	if err != nil {
 		return capsule.Manifest{}, err

@@ -1,6 +1,6 @@
 # Tlock adapter checkpoint
 
-This checkpoint supplies the key adapter for #20. Store and transport integration remains incomplete.
+This checkpoint supplies the key adapter and durable draft producer for #20. Transport and recovery integration remain incomplete.
 The production service still rejects tlock creation. This checkpoint does not complete AC-capsules-1 or AC-capsules-4.
 
 ## Dependency review
@@ -78,6 +78,35 @@ Later HTTP handlers must retain the existing four shared capsule slots and reque
 
 ## Verification and remaining work
 
+### Durable draft producer
+
+`Store.Create` now accepts tlock internally. The HTTP and CLI adapters retain explicit tlock gates until the remaining interfaces are complete.
+Preparation authenticates the JWE object with its fresh content key before it wraps that key.
+The record retains the complete `Timelock`. Its effective time equals the selected ceiling round time.
+Reads reject a missing wrapper, mismatched mode or times, an unknown version, and any changed quicknet identity.
+The encoded record's existing 8192-byte metadata allowance also bounds the wrapper metadata.
+The shared transaction charges every encoded record byte and the separate 32-byte preparation digest.
+
+The existing `capsule-keys-v1` bucket stores a preparation digest for tlock records instead of a content key.
+The digest covers the canonical encoded draft, including the object, wrapper, metadata, and effective time.
+Publication compares this digest before it changes the publication time. Repeated publication preserves the object and wrapper.
+This proof detects a changed draft. It is not a signature against an attacker who controls both database buckets.
+It does not independently prove future wrapper decryption. Complete authenticated recovery must verify that relation after the beacon becomes available.
+The code creates both encrypted layers from the same fresh key before it discards the key.
+No import interface accepts an externally prepared record at this checkpoint.
+
+Keeping the key until publication would defeat local tlock preparation. A digest permits the publication check without retaining that secret.
+This choice uses the existing private-state allowance and preserves the fixed database layout.
+The key producer returns `ErrTooEarly` before the tlock boundary and `ErrUnavailable` afterwards.
+It never returns the digest as a content key. The next recovery producer must use `Timelock.OpenKey` and authenticate the complete JWE object.
+
+`TestTimelockDraftRetainsNoContentKey` checks the retained digest and rejects its use as a content key.
+`TestTimelockPublicationPreservesCeilingRoundAfterRestart` checks restart, reduced upload limits, ceiling time, repeated publication, and key boundaries.
+`TestTimelockPublicationRejectsChangedDraft` checks the immutable preparation proof.
+`TestTimelockWrapperConsumesSharedBudget` checks atomic quota rejection without partial state.
+`TestTimelockRecordRejectsMismatchedReleaseMetadata` checks corrupt wrappers, swapped wrappers, missing private state, and absence of returned keys.
+Committed test state `9143331` demonstrates four behavioral failures before this implementation.
+
 Committed stub `9b47f6a` records three failing behavior tests, including all ten failure subtests.
 The focused capsule race suite passes after implementation. The focused linter reports zero issues.
 These checks do not replace the final aggregate coverage gate or full required suite.
@@ -85,9 +114,7 @@ The final focused profile measures 93.9 percent for the capsule package. It is n
 The merge-base check removes both new implementation files while it retains the tests.
 The tests fail with missing adapter symbols. The restore leaves a clean Git status.
 
-The next slice must connect the adapter to the shared store without retaining a tlock private key.
-It must authenticate drafts before publication and charge every wrapper byte to the shared budget.
-It must add CLI local preparation, the web disclosure and mode, typed recovery values, and authenticated content open.
+The next slice must add CLI local preparation, the web disclosure and mode, typed recovery values, and authenticated content open.
 It must test all three modes through the real CLI and browser interfaces.
 It must preserve the legacy record fixture and classify release separately from availability.
 The final verification must run the full required suite with zero required skips and at least 95 percent aggregate coverage.
