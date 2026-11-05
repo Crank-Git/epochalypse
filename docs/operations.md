@@ -231,6 +231,11 @@ It records numeric file ownership and copies files into a private temporary dire
 The caller must call the returned archive's `Close` method to remove these copies.
 Keep configuration and key writers stopped throughout the call. Database locks do not control those files.
 The implementation does not yet provide a backup CLI or a validated installation.
+The internal `owner.ValidateSnapshot` function checks a read transaction from a private, authenticated owner database copy.
+It requires the four version 1 owner buckets and their supported record formats.
+It checks the password profile, credential owner identifiers, token digests and scopes, and audit sequences.
+It preserves expired credentials and their original deadlines without a database mutation.
+This domain check does not open the database, validate the installation database, or authorize service startup.
 
 Verified interface: [age v1.3.2 source](https://github.com/FiloSottile/age/blob/v1.3.2/age.go), retrieved 2026-11-05.
 `Encrypt` requires the caller to close its writer. `Decrypt` returns a plaintext stream that authenticates through its final chunk.
