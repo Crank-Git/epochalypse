@@ -152,12 +152,13 @@ Each field contains a textual `state`, a `message`, and an `items` array.
 Future metadata items use `{id,name,state}`. Summary items contain no content or credentials.
 `Store.Dashboard(limit)` supplies this contract after the caller authorizes access.
 
-The current feature stores contain no capsule, switch, or countdown implementation.
-Their lists therefore return empty arrays. Capsule and countdown states are `not_implemented`.
-The switch state is `blocked`, consistent with the owner's production decision in ADR 0005.
-Agent health is `unavailable` because the dashboard has no verified agent observations.
+This owner-store summary does not query the separate feature stores. Its item arrays remain empty.
+Capsule and countdown states are `available`; their owner controls provide retained-object metadata.
+The switch summary remains `blocked` for production use while its owner controls allow unarmed, unreplicated drafts.
+Runtime and deployment verification remain required before production switch use under ADR 0013.
+Agent health is `unavailable` because this summary has no verified agent observations.
 These states do not claim that an agent is healthy or that content has released.
-The page explains feature availability instead of offering unsupported creation controls.
+Use the dedicated feature pages and APIs to inspect retained objects.
 
 ## Audit events
 
