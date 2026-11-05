@@ -6,10 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
+	"github.com/Crank-Git/epochalypse/internal/installation"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -18,13 +17,14 @@ var ErrNotFound = errors.New("window does not exist")
 
 // Store owns the durable public window state.
 type Store struct {
-	db     *bolt.DB
+	db     *installation.Handle
 	signer *Signer
-	limits Limits
+	limits *Limits
+	owned  *installation.Store
 }
 
-var windowBucket = []byte("windows-v1")
-var configurationBucket = []byte("configuration-v1")
+var windowBucket = []byte(installation.WindowsBucket)
+var configurationBucket = []byte(installation.ConfigurationBucket)
 
 // Open opens version 1 window state independently of owner credentials.
 func Open(stateDir string, signer *Signer) (*Store, error) {
@@ -35,29 +35,27 @@ func openStore(stateDir string, signer *Signer, limits Limits) (*Store, error) {
 	if signer == nil || signer.key == nil || signer.private == nil {
 		return nil, errors.New("configure the window signer before state access")
 	}
-	directory := filepath.Join(stateDir, "v1")
-	if err := os.MkdirAll(directory, 0700); err != nil {
-		return nil, fmt.Errorf("create window state directory: %w", err)
-	}
-	// The owner and window stores share this versioned directory.
-	if err := os.Chmod(directory, 0700); err != nil { // #nosec G302
-		return nil, fmt.Errorf("protect window state directory: %w", err)
-	}
-	path := filepath.Join(directory, "windows.db")
-	info, err := os.Lstat(path)
-	if err == nil && (!info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0) {
-		return nil, errors.New("window database requires an owner-only regular file")
-	}
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("inspect window database: %w", err)
-	}
-	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: time.Second})
+	db, err := installation.Open(stateDir, limits)
 	if err != nil {
-		return nil, fmt.Errorf("open window database: %w", err)
+		return nil, err
 	}
-	store := &Store{db: db, signer: signer, limits: limits}
-	if err := db.Update(store.initialize); err != nil {
+	store, err := Attach(db, signer)
+	if err != nil {
 		_ = db.Close()
+		return nil, err
+	}
+	store.owned = db
+	return store, nil
+}
+
+// Attach shares the installation handle without ownership of its lifetime.
+// The caller closes the installation after all attached domains stop.
+func Attach(db *installation.Store, signer *Signer) (*Store, error) {
+	if db == nil || signer == nil || signer.key == nil || signer.private == nil {
+		return nil, errors.New("configure installation state and the window signer before state access")
+	}
+	store := &Store{db: db.Handle(), signer: signer, limits: &db.Limits}
+	if err := store.db.Update(store.initialize); err != nil {
 		return nil, fmt.Errorf("initialize window database: %w", err)
 	}
 	return store, nil
@@ -81,8 +79,14 @@ func (s *Store) initialize(tx *bolt.Tx) error {
 	return config.Put([]byte("dnskey"), key)
 }
 
-// Close releases the window database lock.
-func (s *Store) Close() error { return s.db.Close() }
+// Close stops window access and releases the database only when Open owns it.
+func (s *Store) Close() error {
+	_ = s.db.Close()
+	if s.owned != nil {
+		return s.owned.Close()
+	}
+	return nil
+}
 
 // Create persists a signed window before it returns the public record.
 func (s *Store) Create(in Input, now time.Time) (Window, error) {

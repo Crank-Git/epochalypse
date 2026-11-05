@@ -3,6 +3,7 @@ import {spawn} from 'node:child_process';
 import {readFile, writeFile} from 'node:fs/promises';
 import {setTimeout as pause} from 'node:timers/promises';
 import {checkPublicWindow} from './public_window_browser.mjs';
+import {checkCapsules} from './capsule_browser.mjs';
 
 const [chrome, profile, origin, windowResult] = process.argv.slice(2);
 const sandbox = process.getuid?.() === 0 ? ['--no-sandbox'] : [];
@@ -93,6 +94,7 @@ try {
   assert.equal(await evaluate("document.querySelector('#agents').textContent.includes('no verified agent observations')"), true);
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.sections')).display"), 'grid');
   assert.equal(await evaluate("document.querySelector('nav').getAttribute('aria-label')"), 'Dashboard sections');
+  await checkCapsules(call, evaluate, waitFor, origin);
   await evaluate("document.querySelector('nav a').focus()");
   await call('Input.dispatchKeyEvent', {type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9});
   await call('Input.dispatchKeyEvent', {type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9});

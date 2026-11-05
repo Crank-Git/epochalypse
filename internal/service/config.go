@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Crank-Git/epochalypse/internal/authority"
+	"github.com/Crank-Git/epochalypse/internal/capsule"
 	"github.com/Crank-Git/epochalypse/internal/observation"
 	"github.com/Crank-Git/epochalypse/internal/window"
 	"io"
@@ -15,21 +16,22 @@ import (
 
 // Config contains the local process configuration.
 type Config struct {
-	Mode         string
-	HTTPAddr     string
-	DNSAddr      string
-	StateDir     string
-	AgentID      string
-	LocalLab     bool
-	TLSCert      string
-	TLSKey       string
-	Zone         string
-	KeyFile      string
-	WindowLimits *window.Limits
-	NameServer   string
-	PublicURL    string
-	Environment  string
-	Resolvers    []observation.Target
+	Mode                  string
+	HTTPAddr              string
+	DNSAddr               string
+	StateDir              string
+	AgentID               string
+	LocalLab              bool
+	TLSCert               string
+	TLSKey                string
+	Zone                  string
+	KeyFile               string
+	WindowLimits          *window.Limits
+	NameServer            string
+	PublicURL             string
+	Environment           string
+	Resolvers             []observation.Target
+	CapsulePlaintextLimit int
 }
 
 func (c Config) nameServer() string {
@@ -41,10 +43,14 @@ func (c Config) nameServer() string {
 
 // Validate rejects incomplete process configuration.
 func (c Config) Validate() error {
-	if c.Environment != "" && c.Environment != "lab" && c.Environment != "production" {
+	switch c.Environment {
+	case "", "lab", "production":
+	default:
 		return fmt.Errorf("environment must be lab or production")
 	}
-	if c.Mode != "server" && c.Mode != "dns" && c.Mode != "agent" {
+	switch c.Mode {
+	case "server", "dns", "agent":
+	default:
 		return fmt.Errorf("invalid service mode")
 	}
 	if c.HTTPAddr == "" || c.StateDir == "" {
@@ -59,6 +65,9 @@ func (c Config) Validate() error {
 	if (c.TLSCert == "") != (c.TLSKey == "") {
 		return fmt.Errorf("set both TLS certificate and key")
 	}
+	if _, err := capsule.EncodedObjectLimit(c.capsuleLimit()); err != nil {
+		return fmt.Errorf("configure a positive bounded capsule plaintext limit: %w", err)
+	}
 	if err := c.validateWindows(); err != nil {
 		return err
 	}
@@ -66,6 +75,13 @@ func (c Config) Validate() error {
 		return err
 	}
 	return c.validateLabHTTP()
+}
+
+func (c Config) capsuleLimit() int {
+	if c.CapsulePlaintextLimit == 0 {
+		return capsule.DefaultPlaintextLimit
+	}
+	return c.CapsulePlaintextLimit
 }
 
 func (c Config) validateResolvers() error {
@@ -173,11 +189,12 @@ func ReadConfig(path string) error {
 
 // Settings contains non-secret versioned file configuration.
 type Settings struct {
-	Version    int                  `json:"version"`
-	Zone       string               `json:"zone,omitempty"`
-	NameServer string               `json:"nameserver,omitempty"`
-	PublicURL  string               `json:"public_url,omitempty"`
-	Resolvers  []observation.Target `json:"resolvers,omitempty"`
+	Version               int                  `json:"version"`
+	Zone                  string               `json:"zone,omitempty"`
+	NameServer            string               `json:"nameserver,omitempty"`
+	PublicURL             string               `json:"public_url,omitempty"`
+	Resolvers             []observation.Target `json:"resolvers,omitempty"`
+	CapsulePlaintextLimit int                  `json:"capsule_plaintext_limit,omitempty"`
 }
 
 // ReadSettings reads the bounded public configuration before service startup.

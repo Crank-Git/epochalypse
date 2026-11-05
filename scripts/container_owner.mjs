@@ -6,7 +6,7 @@ import {generateKeyPairSync} from 'node:crypto';
 
 const directory = '/state';
 await writeFile(`${directory}/password`, 'synthetic-browser', {mode: 0o600});
-await writeFile(`${directory}/config.json`, JSON.stringify({version: 1, resolvers: [{id: 'unavailable', address: '127.0.0.1:1', version: 'unknown', version_source: 'unknown', clock: {source: 'unknown', offset_nanoseconds: null}}]}));
+await writeFile(`${directory}/config.json`, JSON.stringify({version: 1, capsule_plaintext_limit: 32, resolvers: [{id: 'unavailable', address: '127.0.0.1:1', version: 'unknown', version_source: 'unknown', clock: {source: 'unknown', offset_nanoseconds: null}}]}));
 await mkdir(`${directory}/coverage`);
 // Each browser run uses a separate synthetic DNSSEC key.
 const key = generateKeyPairSync('ec', {namedCurve: 'prime256v1'}).privateKey.export({format: 'jwk'});
@@ -14,9 +14,9 @@ const publicKey = Buffer.concat([Buffer.from(key.x, 'base64url'), Buffer.from(ke
 await writeFile(`${directory}/synthetic.private`, `Private-key-format: v1.3\nAlgorithm: 13 (ECDSAP256SHA256)\nComment: epochalypse-lab-only\nPrivateKey: ${Buffer.from(key.d, 'base64url').toString('base64')}\n`, {mode: 0o600});
 await writeFile(`${directory}/synthetic.key`, `windows.example. 60 IN DNSKEY 257 3 13 ${publicKey}`, {mode: 0o600});
 const env = {...process.env, GOCOVERDIR: `${directory}/coverage`};
-const init = spawnSync(`${directory}/epochalypse`, ['owner', 'init', '--password-file', `${directory}/password`, '--state-dir', `${directory}/data`], {env, encoding: 'utf8', timeout: 10000});
+const init = spawnSync(`${directory}/epochalypse`, ['owner', 'init', '--password-file', `${directory}/password`, '--state-dir', '/tmp/epochalypse-owner-data'], {env, encoding: 'utf8', timeout: 10000});
 assert.equal(init.status, 0, init.stderr);
-const server = spawn(`${directory}/epochalypse`, ['server', '--config', `${directory}/config.json`, '--state-dir', `${directory}/data`, '--http-addr', '127.0.0.1:8080', '--local-lab', '--zone', 'windows.example.', '--key-file', `${directory}/synthetic.private`], {env, stdio: ['ignore', 'ignore', 'pipe']});
+const server = spawn(`${directory}/epochalypse`, ['server', '--config', `${directory}/config.json`, '--state-dir', '/tmp/epochalypse-owner-data', '--http-addr', '127.0.0.1:8080', '--local-lab', '--zone', 'windows.example.', '--key-file', `${directory}/synthetic.private`], {env, stdio: ['ignore', 'ignore', 'pipe']});
 let diagnostic = '';
 server.stderr.on('data', data => { diagnostic = (diagnostic + data).slice(-2000); });
 try {
@@ -34,9 +34,10 @@ try {
   const result = spawnSync('node', ['/work/scripts/owner_browser.mjs', executable, `${directory}/chrome`, 'http://127.0.0.1:8080', `${directory}/window-record.json`], {stdio: 'inherit', timeout: 30000});
   assert.equal(result.status, 0, 'The owner browser flow passes');
   const record = JSON.parse(await readFile(`${directory}/window-record.json`, 'utf8'));
-  const locked = spawnSync(`${directory}/epochalypse`, ['window', 'inspect', '--id', record.id, '--state-dir', `${directory}/data`, '--zone', 'windows.example.', '--key-file', `${directory}/synthetic.private`], {env, encoding: 'utf8', timeout: 5000});
+  assert.equal((await fetch('http://127.0.0.1:8080/healthz', {signal: AbortSignal.timeout(1000)})).status, 200);
+  const locked = spawnSync(`${directory}/epochalypse`, ['window', 'inspect', '--id', record.id, '--state-dir', '/tmp/epochalypse-owner-data', '--zone', 'windows.example.', '--key-file', `${directory}/synthetic.private`], {env, encoding: 'utf8', timeout: 5000});
   assert.equal(locked.status, 1, 'The live database rejects an offline CLI reader');
-  assert.match(locked.stderr, /open window database/);
+  assert.match(locked.stderr, /open installation database/);
   assert.equal(locked.stdout, '');
 } finally {
   server.kill('SIGTERM');
@@ -48,7 +49,7 @@ try {
   }
 }
 const record = JSON.parse(await readFile(`${directory}/window-record.json`, 'utf8'));
-const windowFlags = ['--state-dir', `${directory}/data`, '--zone', 'windows.example.', '--key-file', `${directory}/synthetic.private`];
+const windowFlags = ['--state-dir', '/tmp/epochalypse-owner-data', '--zone', 'windows.example.', '--key-file', `${directory}/synthetic.private`];
 const inspect = spawnSync(`${directory}/epochalypse`, ['window', 'inspect', '--id', record.id, ...windowFlags], {env, encoding: 'utf8', timeout: 5000});
 assert.equal(inspect.status, 0, inspect.stderr);
 assert.deepEqual(JSON.parse(inspect.stdout), record, 'Offline inspection preserves the browser-created signature');

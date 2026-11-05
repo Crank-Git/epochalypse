@@ -32,8 +32,30 @@ class CLITests(unittest.TestCase):
             self.assertEqual(json.loads(result.stdout)["status"], "indeterminate")
             self.assertEqual(json.loads(result.stdout)["trust_source"], "none")
             self.check_tokens(binary, env, Path(directory))
+            self.check_capsules(binary, env, Path(directory))
             Path(".test-artifacts").mkdir(exist_ok=True)
             subprocess.run(["go", "tool", "covdata", "textfmt", f"-i={coverdir}", "-o=.test-artifacts/cli.out"], check=True)
+
+    def check_capsules(self, binary, env, directory):
+        state = directory / "capsules"
+        content = directory / "synthetic.bin"
+        content.write_bytes(bytes([0, 255, 128, 1]))
+        args = [binary, "capsule", "create", "--state-dir", str(state), "--mode", "server-held", "--kind", "file", "--content-file", str(content), "--release-at", "2099-01-01T00:00:00Z", "--plaintext-limit", "4"]
+        created = subprocess.run(args, env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(created.returncode, 0, created.stderr)
+        draft = json.loads(created.stdout)
+        self.assertIsNone(draft["published_at"])
+        self.assertEqual(draft["plaintext_bytes"], 4)
+        self.assertNotIn("object", draft)
+        self.assertNotIn("key", draft)
+        published = subprocess.run([binary, "capsule", "publish", "--state-dir", str(state), "--id", draft["id"]], env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(published.returncode, 0, published.stderr)
+        self.assertEqual(json.loads(published.stdout)["effective_release_at"], "2099-01-01T00:00:00Z")
+        content.write_bytes(b"12345")
+        rejected = subprocess.run(args, env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(rejected.returncode, 1)
+        self.assertEqual(rejected.stdout, "")
+        self.assertIn("exceeds its limit", rejected.stderr)
 
     def check_service_processes(self, binary, env, directory):
         config = directory / "local.json"
