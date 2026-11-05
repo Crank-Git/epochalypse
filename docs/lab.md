@@ -10,6 +10,7 @@ The main process owns HTTPS and authoritative UDP/TCP DNS with one window store.
 Each agent retains its own process and state volume.
 The containers share one host. They do not provide independent failure domains.
 The agents still provide no switch release behavior.
+Use the [completed-feature deployment guide](operations.md) for the main-only container example and Linux VPS templates.
 
 ## Setup and files
 

@@ -1,0 +1,31 @@
+[Unit]
+Description=epochalypse completed features
+After=network-online.target time-sync.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=epochalypse
+Group=epochalypse
+UMask=0077
+StateDirectory=epochalypse
+StateDirectoryMode=0700
+WorkingDirectory=/var/lib/epochalypse
+ExecStart=/opt/epochalypse/epochalypse server --environment production --config /etc/epochalypse/main.json --state-dir /var/lib/epochalypse --http-addr 0.0.0.0:443 --dns-addr 0.0.0.0:53 --key-file /etc/epochalypse/keys/window.private --countdown-key-file /etc/epochalypse/keys/countdown.private --tls-cert /etc/epochalypse/tls/fullchain.pem --tls-key /etc/epochalypse/tls/private.pem
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/epochalypse
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+MemoryMax=512M
+CPUQuota=100%
+TasksMax=128
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target
