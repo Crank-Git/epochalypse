@@ -410,6 +410,8 @@ No unanswered product question blocks the approved plan. Technical gates block t
 
 ## Changelog
 
+- 2026-11-05: Accept the documented external-release blocker in issue #50. Adopt no new service and retain the reviewed independent-agent direction.
+
 - 2026-11-05: Accept the reviewed switch design for implementation in issue #28. ADR 0013 retains runtime, actual-host readiness, and production gates.
 
 - 2026-11-05: The owner accepts bounded switch uncertainty after receipt loss. ADR 0012 supersedes ADR 0005's exact-confirmation requirement. Keep production gated.
