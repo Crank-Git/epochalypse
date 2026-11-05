@@ -411,7 +411,7 @@ func Confirm(state State, receipts []Envelope, enrollment AdmittedEnrollment, ph
 	keys := enrolledKeys(enrollment)
 	for _, e := range receipts {
 		f, err := VerifyEnvelope(e, keys)
-		if err == nil && f.Operation == OperationReceipt && f.State == state && f.Phase == phase && f.Durable == state.Sequence {
+		if err == nil && f.Operation == OperationReceipt && f.State == state && f.Phase == phase && !f.Released && f.Durable == state.Sequence {
 			seen[f.Signer] = true
 		}
 	}

@@ -220,7 +220,12 @@ func TestRebuildsKnownCheckpointFromIndependentAuthority(t *testing.T) {
 	for _, change := range []func(*Snapshot){
 		func(s *Snapshot) { s.Generation = head.Generation + 1 },
 		func(s *Snapshot) { s.State.Deadline++ },
+		func(s *Snapshot) { s.State.Switch = "another-switch" },
+		func(s *Snapshot) { s.State.Content[0]++ },
+		func(s *Snapshot) { s.State.Enrollment[0]++ },
+		func(s *Snapshot) { s.Phase++ },
 		func(s *Snapshot) { s.Released = true },
+		func(s *Snapshot) { s.Unsafe = true },
 	} {
 		bad := old
 		change(&bad)

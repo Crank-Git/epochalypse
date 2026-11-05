@@ -198,6 +198,8 @@ A divergent, newer, or corrupt checkpoint also quarantines the process.
 Reconstruction preserves the current head's accepted authority and both irreversible latches.
 A larger counter without exact state equality does not establish freshness.
 The synthetic `rebuild` predicate tests prefix membership and head preservation, not disk durability or tail-deletion detection.
+Its caller supplies an already validated journal prefix and matching durable material as premises.
+The predicate does not establish those premises or authorize runtime readiness.
 The [issue #31 ruling](https://github.com/Crank-Git/epochalypse/issues/31#issuecomment-6666312262) resolves the former exact-checkpoint inconsistency.
 
 An ordinary restart with intact committed state follows this path:
