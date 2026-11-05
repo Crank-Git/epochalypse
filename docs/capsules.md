@@ -92,7 +92,7 @@ A missing or malformed private key returns `ErrUnavailable` after release become
 A key that fails object authentication returns `ErrIntegrity` without a key.
 These results let later interfaces distinguish release eligibility from content availability.
 
-The later capsule slices consume this producer for public pages, downloads, and recovery bundle export.
+The public page consumes this producer. The owner export slice consumes the same recovery bundle.
 They must preserve bounded authenticated object handling and the shared installation transaction.
 
 ### Recovery producer
@@ -135,6 +135,9 @@ All routes require TLS outside the explicit loopback lab.
 | `GET /api/v1/capsules/{id}` | 200 with owner-authorized manifest metadata |
 | `POST /api/v1/capsules/{id}/publish` | 200 with the published manifest |
 | `GET /api/v1/public/capsules/{id}/key` | 200 with an authenticated released key; 425 before server-held release |
+| `GET /c/{id}` | Public trust, release eligibility, and verified content availability |
+| `GET /api/v1/public/capsules/{id}/download` | Completely authenticated plaintext as an opaque attachment |
+| `GET /api/v1/public/capsules/{id}/bundle` | Canonical recovery bundle as an attachment; drafts remain 404 |
 
 Creation uses `multipart/form-data`. Supply one `mode`, one `release_at`, and one `content` part.
 The optional `title` part contains at most 256 UTF-8 bytes. The optional `kind` part selects `text` or `file`.
@@ -173,8 +176,28 @@ Cancellation before preparation retains no draft. A mutation that already commit
 | 429 | All capsule work slots are busy |
 | 503 | Unavailable state or failed integrity verification |
 
-The public recovery bundle, page, attachment, and export interfaces remain with the later capsule slices.
-The key-free `Record` is a ciphertext producer. It is not a self-contained recovery bundle.
+### Public page and attachments
+
+The public page states the selected mode and its trust assumptions.
+It shows the requested time, effective time, and server check time in UTC.
+Release eligibility does not establish content availability. The browser clock authorizes no release.
+Before the effective release time, encrypted modes show sealed content without a plaintext download link.
+After that time, a missing key or beacon shows delayed availability. Failed authentication shows an integrity error.
+The page offers a plaintext download only after complete authentication succeeds.
+The download route authenticates the complete content again before it writes any plaintext.
+
+All three public routes use the shared four work slots, request deadlines, TLS rules, and response safeguards.
+They read retained state without mutations or quota admission.
+The attachment route returns `application/octet-stream`, `Content-Disposition: attachment`, and a sandbox content policy.
+The page escapes content and titles. Opaque files have no preview.
+UTF-8 text previews contain at most 4096 bytes and end on a complete character.
+The page uses local CSS, visible keyboard focus, responsive layout, and an accessible status message.
+
+The bundle route writes canonical `json.Marshal` bytes directly. It appends no newline.
+An early server-held bundle excludes its key. A tlock bundle never includes an unwrapped content key.
+A published tlock bundle remains usable after local deletion when its ciphertext and verified beacon remain available.
+The owner export slice consumes this contract. It must preserve the public draft boundary.
+The key-free `Record` alone is not a self-contained recovery bundle.
 
 ## Owner controls
 
@@ -186,7 +209,7 @@ The controls clear the content fields after successful preparation. They render 
 Owner sessions authorize both the page and script. Mutations use the shared CSRF proof and existing HTTP work bounds.
 The tlock option uses the pinned quicknet round at or after the requested time.
 Beacon failure can delay availability. Published ciphertext cannot be recalled.
-These controls do not offer the later public page or recovery bundle.
+The public page and recovery bundle use the published capsule identifier.
 
 ## Local CLI
 

@@ -4,6 +4,7 @@ import {readFile, writeFile} from 'node:fs/promises';
 import {setTimeout as pause} from 'node:timers/promises';
 import {checkPublicWindow} from './public_window_browser.mjs';
 import {checkCapsules} from './capsule_browser.mjs';
+import {checkPublicCapsules} from './public_capsule_browser.mjs';
 
 const [chrome, profile, origin, windowResult, preparedPath] = process.argv.slice(2);
 const sandbox = process.getuid?.() === 0 ? ['--no-sandbox'] : [];
@@ -53,6 +54,7 @@ try {
     }
     throw new Error(`Page assertion times out: ${expression}`);
   };
+  await checkPublicCapsules(call, evaluate, waitFor, 'http://127.0.0.1:8081');
   await call('Page.navigate', {url: `${origin}/owner`});
   await waitFor("document.querySelector('h1')?.textContent === 'Owner sign-in'");
   assert.equal(await evaluate("document.querySelector('label').htmlFor"), 'password');
