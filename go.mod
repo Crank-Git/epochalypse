@@ -4,6 +4,7 @@ go 1.27.3
 
 require (
 	codeberg.org/miekg/dns v0.6.128
+	github.com/go-jose/go-jose/v4 v4.1.7
 	go.etcd.io/bbolt v1.5.0
 	golang.org/x/crypto v0.58.0
 )

@@ -3,7 +3,9 @@ package capsule
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 )
@@ -24,6 +26,9 @@ func TestObjectAuthenticatesContentAndIdentity(t *testing.T) {
 	if err != nil || key == secondKey || object == second {
 		t.Fatal("each object requires a fresh key and nonce")
 	}
+	header, _ := base64.RawURLEncoding.DecodeString(strings.Split(object, ".")[0])
+	otherID := strings.Repeat("a", 32)
+	reboundHeader := base64.RawURLEncoding.EncodeToString([]byte(strings.Replace(string(header), testID, otherID, 1)))
 	for _, tc := range []struct {
 		name, id string
 		version  int
@@ -31,6 +36,7 @@ func TestObjectAuthenticatesContentAndIdentity(t *testing.T) {
 		key      [32]byte
 	}{
 		{"different identifier", strings.Repeat("a", 32), 1, object, key},
+		{"rebound identifier", otherID, 1, mutateSegment(object, 0, reboundHeader), key},
 		{"unsupported version", testID, 2, object, key},
 		{"different key", testID, 1, object, secondKey},
 		{"corrupt ciphertext", testID, 1, mutateSegment(object, 3, "AAAA"), key},
@@ -97,6 +103,81 @@ func TestObjectRejectsUnapprovedHeaders(t *testing.T) {
 			t.Fatalf("malformed object accepted: %v", err)
 		}
 	}
+}
+
+func TestObjectRejectsInvalidLimitsAndIdentifiers(t *testing.T) {
+	for _, limit := range []int{0, -1, int(^uint(0) >> 1)} {
+		if _, err := EncodedObjectLimit(limit); !errors.Is(err, ErrLimit) {
+			t.Fatalf("limit %d: %v", limit, err)
+		}
+		if _, _, err := SealObject(testID, 1, nil, limit); !errors.Is(err, ErrLimit) {
+			t.Fatalf("seal limit %d: %v", limit, err)
+		}
+		if plaintext, err := OpenObject(testID, 1, "", [32]byte{}, limit); !errors.Is(err, ErrLimit) || plaintext != nil {
+			t.Fatalf("open limit %d: %v", limit, err)
+		}
+	}
+	for _, id := range []string{"", strings.Repeat("a", 33), strings.Repeat("g", 32), strings.ToUpper(testID)} {
+		if _, _, err := SealObject(id, 1, nil, 1); !errors.Is(err, ErrObject) {
+			t.Fatalf("identifier accepted: %v", err)
+		}
+	}
+	if _, _, err := SealObject(testID, 2, nil, 1); !errors.Is(err, ErrObject) {
+		t.Fatalf("version accepted: %v", err)
+	}
+	if limit, err := EncodedObjectLimit(DefaultPlaintextLimit); err != nil || limit != 13982080 {
+		t.Fatalf("default encoded limit: %d, %v", limit, err)
+	}
+}
+
+func TestObjectRejectsNoncanonicalSegments(t *testing.T) {
+	object, key, err := SealObject(testID, 1, []byte("a"), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, segment := range []string{"A", "AB", "AAB", "AA=", "AA\n", "!A"} {
+		if plaintext, err := OpenObject(testID, 1, mutateSegment(object, 3, segment), key, 3); !errors.Is(err, ErrObject) || plaintext != nil {
+			t.Fatalf("noncanonical segment accepted: %q, %v", segment, err)
+		}
+	}
+	if plaintext, err := OpenObject(testID, 1, strings.Repeat("x", 2000), key, 1); !errors.Is(err, ErrObject) || plaintext != nil {
+		t.Fatalf("oversized object accepted: %v", err)
+	}
+}
+
+func TestObjectOpensVersionOneFixture(t *testing.T) {
+	data, err := os.ReadFile("testdata/object-v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		ID        string `json:"id"`
+		Version   int    `json:"version"`
+		Object    string `json:"object"`
+		Key       []byte `json:"key"`
+		Plaintext string `json:"plaintext"`
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if len(fixture.Key) != 32 {
+		t.Fatal("fixture requires a 32-byte synthetic key")
+	}
+	plaintext, err := OpenObject(fixture.ID, fixture.Version, fixture.Object, [32]byte(fixture.Key), DefaultPlaintextLimit)
+	if err != nil || string(plaintext) != fixture.Plaintext {
+		t.Fatalf("version 1 fixture: %v", err)
+	}
+}
+
+func FuzzObjectRejectsUntrustedInputs(f *testing.F) {
+	f.Add("", testID, 1)
+	f.Add(strings.Repeat(".", 100), testID, 1)
+	f.Fuzz(func(t *testing.T, object, id string, version int) {
+		plaintext, err := OpenObject(id, version, object, [32]byte{}, 1024)
+		if err != nil && plaintext != nil {
+			t.Fatal("failure exposes plaintext")
+		}
+	})
 }
 
 func mutateSegment(object string, segment int, value string) string {
