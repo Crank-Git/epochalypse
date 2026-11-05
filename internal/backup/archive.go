@@ -16,7 +16,8 @@ import (
 	"filippo.io/age"
 )
 
-// MaxBytes bounds the complete plaintext archive before JSON allocation.
+// MaxBytes bounds this initial in-memory codec before JSON allocation.
+// The complete backup interface requires configurable bounds and private file staging.
 const MaxBytes = 64 << 20
 
 // The allowlist excludes agent state and the separate backup identity.
