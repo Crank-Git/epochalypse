@@ -4,7 +4,8 @@ Issue #31 introduces runtime contracts for the reviewed version-two protocol.
 These contracts do not enable production switches.
 The CLI provides local prepare, arm, and export commands.
 The main API retains authenticated public arm evidence.
-The agent service, readiness producers, and complete product verification remain incomplete.
+The agent runtime supports explicit local experiments over HTTPS.
+Actual-host readiness and complete product verification remain incomplete.
 The local runtime slice provides content, agent transitions, HTTPS transport, and owner orchestration APIs.
 
 ## Canonical wire data
@@ -108,6 +109,53 @@ Production readiness still requires actual-host evidence and independent failure
 
 Verified interface: [Go 1.27.3 time documentation](https://pkg.go.dev/time@go1.27.3), retrieved 2026-11-05.
 The installed `go doc time.Time.Sub` also confirms bounded duration arithmetic.
+
+## Agent runtime commands
+
+`agent initialize` creates authority only on an existing empty private directory.
+`agent serve` opens existing authority with the configured volume identity.
+It never initializes a missing authority during startup.
+The runtime validates retained enrollment, requests, ciphertext, shares, and receipts before the clock assessment.
+A corrupt journal or irreversible latch blocks startup.
+An intact committed transition can recreate its missing receipt through an exact retry.
+
+The current executable requires an explicit synthetic clock for local experiments:
+
+```sh
+epochalypse agent initialize --config private-agent.json
+epochalypse agent serve --config private-agent.json \
+  --lab-only-synthetic-clock --http-addr 127.0.0.1:8443 \
+  --tls-cert agent-cert.pem --tls-key agent-key.pem
+```
+
+The configuration must be a stable mode-0600 regular file.
+Its JSON fields are `authority`, `agent_id`, `owner_key`, `certificate`, `certificate_signature`, `signing_key`, and `age_identity`.
+Byte slices use JSON base64 strings.
+The `authority` object uses `agent.Config` fields: `Directory`, `CheckpointDirectory`, `ExpectedVolumeID`, and optional `MaxRecordBytes`.
+The operator supplies the enrolled owner key, signed certificate, local Ed25519 key, and enrolled age identity.
+The TLS private key must also use an owner-only regular file.
+The service requires TLS 1.3 and serves the existing prepare and arm handlers.
+Stop it with SIGTERM or SIGINT before maintenance.
+
+`NewLabClock` reads a fresh wall-clock sample for each local decision.
+This explicit synthetic producer does not establish clock accuracy, source independence, or epoch continuity.
+The executable rejects a production clock claim without the lab flag.
+Actual-host readiness requires the separate clock evidence and deployment gates from ADR 0013.
+
+`NewChronyClock` provides a read-only assessment adapter for the pinned chrony 4.9 interface.
+It runs bounded `chronyc -v`, `chronyc -n tracking`, and `chronyc -n sources` commands.
+The client version query does not identify the running daemon version.
+The operator profile must separately attest the deployed daemon, reference correctness, and source independence.
+The caller supplies independently validated assessment and capture evidence before and after each acquisition.
+The adapter rejects an epoch change, stale evidence, excessive acquisition delay, or an unresolved leap state.
+It adds the tracking error bound to the independent reference uncertainty before the 500-millisecond check.
+It requires the pinned selected source, reachable source samples, and a fresh reference measurement.
+`ServiceConfig.VerifiedClock` accepts this typed adapter instead of the explicit lab clock.
+The executable still requires the lab mode until a platform capture adapter supplies its real profile.
+The [readiness ruling](https://github.com/Crank-Git/epochalypse/issues/31#issuecomment-6667891433) defines the remaining Linux capture work.
+
+Verified against the [chronyc 4.9 manual](https://chrony-project.org/doc/4.9/chronyc.html), retrieved 2026-11-05.
+The [versioned client source](https://raw.githubusercontent.com/mlichvar/chrony/4.9/client.c) defines the version output and feature suffix.
 
 ## Dependencies
 
@@ -243,5 +291,5 @@ Partial arm can disclose content while too few armed agents prevent recovery.
 It enforces TLS 1.3, a five-second timeout, a bounded response, and no redirects.
 Agent signatures still provide protocol authentication.
 The private owner key never enters the agent request or bundle.
-These APIs do not update the main draft to an armed state.
-Main-state migration, CLI, API, UI, and deployment integration remain incomplete.
+The owner-local CLI records public evidence in the main draft as described above.
+Actual-host deployment and the complete product verification gates remain incomplete.

@@ -40,6 +40,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		case "server", "dns", "agent":
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
+			if args[0] == "agent" && len(args) > 1 && slices.Contains([]string{"serve", "initialize"}, args[1]) {
+				return runAgentRuntime(ctx, args, stdout, stderr)
+			}
 			return runService(ctx, args, stderr)
 		}
 	}
@@ -53,7 +56,7 @@ func runHelp(args []string, stdout, stderr io.Writer) int {
 		}
 		return 2
 	}
-	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  backup      Encrypt or restore stopped main-service state\n  help        Show command help\n  owner       Create or recover the local owner\n  token       Create a scoped token with host access\n  window      Create or inspect signed windows offline\n  switch      Create, arm, or export a switch with owner-local tools\n  countdown   Create or inspect absolute events offline\n  capsule     Create or publish local capsule content\n  lab         Verify an explicit public DNSSEC anchor\n  server      Start the web server\n  dns         Start the local DNS scaffold\n  agent       Start a local agent scaffold\n  status      Verify a deployed commit\n  demo        Create synthetic fixtures\n  clean-demo  Remove the explicit demo namespace"); err != nil {
+	if _, err := fmt.Fprintln(stdout, "Usage: epochalypse <command> [flags]\n\nCommands:\n  backup      Encrypt or restore stopped main-service state\n  help        Show command help\n  owner       Create or recover the local owner\n  token       Create a scoped token with host access\n  window      Create or inspect signed windows offline\n  switch      Create, arm, or export a switch with owner-local tools\n  countdown   Create or inspect absolute events offline\n  capsule     Create or publish local capsule content\n  lab         Verify an explicit public DNSSEC anchor\n  server      Start the web server\n  dns         Start the local DNS scaffold\n  agent       Initialize or serve an agent; retain the local scaffold\n  status      Verify a deployed commit\n  demo        Create synthetic fixtures\n  clean-demo  Remove the explicit demo namespace"); err != nil {
 		return 1
 	}
 	return 0
