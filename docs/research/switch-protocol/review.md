@@ -91,6 +91,13 @@ It must neither project across incompatible elapsed origins nor clear irreversib
 Readiness must block mutation and new disclosure until the recovery rule establishes safety.
 Any recovery delay must fit P or remove that agent from the conditional availability claim.
 
+A second research candidate uses only each freshly assessed `U-epsilon`, without elapsed projection.
+Under the same absolute error assumption, each sample remains between `t-2*epsilon` and t.
+This candidate removes the exact continuous elapsed premise from the deadline argument.
+It still needs bounded sampling within P, fresh assessment after restart, and durable irreversible latches.
+Review backward samples, cutoff behavior, restart, and the publication race before choosing this candidate.
+No candidate has acceptance through this report.
+
 Go 1.27.3 omits monotonic readings from serialized `time.Time` values.
 Its documentation also warns that some monotonic clocks stop during sleep.
 Consequently, ordinary serialization cannot implement the model's continuous elapsed timeline.
@@ -184,10 +191,17 @@ Retain the symbolic bound `E=2*epsilon+P` with its explicit assumptions.
 Keep production use disabled and record no numeric allowance.
 Require the concrete obligations above before a production protocol review can pass.
 
-The next engineering step is a restart-aware clock model with bounded elapsed error and an explicit re-anchor operation.
+The next engineering step compares the fresh UTC-only lower bound with a restart-aware elapsed projection.
+If the design retains elapsed projection, model bounded elapsed error and an explicit re-anchor operation.
 Then specify and test durable rollback detection, authenticated wire fixtures, and complete lifecycle contracts.
 These are engineering requirements, rather than a request to reconsider the accepted receipt-loss tradeoff.
 If a proposed implementation requires a weaker availability promise, request an explicit owner decision before changing the spec.
+
+Separate protocol algorithms from their future implementation and deployment profile.
+Clock recovery, lifecycle transitions, and authenticated byte contracts need complete algorithm definitions before protocol acceptance.
+Real stores, transport, and process tests then verify those definitions during implementation.
+The deployment profile supplies supported numeric epsilon and P for the selected hosts and endpoints.
+This review chooses no hosts and adds no availability promise outside the honest-agent, intact-state, bounded-clock assumptions.
 
 AC-switch-protocol-8 needs the maintainer's separate recorded decision after this review.
 AC-switch-protocol-11 has an explicit conditional formula here, but lacks supported production clock limits and measured publication bounds.
