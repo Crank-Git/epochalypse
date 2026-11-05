@@ -2,7 +2,7 @@
 id: research
 feature: "External release research"
 epic: "Epic 8: External release research"
-status: issued
+status: built
 issues: [45, 46, 47, 48, 49, 50]
 mockups: []
 ---
