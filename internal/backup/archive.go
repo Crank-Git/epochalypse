@@ -66,7 +66,7 @@ func (a *Archive) Close() error {
 	if a.stage == "" {
 		return nil
 	}
-	return os.RemoveAll(a.stage)
+	return os.RemoveAll(a.stage) // #nosec G703 -- Only MkdirTemp sets the private stage; the manifest excludes it.
 }
 
 // Seal streams private snapshot files to a separate operator recipient.
@@ -170,7 +170,7 @@ func Open(ctx context.Context, src io.Reader, identity *age.X25519Identity, limi
 	if err != nil {
 		return Archive{}, err
 	}
-	defer func() { _ = plaintext.Close(); _ = os.Remove(plaintext.Name()) }()
+	defer func() { _ = plaintext.Close(); _ = os.Remove(plaintext.Name()) }() // #nosec G703 -- CreateTemp selects the private plaintext path.
 	result, err = parseManifest(plaintext, limits)
 	if err != nil {
 		return Archive{}, err
