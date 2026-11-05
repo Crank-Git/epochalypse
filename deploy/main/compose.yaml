@@ -1,0 +1,71 @@
+name: epochalypse-main
+services:
+  window-material:
+    image: mcr.microsoft.com/playwright@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+    entrypoint: [node, /setup/material.mjs]
+    network_mode: none
+    read_only: true
+    tmpfs: [/tmp]
+    volumes:
+      - state:/state
+      - ../../scripts/lab_material.mjs:/setup/material.mjs:ro
+  countdown-material:
+    image: mcr.microsoft.com/playwright@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+    entrypoint: [node, /setup/material.mjs]
+    network_mode: none
+    read_only: true
+    tmpfs: [/tmp]
+    volumes:
+      - countdown-keys:/state
+      - ../../var/main-example/countdown-material.mjs:/setup/material.mjs:ro
+  owner:
+    image: epochalypse-main:${MAIN_IMAGE_TAG:-local}
+    user: "65534:65534"
+    entrypoint: [/bin/sh, /setup/owner.sh]
+    network_mode: none
+    read_only: true
+    depends_on:
+      window-material: {condition: service_completed_successfully}
+    volumes:
+      - state:/state
+      - ../../scripts/lab_owner.sh:/setup/owner.sh:ro
+  web:
+    image: epochalypse-main:${MAIN_IMAGE_TAG:-local}
+    build:
+      context: ../..
+      dockerfile: deploy/lab/Dockerfile
+      args:
+        EPOCHALYPSE_BUILD_COMMIT: ${EPOCHALYPSE_BUILD_COMMIT:?Set the tested commit}
+    user: "65534:65534"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    cpus: 1.0
+    mem_limit: 512m
+    pids_limit: 128
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      EPOCHALYPSE_ENV: lab
+      EPOCHALYPSE_STATE_DIR: /state
+    command: [server, --config, /config/main.json, --http-addr, "0.0.0.0:8080", --dns-addr, "0.0.0.0:1053", --key-file, /state/lab/window.private, --countdown-key-file, /countdown/lab/window.private, --tls-cert, /state/lab/tls.crt, --tls-key, /state/lab/tls.key]
+    depends_on:
+      owner: {condition: service_completed_successfully}
+      countdown-material: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, wget, --no-check-certificate, -q, -O, /dev/null, "https://127.0.0.1:8080/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+    volumes:
+      - state:/state
+      - countdown-keys:/countdown:ro
+      - ./local.json:/config/main.json:ro
+    ports:
+      - "127.0.0.1:${MAIN_HTTPS_PORT:-8443}:8080"
+      - "127.0.0.1:${MAIN_DNS_PORT:-1153}:1053/udp"
+      - "127.0.0.1:${MAIN_DNS_PORT:-1153}:1053/tcp"
+volumes:
+  state:
+  countdown-keys:
