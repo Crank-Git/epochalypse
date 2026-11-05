@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -128,28 +129,44 @@ func TestAuthenticatedOwnerValidationRejectsCancellation(t *testing.T) {
 	}
 }
 
-type ownerValidationContext struct {
+type boundaryCancellation struct {
 	context.Context
-	checks   int
-	cancelAt int
+	atBoundary func()
 }
 
-func (c *ownerValidationContext) Err() error {
-	c.checks++
-	if c.checks >= c.cancelAt {
-		return context.Canceled
-	}
-	return nil
+func (c *boundaryCancellation) Err() error {
+	c.atBoundary()
+	return c.Context.Err()
 }
 
-func TestAuthenticatedOwnerValidationCancelsDuringRead(t *testing.T) {
-	for _, cancelAt := range []int{2, 3, 4} {
-		a := authenticatedOwner(t, nil)
-		ctx := &ownerValidationContext{Context: context.Background(), cancelAt: cancelAt}
-		if err := a.ValidateOwner(ctx); !errors.Is(err, context.Canceled) {
-			t.Fatalf("owner validation ignores cancellation at check %d: %v", cancelAt, err)
-		}
+func TestAuthenticatedOwnerPayloadCancelsDuringRead(t *testing.T) {
+	a := authenticatedOwner(t, nil)
+	src, err := os.Open(a.Files[0].SourcePath)
+	if err != nil {
+		t.Fatal(err)
 	}
+	defer func() { _ = src.Close() }()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	reader := cancelAfterRead{Reader: io.LimitReader(src, 1), cancel: cancel}
+	var copied bytes.Buffer
+	if err := copyPayload(ctx, &copied, reader, a.Files[0]); !errors.Is(err, context.Canceled) {
+		t.Fatalf("owner payload ignores read cancellation: %v", err)
+	}
+	if copied.Len() != 1 || ctx.Err() != context.Canceled {
+		t.Fatal("owner payload does not cancel after the first byte")
+	}
+}
+
+type cancelAfterRead struct {
+	io.Reader
+	cancel context.CancelFunc
+}
+
+func (r cancelAfterRead) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
+	r.cancel()
+	return n, err
 }
 
 func TestAuthenticatedOwnerValidationRejectsMissingDatabase(t *testing.T) {
