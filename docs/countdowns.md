@@ -93,8 +93,21 @@ For a one-year event, Unbound returns 86400 seconds and BIND returns approximate
 The authority returns the remaining year. RFC 4035 permits recursive caps from signature expiration and local policy.
 Recursive TTL values remain advisory. Prefetch and stale answers cannot change the retained event or enforce a security boundary.
 
-Issue #38 supplies the public page and advisory labels.
-The batch ships these slices together.
+`GET /events/{id}` serves the public countdown without owner authorization.
+`GET /api/v1/public/countdowns/{id}` returns the record and its `server_now` and `authoritative_ttl` sample.
+Both routes require HTTPS outside the local lab. Both routes permit only GET.
+The routes share bounded work admission and response deadlines with the owner API.
+Public reads preserve the retained event and consume no retained-state quota.
+
+The page computes remaining whole seconds from the absolute event time and a server clock sample.
+It shows completion only at or after the event boundary, including the final fractional second with TTL zero.
+It shows the actual DNS name, UTC event time, and local event time.
+Recursive TTL values remain advisory. Resolver caps, prefetch, and stale answers do not control the page.
+
+The browser uses monotonic elapsed time between server samples.
+Page visibility, focus, and elapsed-clock gaps trigger a new sample after sleep.
+A failed synchronization clears the clock sample and shows time unavailable until a successful retry.
+Network delay can affect this advisory display. The browser clock does not establish a security boundary.
 
 Verified interfaces, retrieved 2026-11-04:
 
