@@ -55,7 +55,7 @@ Keep these variables for every later command. The [lab guide](lab.md#access) des
 
 The setup job creates the lab owner before the server opens its database.
 For a separate installation, use the protected password-file procedure in [owner commands](owner.md).
-The dashboard summary can show unavailable feature summaries while the dedicated capsule and countdown pages remain usable.
+The dashboard links to dedicated capsule and countdown controls. Its summaries do not list retained capsules or countdowns.
 The switch section remains blocked. The agents share one host and provide no switch release behavior.
 
 ## DNSSEC experiment
