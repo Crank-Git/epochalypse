@@ -22,8 +22,8 @@ func runWindow(args []string, stdout, stderr io.Writer) int {
 	state := flags.String("state-dir", envDefault("EPOCHALYPSE_STATE_DIR", "var/state"), "State directory; stop the main server first")
 	zone := flags.String("zone", "", "Dedicated experimental zone")
 	keyFile := flags.String("key-file", os.Getenv("EPOCHALYPSE_KEY_FILE"), "Protected BIND private key file")
-	maxObjects := flags.String("max-objects", envDefault("EPOCHALYPSE_MAX_OBJECTS", "100"), "Maximum retained window documents")
-	maxBytes := flags.String("quota-bytes", envDefault("EPOCHALYPSE_QUOTA_BYTES", "1073741824"), "Maximum retained window JSON bytes")
+	maxObjects := flags.String("max-objects", envDefault("EPOCHALYPSE_MAX_OBJECTS", "100"), "Maximum retained windows and observation runs")
+	maxBytes := flags.String("quota-bytes", envDefault("EPOCHALYPSE_QUOTA_BYTES", "1073741824"), "Maximum retained JSON bytes and pending reservations")
 	var input window.Input
 	id := ""
 	if args[1] == "create" {

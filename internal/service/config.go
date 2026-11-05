@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Crank-Git/epochalypse/internal/authority"
+	"github.com/Crank-Git/epochalypse/internal/observation"
 	"github.com/Crank-Git/epochalypse/internal/window"
 	"io"
 	"net"
@@ -28,6 +29,7 @@ type Config struct {
 	NameServer   string
 	PublicURL    string
 	Environment  string
+	Resolvers    []observation.Target
 }
 
 func (c Config) nameServer() string {
@@ -60,7 +62,37 @@ func (c Config) Validate() error {
 	if err := c.validateWindows(); err != nil {
 		return err
 	}
+	if err := c.validateResolvers(); err != nil {
+		return err
+	}
 	return c.validateLabHTTP()
+}
+
+func (c Config) validateResolvers() error {
+	if len(c.Resolvers) == 0 {
+		return nil
+	}
+	if c.Mode != "server" || c.Zone == "" {
+		return fmt.Errorf("resolver jobs require the main signed-window authority")
+	}
+	if err := observation.ValidateTargets(c.Resolvers); err != nil {
+		return err
+	}
+	for _, target := range c.Resolvers {
+		if target.VersionSource != "configured" && target.VersionSource != "unknown" {
+			return fmt.Errorf("resolver configuration requires configured or unknown version provenance")
+		}
+		if target.VersionSource == "unknown" && target.Version != "unknown" {
+			return fmt.Errorf("unknown resolver version provenance requires an unknown version")
+		}
+		if target.Clock.Source != "configured" && target.Clock.Source != "unknown" {
+			return fmt.Errorf("resolver configuration requires configured or unknown clock provenance")
+		}
+		if target.Clock.Source == "unknown" && (target.Clock.LowerNanoseconds != nil || target.Clock.UpperNanoseconds != nil) {
+			return fmt.Errorf("unknown clock provenance cannot claim a measured interval")
+		}
+	}
+	return nil
 }
 
 func (c Config) validateLabHTTP() error {
@@ -141,10 +173,11 @@ func ReadConfig(path string) error {
 
 // Settings contains non-secret versioned file configuration.
 type Settings struct {
-	Version    int    `json:"version"`
-	Zone       string `json:"zone,omitempty"`
-	NameServer string `json:"nameserver,omitempty"`
-	PublicURL  string `json:"public_url,omitempty"`
+	Version    int                  `json:"version"`
+	Zone       string               `json:"zone,omitempty"`
+	NameServer string               `json:"nameserver,omitempty"`
+	PublicURL  string               `json:"public_url,omitempty"`
+	Resolvers  []observation.Target `json:"resolvers,omitempty"`
 }
 
 // ReadSettings reads the bounded public configuration before service startup.

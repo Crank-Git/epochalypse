@@ -66,7 +66,7 @@ Errors use `{error:{code,message,fields,request_id}}`.
 | 400 | The JSON document or a named window field is invalid. |
 | 401 | The owner session fails. A bearer credential also fails. |
 | 403 | The CSRF proof or origin fails. |
-| 409 | The retained window quota rejects creation. |
+| 409 | The shared installation quota rejects creation. |
 | 413 | The request exceeds 8192 bytes. |
 | 426 | Owner access requires HTTPS. |
 | 503 | The signer or store is unavailable. |
@@ -101,10 +101,12 @@ The store atomically checks its document count and encoded JSON bytes before cre
 A quota failure leaves accepted records unchanged.
 Database page overhead and the fixed configuration record do not enter the JSON-byte count.
 
-Windows are the first implemented retained content type. These counters cover window documents only.
-Future capsules, switches, countdowns, and observations must contribute to one installation budget before they admit retained state.
+Windows and observation runs use one installation budget in `v1/windows.db`.
+A pending run reserves one document and 16384 bytes before a resolver job starts.
+Completion atomically replaces the reservation with the final encoded document size.
+The shared transaction prevents a window from consuming bytes that a pending run needs.
+Future capsules, switches, and countdowns must contribute to this installation budget before they admit retained state.
 Their implementation must define the shared transaction or reservation mechanism.
-Do not give each domain store a separate full installation allowance.
 
 ## Producer contracts
 
