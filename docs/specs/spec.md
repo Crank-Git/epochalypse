@@ -270,6 +270,9 @@ Use these environment variables for process-level configuration:
 | EPOCHALYPSE_LOG_LEVEL | Set log detail. | info |
 
 Configuration holds the zone name, agent endpoints, failure domains, public keys, beacon chain, and protocol version.
+Configure distinct subdomains and signing-key references for signature-window experiments and countdowns.
+Countdown record names derive from their opaque identifiers under the configured countdown subdomain.
+Return the actual record name in public metadata. The project does not change delegation automatically.
 Private key files require owner-only filesystem access. Configuration contains key references rather than key values.
 Production startup rejects lab keys and insecure public origins.
 Use a small synthetic capsule, switch, countdown, and window as demo records.
@@ -388,6 +391,8 @@ No unanswered product question blocks the approved plan. Technical gates block t
 
 ## Changelog
 
+- 2026-11-04: The owner selects separate DNS subdomains for signature-window experiments and countdowns. Keep delegation operator-controlled. Capsule foundation supplies shared storage before countdown implementation.
+
 - 2026-11-04: Run tlock compatibility research independently of live DNS-window implementation. Keep production capsules gated on DNS completion and the verified compatibility result.
 
 - 2026-11-04: After replacement research and independent review, the owner retains the original guarantee and leaves switch implementation blocked. Continue other features. See ADR 0005.
@@ -452,7 +457,7 @@ The owner approved issue creation on 2026-11-04. Each requirement has at least o
 | FR-owner-6 | [#15](https://github.com/Crank-Git/epochalypse/issues/15) |
 | FR-owner-7 | [#16](https://github.com/Crank-Git/epochalypse/issues/16) |
 | FR-owner-8 | [#16](https://github.com/Crank-Git/epochalypse/issues/16) |
-| FR-capsules-1 | [#18](https://github.com/Crank-Git/epochalypse/issues/18), [#20](https://github.com/Crank-Git/epochalypse/issues/20) |
+| FR-capsules-1 | [#20](https://github.com/Crank-Git/epochalypse/issues/20) |
 | FR-capsules-2 | [#18](https://github.com/Crank-Git/epochalypse/issues/18) |
 | FR-capsules-3 | [#18](https://github.com/Crank-Git/epochalypse/issues/18) |
 | FR-capsules-4 | [#19](https://github.com/Crank-Git/epochalypse/issues/19), [#20](https://github.com/Crank-Git/epochalypse/issues/20) |
@@ -460,7 +465,7 @@ The owner approved issue creation on 2026-11-04. Each requirement has at least o
 | FR-capsules-6 | [#22](https://github.com/Crank-Git/epochalypse/issues/22) |
 | FR-capsules-7 | [#21](https://github.com/Crank-Git/epochalypse/issues/21) |
 | FR-capsules-8 | [#22](https://github.com/Crank-Git/epochalypse/issues/22) |
-| FR-capsules-9 | [#18](https://github.com/Crank-Git/epochalypse/issues/18), [#21](https://github.com/Crank-Git/epochalypse/issues/21) |
+| FR-capsules-9 | [#21](https://github.com/Crank-Git/epochalypse/issues/21) |
 | FR-switch-protocol-1 | [#24](https://github.com/Crank-Git/epochalypse/issues/24) |
 | FR-switch-protocol-2 | [#24](https://github.com/Crank-Git/epochalypse/issues/24) |
 | FR-switch-protocol-3 | [#25](https://github.com/Crank-Git/epochalypse/issues/25) |

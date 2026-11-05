@@ -338,7 +338,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>EPOCHALYPSE_QUOTA_BYTES</td><td>Limit retained local content.</td><td>1073741824</td></tr>
 <tr><td>EPOCHALYPSE_LOG_LEVEL</td><td>Set log detail.</td><td>info</td></tr>
 </table></div>
-<p>Configuration holds the zone name, agent endpoints, failure domains, public keys, beacon chain, and protocol version. Private key files require owner-only filesystem access. Configuration contains key references rather than key values. Production startup rejects lab keys and insecure public origins. Use a small synthetic capsule, switch, countdown, and window as demo records. Real domains, VPS addresses, and the personal GitHub identity remain operator setup values. No provider budget or spending authority exists.</p>
+<p>Configuration holds the zone name, agent endpoints, failure domains, public keys, beacon chain, and protocol version. Configure distinct subdomains and signing-key references for signature-window experiments and countdowns. Countdown record names derive from their opaque identifiers under the configured countdown subdomain. Return the actual record name in public metadata. The project does not change delegation automatically. Private key files require owner-only filesystem access. Configuration contains key references rather than key values. Production startup rejects lab keys and insecure public origins. Use a small synthetic capsule, switch, countdown, and window as demo records. Real domains, VPS addresses, and the personal GitHub identity remain operator setup values. No provider budget or spending authority exists.</p>
 <h2 id="testing-strategy">Testing strategy</h2>
 <p>Required pass rate is 100 percent. Coverage is a separate minimum of 95.00 percent. Measure Go statement coverage across every first-party production package, including CLI and HTTP adapters. Exclude dependencies and generated third-party code. Do not exclude difficult branches to reach the threshold. Fail the coverage check when the profile is absent, empty, malformed, or below the unrounded threshold. Require explicit tests for every security and deadline boundary regardless of coverage.</p>
 <p>Use TDD for behavior changes. First demonstrate a failing assertion against the existing behavior. Then implement the smallest change that passes. Refactor while the checks remain green. A new test that fails only because of a syntax error does not demonstrate the behavior. Record the fail/pass commands in the PR description without mandatory changelog edits.</p>
@@ -428,6 +428,10 @@ body.rv-open .layout { padding-right:21rem; }
 <p>No unanswered product question blocks the approved plan. Technical gates block the affected implementation or production claim.</p>
 <h2 id="changelog">Changelog</h2>
 <ul>
+<li>2026-11-04: The owner selects separate DNS subdomains for signature-window experiments and countdowns. Keep delegation operator-controlled. Capsule foundation supplies shared storage before countdown implementation.
+</li>
+</ul>
+<ul>
 <li>2026-11-04: Run tlock compatibility research independently of live DNS-window implementation. Keep production capsules gated on DNS completion and the verified compatibility result.
 </li>
 </ul>
@@ -506,7 +510,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>FR-owner-6</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/15">#15</a></td></tr>
 <tr><td>FR-owner-7</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/16">#16</a></td></tr>
 <tr><td>FR-owner-8</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/16">#16</a></td></tr>
-<tr><td>FR-capsules-1</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/18">#18</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/20">#20</a></td></tr>
+<tr><td>FR-capsules-1</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/20">#20</a></td></tr>
 <tr><td>FR-capsules-2</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/18">#18</a></td></tr>
 <tr><td>FR-capsules-3</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/18">#18</a></td></tr>
 <tr><td>FR-capsules-4</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/19">#19</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/20">#20</a></td></tr>
@@ -514,7 +518,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>FR-capsules-6</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/22">#22</a></td></tr>
 <tr><td>FR-capsules-7</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/21">#21</a></td></tr>
 <tr><td>FR-capsules-8</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/22">#22</a></td></tr>
-<tr><td>FR-capsules-9</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/18">#18</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/21">#21</a></td></tr>
+<tr><td>FR-capsules-9</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/21">#21</a></td></tr>
 <tr><td>FR-switch-protocol-1</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/24">#24</a></td></tr>
 <tr><td>FR-switch-protocol-2</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/24">#24</a></td></tr>
 <tr><td>FR-switch-protocol-3</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/25">#25</a></td></tr>
