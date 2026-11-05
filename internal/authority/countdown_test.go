@@ -12,20 +12,26 @@ import (
 	"github.com/Crank-Git/epochalypse/internal/installation"
 )
 
-func TestCountdownAuthorityUsesPreciseRemainingSeconds(t *testing.T) {
+func countdownAuthorityFixture(t *testing.T) (*Authority, *countdown.Store) {
+	t.Helper()
 	a := &Authority{zone: "countdown.example.", nameserver: "ns.lab.invalid."}
 	store, err := countdown.Open(t.TempDir(), installation.DefaultLimits(), a.zone)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = store.Close() }()
+	t.Cleanup(func() { _ = store.Close() })
+	a.countdowns = store
+	a.countdownSigner = countdownSignerFixture(t, a.zone)
+	a.key = a.countdownSigner
+	return a, store
+}
+
+func TestCountdownAuthorityUsesPreciseRemainingSeconds(t *testing.T) {
+	a, store := countdownAuthorityFixture(t)
 	record, err := store.Create(context.Background(), countdown.Input{Title: "Synthetic event", EventAt: now.Add(time.Hour).Format(time.RFC3339)}, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.countdowns = store
-	a.countdownSigner = countdownSignerFixture(t, a.zone)
-	a.key = a.countdownSigner
 	for _, tc := range []struct {
 		name string
 		at   time.Time
@@ -62,6 +68,10 @@ func TestCountdownAuthorityUsesPreciseRemainingSeconds(t *testing.T) {
 	if err != nil || retained != record {
 		t.Fatalf("retained event changes: %v", err)
 	}
+}
+
+func TestCountdownAuthorityCapsHorizonAfterClockRollback(t *testing.T) {
+	a, store := countdownAuthorityFixture(t)
 	horizon, err := store.Create(context.Background(), countdown.Input{Title: "Horizon event", EventAt: now.Add(countdown.MaxTTL * time.Second).Format(time.RFC3339)}, now)
 	if err != nil {
 		t.Fatal(err)
