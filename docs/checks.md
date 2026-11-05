@@ -42,7 +42,8 @@ Each configuration validates a current-signature positive control before it comp
 The test primes warm caches before inception. Cold caches first query the same record after inception.
 The test records the different responses and strict Unbound's later recovery.
 The check writes public fixture records and timestamped results to `.test-artifacts/resolvers.json`.
-Docker supplies Linux arm64 and amd64 containers. The test removes only its own containers and network.
+Docker supplies Linux arm64 or amd64 containers. BIND and the authority helper use the daemon architecture.
+The pinned Unbound image uses Linux amd64. An arm64 daemon requires amd64 container support. The test removes only its own containers and network.
 The [observation guide](observations.md) describes metadata provenance and the retained-state schema.
 `scripts/test_browser.py` runs the required browser flow. A missing Docker daemon or a failed browser fails the check.
 The browser test uses synthetic owner state and a temporary profile.

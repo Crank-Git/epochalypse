@@ -22,7 +22,7 @@ make test-resolvers
 ```
 
 Use the worktree-local Go cache variables from [the check guide](checks.md).
-The test compiles a static Linux arm64 helper that consumes the production window store and authority.
+The test compiles a static Linux helper for the Docker daemon architecture that consumes the production window store and authority.
 The test uses the pinned resolver images from [the compatibility report](research/dns-compatibility.md).
 It verifies the executable version through `unbound -V`.
 The test verifies BIND's executable version through `named -V`.

@@ -64,23 +64,28 @@ func TestResolverAuthorityProcess(t *testing.T) {
 }
 
 type resolverLab struct {
-	directory   string
-	network     string
-	authorityIP string
-	key         *dns.DNSKEY
-	records     map[string]window.Window
-	clock       observation.Clock
+	nativePlatform string
+	directory      string
+	network        string
+	authorityIP    string
+	key            *dns.DNSKEY
+	records        map[string]window.Window
+	clock          observation.Clock
 }
 
 func newResolverLab(t *testing.T) resolverLab {
 	t.Helper()
 	directory := t.TempDir()
+	architecture := docker(t, "version", "--format", "{{.Server.Arch}}")
+	if architecture != "amd64" && architecture != "arm64" {
+		t.Fatalf("unsupported Docker architecture %q", architecture)
+	}
 	binary := filepath.Join(directory, "authority.test")
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	// #nosec G204 -- The test controls each compiler argument.
 	build := exec.CommandContext(ctx, "go", "test", "-tags=resolvers", "-c", "-o", binary, ".")
-	build.Env = append(os.Environ(), "GOOS=linux", "GOARCH=arm64", "CGO_ENABLED=0")
+	build.Env = append(os.Environ(), "GOOS=linux", "GOARCH="+architecture, "CGO_ENABLED=0")
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build authority: %v: %s", err, output)
 	}
@@ -88,16 +93,19 @@ func newResolverLab(t *testing.T) resolverLab {
 	network := fmt.Sprintf("epochalypse-worker9-%d", time.Now().UnixNano())
 	docker(t, "network", "create", network)
 	t.Cleanup(func() { docker(t, "network", "rm", network) })
-	container := startContainer(t, network, directory, "authority", "linux/arm64", bindImage, "/fixture/authority.test", "-test.run=^TestResolverAuthorityProcess$", "-test.timeout=3m")
+	container := startContainer(t, network, directory, "authority", "linux/"+architecture, bindImage, "/fixture/authority.test", "-test.run=^TestResolverAuthorityProcess$", "-test.timeout=3m")
 	ip := docker(t, "inspect", "--format", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", container)
 	lower, upper := sampleClock(t, container)
 	zero := int64(0)
-	return resolverLab{directory, network, ip, key, records, observation.Clock{OffsetNanoseconds: &zero, Source: "configured zero; shared Docker clock sample", LowerNanoseconds: &lower, UpperNanoseconds: &upper}}
+	return resolverLab{nativePlatform: "linux/" + architecture, directory: directory, network: network, authorityIP: ip, key: key, records: records, clock: observation.Clock{OffsetNanoseconds: &zero, Source: "configured zero; shared Docker clock sample", LowerNanoseconds: &lower, UpperNanoseconds: &upper}}
 }
 
 func (lab resolverLab) startResolver(t *testing.T, kind, label string) observation.Target {
 	t.Helper()
 	config, entry, platform, image := resolverConfiguration(kind, lab.authorityIP, lab.key)
+	if kind == "bind" {
+		platform = lab.nativePlatform
+	}
 	file := label + ".conf"
 	if err := os.WriteFile(filepath.Join(lab.directory, file), []byte(config), 0600); err != nil {
 		t.Fatal(err)
