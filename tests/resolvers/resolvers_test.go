@@ -76,6 +76,10 @@ type resolverLab struct {
 func newResolverLab(t *testing.T) resolverLab {
 	t.Helper()
 	directory := t.TempDir()
+	// The bind mount needs its own protection without the host temporary parent.
+	if err := os.Chmod(directory, 0700); err != nil { // #nosec G302 -- Restrict this fixture directory to its owner.
+		t.Fatal(err)
+	}
 	architecture := docker(t, "version", "--format", "{{.Server.Arch}}")
 	if architecture != "amd64" && architecture != "arm64" {
 		t.Fatalf("unsupported Docker architecture %q", architecture)
@@ -314,7 +318,12 @@ func docker(t *testing.T, args ...string) string {
 func startContainer(t *testing.T, network, directory, name, platform, image, entry string, args ...string) string {
 	t.Helper()
 	name = network + "-" + name
-	command := []string{"run", "--detach", "--name", name, "--network", network, "--platform", platform, "--env", "EPOCHALYPSE_RESOLVER_FIXTURE=1", "--volume", directory + ":/fixture", "--publish", "127.0.0.1::53/udp", "--publish", "127.0.0.1::53/tcp", "--entrypoint", entry, image}
+	// Linux bind mounts retain the fixture creator's numeric ownership.
+	user := fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
+	command := []string{"run", "--detach", "--name", name, "--network", network, "--platform", platform,
+		"--user", user, "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+		"--env", "EPOCHALYPSE_RESOLVER_FIXTURE=1", "--volume", directory + ":/fixture",
+		"--publish", "127.0.0.1::53/udp", "--publish", "127.0.0.1::53/tcp", "--entrypoint", entry, image}
 	docker(t, append(command, args...)...)
 	t.Cleanup(func() {
 		if t.Failed() {
