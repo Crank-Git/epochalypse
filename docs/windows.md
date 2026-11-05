@@ -109,7 +109,7 @@ The shared transaction prevents a window from consuming bytes that a pending run
 The shared scan counts all retained domains even when their feature wrappers remain unopened.
 Each capsule record counts as one object. Its encoded record and separate private content key consume the byte allowance.
 An unknown content bucket or corrupt reservation envelope blocks admission.
-Switches and countdowns must extend this shared layout before they admit retained state.
+Countdowns use this shared layout. Future switch state must extend it before admission.
 
 ## Producer contracts
 
