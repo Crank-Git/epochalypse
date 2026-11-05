@@ -17,7 +17,7 @@ func TestCapsuleCommandsCreateAndPublishMetadata(t *testing.T) {
 	if err := os.WriteFile(content, []byte("private synthetic content"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	for _, mode := range []string{"public", "server-held"} {
+	for _, mode := range []string{"public", "server-held", "tlock"} {
 		var out, errors bytes.Buffer
 		args := []string{"capsule", "create", "--state-dir", directory, "--mode", mode, "--content-file", content, "--release-at", "2099-01-01T00:00:00Z"}
 		if code := Run(args, &out, &errors); code != 0 {
@@ -60,7 +60,7 @@ func TestCapsuleCommandsRejectInvalidInputWithoutContent(t *testing.T) {
 		append(append([]string{}, base...), "--max-objects", "bad"),
 		append(append([]string{}, base...), "--release-at", "bad"),
 		append(append([]string{}, base...), "--release-at", "2099-01-01T00:00:00.1Z"),
-		append(append([]string{}, base...), "--mode", "tlock"),
+		append(append([]string{}, base...), "--mode", "unknown"),
 		append(append([]string{}, base...), "--content-file", directory),
 		append(append([]string{}, base...), "--content-file", path+"missing"),
 	} {

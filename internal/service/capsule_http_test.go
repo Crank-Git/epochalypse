@@ -119,6 +119,25 @@ func (h capsuleHTTPFixture) key(id string) *httptest.ResponseRecorder {
 	return h.send(httptest.NewRequest("GET", "https://localhost/api/v1/public/capsules/"+id+"/key", nil))
 }
 
+func TestCapsuleHTTPCreatesAndPublishesTimelockCeilingRound(t *testing.T) {
+	h := newCapsuleHTTP(t)
+	draft := createHTTPCapsule(t, h, "tlock")
+	_, effective, err := capsule.SelectRound(draft.RequestedReleaseAt)
+	if err != nil || draft.Mode != capsule.Tlock || draft.EffectiveReleaseAt == nil || !draft.EffectiveReleaseAt.Equal(effective) {
+		t.Fatalf("release metadata: %+v %v", draft, err)
+	}
+	if w := h.publish(draft.ID); w.Code != 200 {
+		t.Fatalf("publication: %d %s", w.Code, w.Body)
+	}
+	bundle, err := h.store.Bundle(draft.ID, *h.clock)
+	if err != nil || bundle.Record.Timelock == nil || bundle.ReleasedKey != "" {
+		t.Fatalf("recovery metadata: %+v %v", bundle, err)
+	}
+	if w := h.key(draft.ID); w.Code != 425 {
+		t.Fatalf("early key: %d %s", w.Code, w.Body)
+	}
+}
+
 func TestCapsuleUploadRejectsContentBeyondConfiguredLimit(t *testing.T) {
 	h := newCapsuleHTTP(t)
 	w := h.send(h.upload(t, "server-held", "12345"))
