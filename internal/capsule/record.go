@@ -42,6 +42,9 @@ func decodeRecord(id string, data []byte) (Record, error) {
 	if decoder.Decode(&record) != nil {
 		return Record{}, ErrIntegrity
 	}
+	if err := validateRecordTimelock(record); err != nil {
+		return Record{}, err
+	}
 	if record.ObjectSHA256 != objectDigest(record.Object) || preflight(id, record.Version, record.Object, max(1, record.PlaintextBytes)) != nil {
 		return Record{}, ErrIntegrity
 	}
@@ -50,6 +53,41 @@ func decodeRecord(id string, data []byte) (Record, error) {
 		return Record{}, ErrIntegrity
 	}
 	return record, nil
+}
+
+func validateRecordTimelock(record Record) error {
+	if record.Mode != Tlock {
+		if record.Timelock != nil {
+			return ErrIntegrity
+		}
+		return nil
+	}
+	if record.Timelock == nil || !record.Timelock.RequestedAt.Equal(record.RequestedReleaseAt) || !record.Timelock.EffectiveAt.Equal(*record.EffectiveReleaseAt) {
+		return ErrIntegrity
+	}
+	_, err := record.Timelock.validate()
+	return err
+}
+
+func preparationProof(record Record) ([32]byte, error) {
+	// Publication changes one field; the proof binds every immutable draft field.
+	record.PublishedAt = nil
+	data, err := encodeRecord(record)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	return sha256.Sum256(data), nil
+}
+
+func authenticateDraft(record Record, retained [32]byte) error {
+	if record.Mode != Tlock {
+		return authenticate(record, retained)
+	}
+	proof, err := preparationProof(record)
+	if err != nil || proof != retained {
+		return ErrIntegrity
+	}
+	return nil
 }
 
 func recordAt(tx *bolt.Tx, id string) (Record, error) {
@@ -74,6 +112,7 @@ func keyAt(tx *bolt.Tx, id string) ([32]byte, error) {
 
 func authenticate(record Record, key [32]byte) error {
 	plaintext, err := OpenObject(record.ID, record.Version, record.Object, key, max(1, record.PlaintextBytes))
+	defer clear(plaintext)
 	if err != nil || len(plaintext) != record.PlaintextBytes {
 		return ErrIntegrity
 	}

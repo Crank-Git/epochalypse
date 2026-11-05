@@ -75,7 +75,7 @@ func TestCapsuleMultipartRejectsMalformedFields(t *testing.T) {
 			p[2].value = h.clock.Add(time.Hour + time.Nanosecond).Format(time.RFC3339Nano)
 			return p
 		}, 400},
-		{"unsupported mode", func(p []capsuleTestPart) []capsuleTestPart { p[0].value = "tlock"; return p }, 400},
+		{"unsupported mode", func(p []capsuleTestPart) []capsuleTestPart { p[0].value = "unknown"; return p }, 400},
 		{"invalid UTF-8 text", func(p []capsuleTestPart) []capsuleTestPart { p[4].value = string([]byte{255}); return p }, 400},
 		{"large title", func(p []capsuleTestPart) []capsuleTestPart { p[3].value = strings.Repeat("x", 257); return p }, 413},
 		{"large mode", func(p []capsuleTestPart) []capsuleTestPart { p[0].value = strings.Repeat("x", 33); return p }, 413},

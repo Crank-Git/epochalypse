@@ -15,6 +15,7 @@ import (
 
 type capsuleFlags struct {
 	state, path, release, id string
+	prepared                 string
 	objects, bytes           string
 	limit                    int
 	input                    capsule.Input
@@ -51,9 +52,10 @@ func parseCapsuleFlags(args []string, stderr io.Writer) (capsuleFlags, error) {
 	flags.IntVar(&options.limit, "plaintext-limit", capsule.DefaultPlaintextLimit, "Maximum plaintext bytes for new capsules")
 	mode, kind := "", "text"
 	if args[1] == "create" {
-		flags.StringVar(&mode, "mode", "", "public or server-held; public content is immediately available after publication")
+		flags.StringVar(&mode, "mode", "", "public, server-held, or tlock; preparation stays on this host")
 		flags.StringVar(&kind, "kind", "text", "text (UTF-8) or file (opaque bytes)")
 		flags.StringVar(&options.path, "content-file", "", "Local regular file; preparation stays on this host")
+		flags.StringVar(&options.prepared, "prepared-output", "", "New canonical tlock draft file for owner-authorized import; excludes plaintext and unwrapped keys")
 		flags.StringVar(&options.input.Title, "title", "", "Capsule title")
 		flags.StringVar(&options.release, "release-at", "", "Requested release time in RFC 3339 whole seconds")
 	} else {
@@ -66,6 +68,9 @@ func parseCapsuleFlags(args []string, stderr io.Writer) (capsuleFlags, error) {
 		return options, fmt.Errorf("provide the capsule fields with flags only")
 	}
 	options.input.Mode, options.input.Kind = capsule.Mode(mode), capsule.Kind(kind)
+	if options.prepared != "" && options.input.Mode != capsule.Tlock {
+		return options, fmt.Errorf("--prepared-output requires tlock mode")
+	}
 	if args[1] == "create" {
 		release, err := time.Parse(time.RFC3339, options.release)
 		if err != nil || release.Nanosecond() != 0 {
@@ -105,5 +110,29 @@ func executeCapsule(action string, options capsuleFlags) (capsule.Manifest, erro
 	}
 	options.input.Filename = filepath.Base(options.path)
 	record, err := store.Create(options.input, file, time.Now())
+	if err == nil && options.prepared != "" {
+		err = writePreparedCapsule(options.prepared, record)
+	}
 	return record.Manifest, err
+}
+
+func writePreparedCapsule(path string, record capsule.Record) error {
+	data, err := json.Marshal(record)
+	if err != nil {
+		return fmt.Errorf("encode prepared capsule: %w", err)
+	}
+	// Exclusive creation preserves an existing file and its permissions.
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600) // #nosec G304
+	if err != nil {
+		return fmt.Errorf("create prepared capsule file: %w", err)
+	}
+	_, writeErr := file.Write(data)
+	closeErr := file.Close()
+	if writeErr != nil {
+		return fmt.Errorf("write prepared capsule file: %w", writeErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close prepared capsule file: %w", closeErr)
+	}
+	return nil
 }

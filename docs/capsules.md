@@ -1,13 +1,14 @@
 # Capsule foundation
 
-The current foundation provides public and server-held domain operations, HTTP interfaces, CLI commands, and owner controls.
-Tlock preparation remains unavailable until #20 supplies its verified adapter.
+The foundation provides public, server-held, and tlock HTTP interfaces, CLI commands, and owner controls.
+The [tlock integration record](research/tlock-production.md) defines its current contract and remaining work.
 
 ## Content and trust
 
-Both supported modes use the authenticated content object defined in [ADR 0008](adr/0008-capsule-authenticated-object.md).
+All three modes use the authenticated content object defined in [ADR 0008](adr/0008-capsule-authenticated-object.md).
 Each draft receives a fresh identifier and 32-byte content key.
-The record contains the object and its SHA-256 digest. The private-key bucket stores the key separately.
+The record contains the object and its SHA-256 digest.
+The private-key bucket stores the public or server-held key separately. Tlock retains only its preparation digest there.
 Neither the manifest nor the record contains a key.
 
 Public mode is public data after publication. Its key becomes available immediately at publication.
@@ -16,7 +17,7 @@ Server-held mode trusts the server operator. The operator holds the key and can 
 A server outage or lost key can delay or prevent availability. A lost server-held key has no automatic recovery.
 
 Web preparation passes plaintext through the server in v1. The web interface must state this fact before upload.
-CLI tlock preparation occurs on the owner's machine. #20 supplies that separate preparation path.
+CLI tlock preparation occurs on the owner's machine. It uploads neither plaintext nor an unwrapped content key.
 
 ## Bounded preparation
 
@@ -42,8 +43,11 @@ Preparation exposes no plaintext through errors or returned records.
 `capsule.Attach` shares an existing installation handle. It does not open another writer.
 Closing an attached capsule store stops capsule access and preserves other domain handles.
 
-Creation commits the record and its private key in one transaction.
-Admission charges one object, the exact encoded record bytes, and 32 private-key bytes.
+Public and server-held creation commits the record and its private key in one transaction.
+Admission charges one object, the exact encoded record bytes, and 32 private-state bytes.
+Internal tlock creation stores its complete wrapper in the record. It stores a preparation digest instead of a private content key.
+Publication verifies that digest against the immutable draft. It authenticates the JWE object during preparation, before it discards the key.
+The digest detects draft changes. It does not authenticate a future wrapper independently of its preparation path.
 A failed quota check retains neither a partial record nor an orphan key.
 Publication replaces the draft in the same budget transaction.
 If publication exceeds the byte allowance, the transaction restores the private draft.
@@ -59,8 +63,9 @@ The version 1 record fixture preserves release metadata and the authenticated co
 | `Create(input, reader, now)` | A private `Record` after bounded preparation and atomic persistence |
 | `Get(id)` | An owner record, including an unpublished draft |
 | `Published(id)` | A published record; drafts return `ErrNotFound` |
-| `Publish(id, now)` | A published record after full content authentication and atomic budget admission |
+| `Publish(id, now)` | A published record after mode-specific preparation verification and atomic budget admission |
 | `Key(id, now)` | A key after publication and the selected release condition |
+| `Bundle(id, now)` | A typed recovery bundle after publication; an early server-held bundle excludes its key |
 | `OpenObject(id, version, object, key, limit)` | Plaintext after complete authentication; no plaintext on failure |
 
 Domain methods do not authenticate HTTP requests. Owner transport adapters must apply the existing authorization safeguards.
@@ -87,8 +92,35 @@ A missing or malformed private key returns `ErrUnavailable` after release become
 A key that fails object authentication returns `ErrIntegrity` without a key.
 These results let later interfaces distinguish release eligibility from content availability.
 
-The later capsule slices extend this producer for tlock, public pages, and recovery bundles.
+The later capsule slices consume this producer for public pages, downloads, and recovery bundle export.
 They must preserve bounded authenticated object handling and the shared installation transaction.
+
+### Recovery producer
+
+`RecoveryBundle` version 1 contains a complete `Record` and an optional `released_key`.
+The key uses canonical base64url without padding and decodes to exactly 32 bytes.
+Tlock bundles always exclude this key. Their records retain the complete pinned `Timelock`.
+Public bundles include their authenticated key after publication.
+Server-held bundles include their authenticated key only at or after the effective release time.
+`Store.Bundle` returns `ErrNotFound` for a draft. It reads the record and permitted key in one transaction.
+It returns no bundle if a required released key is unavailable or fails authentication.
+
+Serialize the typed bundle with `json.Marshal` for the version 1 canonical envelope.
+`DecodeBundle(reader, limit)` bounds the input before JSON allocation.
+Its allowance combines `EncodedObjectLimit(limit)`, 8192 metadata bytes, and 256 envelope bytes.
+It rejects unknown fields, duplicate fields, noncanonical envelopes, unsupported versions, and excessive declared plaintext size.
+Callers must pass an explicit content limit. A changed upload limit does not change retained-record access through `Store.Bundle`.
+
+`RecoveryBundle.Open(ctx, source, now)` authenticates the complete JWE object before it returns plaintext.
+Tlock recovery verifies the pinned beacon and authenticates the complete key wrapper first.
+Recovery uses the stored content size rather than a current upload setting.
+It requires no store access after bundle creation.
+Before the effective release time, encrypted modes return `ErrTooEarly` without a beacon request.
+Missing recovery material returns `ErrUnavailable`. Invalid content or recovery material returns `ErrIntegrity`.
+Every failure returns no plaintext. Cancellation also returns no plaintext.
+HTTP consumers must retain the four shared capsule slots and a bounded request context.
+
+[ADR 0010](adr/0010-tlock-preparation-proof.md) records the preparation digest and its trust boundary.
 
 ## HTTP interfaces
 
@@ -152,7 +184,9 @@ Select **Create draft**. Review the returned metadata, then select **Publish cap
 The controls show the configured plaintext limit. The server enforces the limit independently of browser checks.
 The controls clear the content fields after successful preparation. They render metadata as text.
 Owner sessions authorize both the page and script. Mutations use the shared CSRF proof and existing HTTP work bounds.
-Tlock remains unavailable until #20. These controls do not offer the later public page or recovery bundle.
+The tlock option uses the pinned quicknet round at or after the requested time.
+Beacon failure can delay availability. Published ciphertext cannot be recalled.
+These controls do not offer the later public page or recovery bundle.
 
 ## Local CLI
 
@@ -171,8 +205,37 @@ Use `--kind file` for opaque bytes. Use `--plaintext-limit` to set the allowance
 The default remains 10 MiB. Both commands return manifest JSON without content or keys.
 Publication in public mode exposes its key immediately. The requested date remains advisory.
 Server-held publication preserves the requested release boundary and operator trust.
-Export, local open, deletion, and tlock preparation remain with later slices.
+Export, local open, and deletion remain with later slices.
 
 Verified against Go 1.27.3 shipped documentation for `os.Open`, `flag.FlagSet.Int`, `time.Parse`, and `filepath.Base`.
 The browser adapters use the documented [FormData interface](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest_API/Using_FormData_Objects)
 and [Fetch interface](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch), retrieved 2026-11-05 UTC.
+
+## Local tlock draft import
+
+Use `capsule create --mode tlock --prepared-output prepared.json` with the other creation flags.
+The command creates a local draft and writes its canonical `Record` to a new owner-only file.
+An existing output file causes failure. A failed file write can leave the local draft retained.
+The output contains ciphertext and pinned wrapper metadata. It contains neither plaintext nor the unwrapped content key.
+The command still returns manifest JSON on standard output.
+
+Upload the exact file bytes to `POST /api/v1/capsules/prepared` with `Content-Type: application/json`.
+The route requires owner authorization or the exact `capsule:write` bearer scope.
+Owner sessions also require the existing CSRF proof. TLS, four shared work slots, and request deadlines apply.
+The response is 201 with manifest metadata and a `Location` header.
+Publish the imported draft through the existing publication route.
+
+`ImportPrepared(ctx, reader, now)` bounds the encoded input before JSON allocation.
+It accepts only the exact canonical tlock draft record. It rejects publication state, keys, unknown fields, and duplicate fields.
+It validates the pinned identity, ceiling round, object profile, digest, labels, and configured plaintext allowance.
+The requested release time must remain at or after import time. The creation time cannot exceed import time.
+Duplicate identifiers fail without replacement. The shared transaction charges the full record and its separate 32-byte preparation digest.
+The transaction checks cancellation at entry and after both writes. An observed cancellation rolls back both values.
+Commit can complete if cancellation follows the final check. A disconnected client must inspect the identifier before it retries.
+
+Import validates structure. It cannot authenticate future wrapper decryption or content without the discarded key.
+The preparation digest detects later draft changes. It does not prove that an external producer prepares valid encrypted content.
+Recovery verifies the beacon signature and authenticates both encrypted layers before it exposes plaintext.
+ADR 0010 defines this trust boundary.
+
+Verified against Go 1.27.3 shipped documentation for `os.OpenFile`, `io.LimitReader`, and `context.Context` (2026-11-05 UTC).

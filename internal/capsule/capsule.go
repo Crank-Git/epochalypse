@@ -50,7 +50,8 @@ type Manifest struct {
 // Record contains the manifest and authenticated object without a content key.
 type Record struct {
 	Manifest
-	Object string `json:"object"`
+	Object   string    `json:"object"`
+	Timelock *Timelock `json:"timelock,omitempty"`
 }
 
 var (

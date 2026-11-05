@@ -29,6 +29,7 @@ func (api *capsuleAPI) routes(mux *http.ServeMux, owners *owner.Store, lab bool)
 		serve        http.HandlerFunc
 	}{
 		{"/api/v1/capsules", "POST", api.create},
+		{"/api/v1/capsules/prepared", "POST", api.importPrepared},
 		{"/api/v1/capsules/{id}", "GET", api.metadata},
 		{"/api/v1/capsules/{id}/publish", "POST", api.publish},
 	} {
@@ -114,6 +115,28 @@ func (api *capsuleAPI) metadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	capsuleJSON(w, 200, record.Manifest)
+}
+
+func (api *capsuleAPI) importPrepared(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Content-Type") != "application/json" {
+		capsuleRequestError(w, capsule.ErrInput)
+		return
+	}
+	if r.Context().Err() != nil {
+		capsuleRequestError(w, r.Context().Err())
+		return
+	}
+	record, err := api.store.ImportPrepared(r.Context(), r.Body, api.now())
+	if err != nil {
+		if r.Context().Err() != nil {
+			capsuleRequestError(w, r.Context().Err())
+		} else {
+			capsuleDomainError(w, err)
+		}
+		return
+	}
+	w.Header().Set("Location", "/api/v1/capsules/"+record.ID)
+	capsuleJSON(w, 201, record.Manifest)
 }
 
 func (api *capsuleAPI) publish(w http.ResponseWriter, r *http.Request) {

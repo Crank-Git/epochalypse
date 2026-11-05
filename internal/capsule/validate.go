@@ -10,7 +10,7 @@ import (
 const metadataAllowance = 8192
 
 func prepareInput(input Input, now time.Time) (Input, error) {
-	if input.Mode != Public && input.Mode != ServerHeld {
+	if input.Mode != Public && input.Mode != ServerHeld && input.Mode != Tlock {
 		return Input{}, ErrUnsupportedMode
 	}
 	if input.Kind != Text && input.Kind != File {
@@ -29,6 +29,11 @@ func prepareInput(input Input, now time.Time) (Input, error) {
 	input.ReleaseAt = input.ReleaseAt.UTC()
 	if !validStoredTime(now) || !validStoredTime(input.ReleaseAt) || input.ReleaseAt.Before(now) {
 		return Input{}, ErrInput
+	}
+	if input.Mode == Tlock {
+		if _, _, err := SelectRound(input.ReleaseAt); err != nil {
+			return Input{}, err
+		}
 	}
 	return input, nil
 }
@@ -59,8 +64,19 @@ func validateManifest(m Manifest) error {
 	if m.PublishedAt != nil && (!validStoredTime(*m.PublishedAt) || m.PublishedAt.Before(m.CreatedAt)) {
 		return ErrIntegrity
 	}
+	return validateEffectiveTime(m)
+}
+
+func validateEffectiveTime(m Manifest) error {
 	if m.Mode == Public {
 		return validatePublicTime(m)
+	}
+	if m.Mode == Tlock {
+		_, effective, err := SelectRound(m.RequestedReleaseAt)
+		if err != nil || m.EffectiveReleaseAt == nil || !m.EffectiveReleaseAt.Equal(effective) {
+			return ErrIntegrity
+		}
+		return nil
 	}
 	if m.EffectiveReleaseAt == nil || !m.EffectiveReleaseAt.Equal(m.RequestedReleaseAt) || !validStoredTime(*m.EffectiveReleaseAt) {
 		return ErrIntegrity

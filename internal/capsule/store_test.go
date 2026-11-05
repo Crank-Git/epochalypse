@@ -164,7 +164,6 @@ func TestDraftStoresFreshKeysOutsidePublicMetadata(t *testing.T) {
 func TestCreateRejectsInvalidMetadataAndText(t *testing.T) {
 	s := capsuleStore(t, 32)
 	for _, change := range []func(*Input){
-		func(in *Input) { in.Mode = Tlock },
 		func(in *Input) { in.Mode = "unknown" },
 		func(in *Input) { in.Kind = "unknown" },
 		func(in *Input) { in.Title = strings.Repeat("x", 257) },

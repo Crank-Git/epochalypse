@@ -17,7 +17,7 @@ func TestCapsuleCommandsCreateAndPublishMetadata(t *testing.T) {
 	if err := os.WriteFile(content, []byte("private synthetic content"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	for _, mode := range []string{"public", "server-held"} {
+	for _, mode := range []string{"public", "server-held", "tlock"} {
 		var out, errors bytes.Buffer
 		args := []string{"capsule", "create", "--state-dir", directory, "--mode", mode, "--content-file", content, "--release-at", "2099-01-01T00:00:00Z"}
 		if code := Run(args, &out, &errors); code != 0 {
@@ -60,7 +60,7 @@ func TestCapsuleCommandsRejectInvalidInputWithoutContent(t *testing.T) {
 		append(append([]string{}, base...), "--max-objects", "bad"),
 		append(append([]string{}, base...), "--release-at", "bad"),
 		append(append([]string{}, base...), "--release-at", "2099-01-01T00:00:00.1Z"),
-		append(append([]string{}, base...), "--mode", "tlock"),
+		append(append([]string{}, base...), "--mode", "unknown"),
 		append(append([]string{}, base...), "--content-file", directory),
 		append(append([]string{}, base...), "--content-file", path+"missing"),
 	} {
@@ -71,5 +71,40 @@ func TestCapsuleCommandsRejectInvalidInputWithoutContent(t *testing.T) {
 		if out.Len() != 0 || strings.Contains(errors.String(), "private synthetic content") {
 			t.Fatalf("discloses content: %s %s", &out, &errors)
 		}
+	}
+}
+
+func TestCapsuleCommandWritesPreparedTimelockWithoutPlaintext(t *testing.T) {
+	directory := t.TempDir()
+	content, prepared := filepath.Join(directory, "content.txt"), filepath.Join(directory, "prepared.json")
+	if err := os.WriteFile(content, []byte("private synthetic content"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	args := []string{"capsule", "create", "--state-dir", directory, "--mode", "tlock", "--content-file", content, "--release-at", "2099-01-01T00:00:00Z", "--prepared-output", prepared}
+	var out, errors bytes.Buffer
+	if code := Run(args, &out, &errors); code != 0 {
+		t.Fatalf("prepare: %d %s", code, &errors)
+	}
+	data, err := os.ReadFile(prepared) // #nosec G304 -- The test owns this temporary file.
+	if err != nil {
+		t.Fatal(err)
+	}
+	var record capsule.Record
+	if err := json.Unmarshal(data, &record); err != nil {
+		t.Fatal(err)
+	}
+	if record.Mode != capsule.Tlock || record.Timelock == nil || record.PublishedAt != nil || bytes.Contains(data, []byte("private synthetic content")) || bytes.Contains(data, []byte(`"key"`)) {
+		t.Fatal("prepared output violates its trust boundary")
+	}
+	info, err := os.Stat(prepared)
+	if err != nil || info.Mode().Perm() != 0600 {
+		t.Fatal("prepared output lacks private permissions")
+	}
+	out.Reset()
+	if code := Run(args, &out, &errors); code == 0 {
+		t.Fatal("prepared output overwrites an existing file")
+	}
+	if retained, err := os.ReadFile(prepared); err != nil || !bytes.Equal(data, retained) { // #nosec G304 -- The test owns this temporary file.
+		t.Fatal("failed preparation changes existing output")
 	}
 }
