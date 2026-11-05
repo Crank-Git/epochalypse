@@ -48,6 +48,25 @@ func TestServerHeldDraftWithholdsObjectAndKeyUntilPublication(t *testing.T) {
 	}
 }
 
+func TestSnapshotValidationChecksCapsulePrivateState(t *testing.T) {
+	s := capsuleStore(t, 32)
+	record, err := s.Create(capsuleInput(ServerHeld), strings.NewReader("private text"), capsuleNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.View(func(tx *bolt.Tx) error { return ValidateSnapshot(tx, 32) }); err != nil {
+		t.Fatalf("valid capsule snapshot: %v", err)
+	}
+	if err := s.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket([]byte(installation.CapsuleKeysBucket)).Delete([]byte(record.ID))
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.View(func(tx *bolt.Tx) error { return ValidateSnapshot(tx, 32) }); err == nil {
+		t.Fatal("snapshot accepts a capsule without its private state")
+	}
+}
+
 func TestServerHeldKeyUsesExactReleaseBoundary(t *testing.T) {
 	s := capsuleStore(t, 32)
 	record, err := s.Create(capsuleInput(ServerHeld), strings.NewReader("private text"), capsuleNow)

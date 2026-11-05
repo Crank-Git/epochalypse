@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 func TestStorePreservesSignedRecordsAfterRestart(t *testing.T) {
@@ -79,5 +81,43 @@ func TestStoreRefusesASecondWriter(t *testing.T) {
 	if other, err := Open(state, signer); err == nil {
 		_ = other.Close()
 		t.Fatal("second writer opens the locked database")
+	}
+}
+
+func TestSnapshotValidationChecksWindowAndObservationRecords(t *testing.T) {
+	s, err := Open(t.TempDir(), testSigner(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Close() }()
+	if _, err := s.Create(validInput(), testNow); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.View(func(tx *bolt.Tx) error { return ValidateSnapshot(tx, s.signer, *s.limits) }); err != nil {
+		t.Fatalf("valid window snapshot: %v", err)
+	}
+	if err := s.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(windowBucket).Put([]byte("invalid"), []byte(`{"version":2}`))
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.View(func(tx *bolt.Tx) error { return ValidateSnapshot(tx, s.signer, *s.limits) }); err == nil {
+		t.Fatal("snapshot accepts an invalid window")
+	}
+}
+
+func TestSnapshotValidationRejectsMissingDNSKEYConfiguration(t *testing.T) {
+	s, err := Open(t.TempDir(), testSigner(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Close() }()
+	if err := s.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(configurationBucket).Delete([]byte("dnskey"))
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.View(func(tx *bolt.Tx) error { return ValidateSnapshot(tx, s.signer, *s.limits) }); err == nil {
+		t.Fatal("snapshot accepts missing DNSKEY configuration")
 	}
 }

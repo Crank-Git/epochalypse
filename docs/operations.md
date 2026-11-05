@@ -230,7 +230,7 @@ It rejects either active database, replaced database files, source links, unsafe
 It records numeric file ownership and copies files into a private temporary directory.
 The caller must call the returned archive's `Close` method to remove these copies.
 Keep configuration and key writers stopped throughout the call. Database locks do not control those files.
-The implementation does not yet provide a backup CLI or a validated installation.
+The implementation does not yet provide a backup CLI.
 The internal `owner.ValidateSnapshot` function checks a read transaction from a private, authenticated owner database copy.
 It requires the four version 1 owner buckets and their supported record formats.
 It checks the password profile, credential owner identifiers, token digests and scopes, and audit sequences.
@@ -239,12 +239,33 @@ This domain check does not open the database, validate the installation database
 The archive's `ValidateOwner` method applies this domain check to the authenticated private owner file.
 It rechecks the file path, protected mode, size, and digest before bbolt reads the database.
 It uses read-only access and preserves all database bytes. Cancellation and unavailable temporary state fail the check.
-This partial check does not validate the other installation files or authorize service startup.
+The archive's `Install` method completes validation before it publishes a fresh installation.
+Supply a destination path, an expected source commit, and the destination service's numeric user and group identifiers.
+The expected commit must match the separately retained executable artifact.
+Installation rejects existing destinations, including empty directories and links.
+It validates all six installation buckets through the existing domain decoders in a read-only transaction.
+It requires the original window DNSKEY binding and authenticated capsule private state.
+It checks the archived quotas, version 1 settings, separate DNSSEC pairs, and matching TLS certificate and key.
+It rejects changed authenticated files and unsupported numeric ownership before publication.
+It preserves both complete databases and every original deadline without record reconstruction.
+It maps file ownership to the explicitly selected destination service identity.
+It copies files into a private directory beside the destination, then syncs files and directories before publication.
+An exclusive rename publishes the complete directory without replacement.
+Linux requires `renameat2` with `RENAME_NOREPLACE`. macOS uses `renameatx_np` with `RENAME_EXCL` for local tests.
+The implementation returns an error when the filesystem cannot support exclusive publication.
+It removes unpublished temporary files after cancellation or failure.
+If the final parent-directory sync fails, the complete destination can exist despite the error.
+Inspect that destination before a retry. The retry never replaces it.
+Use a trusted destination parent. Keep source configuration, keys, and temporary state inaccessible to other writers.
+Successful installation does not start a service or run a bootstrap job.
+CLI support and the isolated Linux recovery exercise remain pending.
 
 Verified interface: [age v1.3.2 source](https://github.com/FiloSottile/age/blob/v1.3.2/age.go), retrieved 2026-11-05.
 `Encrypt` requires the caller to close its writer. `Decrypt` returns a plaintext stream that authenticates through its final chunk.
 Verified interface: [bbolt v1.5.0 source](https://github.com/etcd-io/bbolt/blob/v1.5.0/db.go), retrieved 2026-11-05.
 Read-write `Open` obtains an exclusive file lock. `Options.Timeout` bounds the wait. `Options.OpenFile` permits an existing-file check.
+Verified interface: [x/sys v0.49.0 source](https://cs.opensource.google/go/x/sys/+/v0.49.0:unix/), retrieved 2026-11-05.
+The pinned Unix package supplies exclusive directory rename operations for Linux and macOS.
 
 For a coherent snapshot, block external access and stop the main process with SIGTERM through its service manager.
 Wait for process exit and database lock release. Stop all offline CLI writers before copying either database.

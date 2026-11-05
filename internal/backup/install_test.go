@@ -44,6 +44,13 @@ func installationSource(t *testing.T) string {
 		writeInstallationFile(t, root, "keys/"+pair.name+".private", []byte(key.PrivateKeyString(private)))
 		writeInstallationFile(t, root, "keys/"+pair.name+".key", []byte(key.String()))
 	}
+	installationTLS(t, root)
+	installationState(t, root)
+	return root
+}
+
+func installationTLS(t *testing.T, root string) {
+	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -59,6 +66,10 @@ func installationSource(t *testing.T) string {
 	}
 	writeInstallationFile(t, root, "tls/fullchain.pem", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 	writeInstallationFile(t, root, "tls/private.pem", pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: private}))
+}
+
+func installationState(t *testing.T, root string) {
+	t.Helper()
 	writeInstallationFile(t, root, "config/main.json", []byte(`{"version":1,"zone":"windows.example.","countdown_zone":"events.example.","nameserver":"ns.example.","public_url":"https://main.example"}`))
 	o, err := owner.Open(filepath.Join(root, "state"))
 	if err != nil {
@@ -90,7 +101,6 @@ func installationSource(t *testing.T) string {
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	return root
 }
 
 func writeInstallationFile(t *testing.T, root, name string, data []byte) {
@@ -108,7 +118,7 @@ func installationArchive(t *testing.T, change func(string)) Archive {
 	}
 	a := Archive{Version: 1, Commit: strings.Repeat("a", 40), CreatedAt: time.Now().UTC(), MaxObjects: 100, QuotaBytes: 1 << 30}
 	for _, path := range paths {
-		data, err := os.ReadFile(filepath.Join(root, path))
+		data, err := os.ReadFile(filepath.Join(root, path)) // #nosec G304 -- The fixture creates every allowlisted path.
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -41,6 +41,22 @@ func TestInputRejectsUnsupportedEventTimes(t *testing.T) {
 	}
 }
 
+func TestSnapshotValidationRejectsMalformedCountdown(t *testing.T) {
+	s, err := Open(t.TempDir(), installation.DefaultLimits(), "countdown.example.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Close() }()
+	if err := s.db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket([]byte(installation.CountdownsBucket)).Put([]byte("bad"), []byte(`{"version":2}`))
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.View(ValidateSnapshot); err == nil {
+		t.Fatal("snapshot accepts a malformed countdown")
+	}
+}
+
 func TestStoreRetainsEventUntilDeletionAfterRestart(t *testing.T) {
 	directory := t.TempDir()
 	s, err := Open(directory, installation.DefaultLimits(), "countdown.example.")
