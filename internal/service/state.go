@@ -11,10 +11,13 @@ import (
 	"github.com/Crank-Git/epochalypse/internal/installation"
 	"github.com/Crank-Git/epochalypse/internal/owner"
 	"github.com/Crank-Git/epochalypse/internal/resolver"
+	"github.com/Crank-Git/epochalypse/internal/switches"
 	"github.com/Crank-Git/epochalypse/internal/window"
 )
 
 type mainState struct {
+	switches           *switches.Store
+	switchSlots        chan struct{}
 	owner              *owner.Store
 	content            *installation.Store
 	capsules           *capsule.Store
@@ -50,6 +53,12 @@ func openMainState(config Config) (*mainState, error) {
 		state.close()
 		return nil, err
 	}
+	state.switches, err = switches.Attach(state.content)
+	if err != nil {
+		state.close()
+		return nil, err
+	}
+	state.switchSlots = make(chan struct{}, 4)
 	if config.Zone == "" {
 		return state, nil
 	}
@@ -91,6 +100,9 @@ func openMainState(config Config) (*mainState, error) {
 }
 
 func (s *mainState) close() {
+	if s.switches != nil {
+		_ = s.switches.Close()
+	}
 	if s.jobs != nil {
 		s.jobs.Close()
 	}
@@ -114,6 +126,8 @@ func (s *mainState) routes(mux *http.ServeMux, lab bool) {
 	api.routes(mux, s.owner, lab)
 	countdowns := &countdownAPI{store: s.countdowns, now: time.Now, slots: s.countdownSlots}
 	countdowns.routes(mux, s.owner, lab)
+	switchesAPI := &switchAPI{store: s.switches, now: time.Now, slots: s.switchSlots}
+	switchesAPI.routes(mux, s.owner, lab)
 	s.publicWindowRoutes(mux, lab)
 	s.observationRoutes(mux, lab)
 	mux.Handle("/api/v1/windows", owner.SecureHandler(lab, s.owner.RequireOwner(windowHandler(s.windows, time.Now))))
