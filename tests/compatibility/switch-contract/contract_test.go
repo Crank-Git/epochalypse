@@ -190,7 +190,7 @@ func TestRejectsReplayAndSequenceConflict(t *testing.T) {
 func TestQuarantinesBeforeReceiptsOrShares(t *testing.T) {
 	m, _, _ := fixture()
 	s := Snapshot{State: m.State, Phase: 2, Generation: 2}
-	a := Authority{s, true, true}
+	a := Authority{Head: s, Complete: true, Present: true}
 	if err := restore(s, a); err != nil {
 		t.Fatal(err)
 	}
@@ -199,6 +199,33 @@ func TestQuarantinesBeforeReceiptsOrShares(t *testing.T) {
 		change(&n)
 		if err := restore(s, n); err == nil {
 			t.Fatal("accepts missing, stale, or inconsistent evidence")
+		}
+	}
+}
+
+func TestRebuildsKnownCheckpointFromIndependentAuthority(t *testing.T) {
+	m, _, _ := fixture()
+	old := Snapshot{State: m.State, Phase: 2, Generation: 1}
+	head := old
+	head.Generation++
+	head.Released = true
+	head.Unsafe = true
+	a := Authority{Head: head, Complete: true, Present: true, Prefix: []Snapshot{old, head}}
+	if got, err := rebuild(&old, a); err != nil || got != head {
+		t.Fatalf("known prefix loses committed authority: %v", err)
+	}
+	if got, err := rebuild(nil, a); err != nil || got != head {
+		t.Fatalf("missing checkpoint loses committed authority: %v", err)
+	}
+	for _, change := range []func(*Snapshot){
+		func(s *Snapshot) { s.Generation = head.Generation + 1 },
+		func(s *Snapshot) { s.State.Deadline++ },
+		func(s *Snapshot) { s.Released = true },
+	} {
+		bad := old
+		change(&bad)
+		if _, err := rebuild(&bad, a); err == nil {
+			t.Fatal("accepts a checkpoint outside the committed prefix")
 		}
 	}
 }

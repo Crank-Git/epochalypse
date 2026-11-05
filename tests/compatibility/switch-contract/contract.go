@@ -327,13 +327,27 @@ type Authority struct {
 	Head     Snapshot
 	Complete bool
 	Present  bool
+	Prefix   []Snapshot
+}
+
+func rebuild(s *Snapshot, a Authority) (Snapshot, error) {
+	if !a.Present || !a.Complete {
+		return Snapshot{}, errors.New("quarantine: authoritative state is absent or incomplete")
+	}
+	if s == nil || *s == a.Head {
+		return a.Head, nil
+	}
+	for _, prior := range a.Prefix {
+		if prior == *s && prior.Generation < a.Head.Generation {
+			return a.Head, nil
+		}
+	}
+	return Snapshot{}, errors.New("quarantine: checkpoint is outside the committed prefix")
 }
 
 func restore(s Snapshot, a Authority) error {
-	if !a.Present || !a.Complete || a.Head != s {
-		return errors.New("quarantine: authoritative state is absent or differs")
-	}
-	return nil
+	_, err := rebuild(&s, a)
+	return err
 }
 
 func transition(s Snapshot, action string, durable bool, fresh bool) (Snapshot, bool, error) {
