@@ -157,6 +157,11 @@ The observer obtains two shares by Bmax plus the assumed allowance in every sche
 
 ### Conservative clock policy
 
+This section records the conditional #27 experiment in `NewUncertainModel`.
+The proposed restart contract instead selects `NewSampledModel` from issue #106.
+See [the candidate clock profile](clock-profile.md) for its proof, numeric ceilings, and readiness contract.
+The old constructor and its counterexamples retain their original semantics.
+
 The earlier 12,288-case experiment at `87cfc47` uses nonnegative clock lag only.
 It does not establish a symmetric clock-error guarantee.
 With B0=110 and tolerance one, UTC 110 at real UTC 109 permits early publication under the historical rule.
@@ -205,6 +210,30 @@ Other tests check unsafe samples, elapsed rollback, lower-bound underflow, allow
 These cases support the conditional argument. They do not enumerate every clock, network, or implementation history.
 An external readiness assertion cannot establish accuracy, exact elapsed time, polling limits, or real persistence.
 Issue #28 owns independent review of these assumptions under AC-switch-protocol-11.
+
+### Fresh UTC samples after restart
+
+`TestFreshEpochPublishesWithoutContinuousElapsed` uses the existing crash, restart, and publication operations.
+The test first runs through a factory that delegates to `NewUncertainModel` at commit `e296f26`.
+At UTC 114, its reset elapsed sample fails with `clock is unsafe`.
+`TestFreshSamplesIgnoreElapsedRate` also fails there with `clock exceeds modeled tolerance`.
+These failures exercise the old behavior with compatible inputs, rather than a missing symbol.
+The revised factory selects fresh UTC samples and both tests pass.
+
+`TestSampledEpochsReleaseEveryTwoIntentOutageSchedule` checks 12,288 schedules with two issued intents and each permanent agent outage.
+Offsets change from fast to slow between samples. Elapsed values reset and change rate without time authority.
+Each schedule checks no new public share before real UTC 110.
+After permanent client loss, each schedule supplies recovery material within the stated sample gap.
+The model still assumes independent ciphertext copies. It performs no cryptography or disk operation.
+
+Every decision requires a new externally assessed sample.
+Absent or expired assessments use `Safe=false` and persist the unsafe latch before output.
+Restart preserves accepted state and both irreversible latches.
+Known stale state causes quarantine without replacing known authority with the initial snapshot.
+An observer retains every prior share across restart and quarantine.
+The model assumes external freshness validation before the first trusted sample after restore.
+Issue #107 specifies that validation boundary. This clock model detects no whole-witness rollback.
+Neither a later sample nor ordinary restart clears quarantine.
 
 ## Irreversible history and quarantine
 

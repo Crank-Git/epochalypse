@@ -95,6 +95,9 @@ func (m *UncertainModel) authorizeDelivery(intent SignedIntent) error {
 // RestartAgent quarantines a known stale snapshot instead of restoring old authority.
 // The experiment assumes rollback detection outside this model.
 func (m *UncertainModel) RestartAgent(agent int, stale bool) error {
+	if agent >= 0 && agent < len(m.faults.agents) && m.faults.agents[agent].durable.sampled {
+		return m.restartSampledAgent(agent, stale)
+	}
 	if err := m.faults.Restart(agent, stale); err != nil {
 		return err
 	}
