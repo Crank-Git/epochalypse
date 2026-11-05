@@ -304,7 +304,7 @@ func parseTransitionPath(path string) (string, string, bool) {
 	if len(parts) != 5 || parts[0] != "agent" || parts[1] != "v1" || parts[2] != "switches" || parts[3] == "" {
 		return "", "", false
 	}
-	if parts[4] != "prepare" && parts[4] != "arm" {
+	if parts[4] != "prepare" && parts[4] != "arm" && parts[4] != "checkins" {
 		return "", "", false
 	}
 	return parts[3], parts[4], true
@@ -338,6 +338,12 @@ func readTransitionRequest(w http.ResponseWriter, r *http.Request) (transitionRe
 func (t *Transitions) dispatchTransition(operation string, request transitionRequest) (switchwire.Envelope, error) {
 	if operation == "prepare" {
 		return t.Prepare(request.Request, request.Ciphertext, request.Manifest)
+	}
+	if operation == "checkins" {
+		if len(request.Ciphertext) != 0 || len(request.Manifest) != 0 {
+			return switchwire.Envelope{}, ErrTransitionConflict
+		}
+		return t.Checkin(request.Request)
 	}
 	return t.Arm(request.Request)
 }
@@ -383,20 +389,32 @@ func (t *Transitions) checkClock(current State) error {
 }
 
 func (t *Transitions) checkClockForBoundary(frame switchwire.Frame, current State) error {
+	reading, err := t.assessClock(current)
+	if err != nil {
+		return err
+	}
+	return t.validateClockBoundary(frame, reading)
+}
+
+func (t *Transitions) assessClock(current State) (Reading, error) {
 	if current.PossibleDisclosure || current.UnsafeClock {
-		return ErrClock
+		return Reading{}, ErrClock
 	}
 	if t.clock == nil {
-		return ErrClock
+		return Reading{}, ErrClock
 	}
 	reading, err := t.clock()
 	if err != nil {
 		current.UnsafeClock = true
 		if _, commitErr := t.commit(current); commitErr != nil {
-			return errors.Join(fmt.Errorf("assess agent clock: %w", ErrClock), fmt.Errorf("persist unsafe clock latch: %w", commitErr))
+			return Reading{}, errors.Join(fmt.Errorf("assess agent clock: %w", ErrClock), fmt.Errorf("persist unsafe clock latch: %w", commitErr))
 		}
-		return fmt.Errorf("assess agent clock: %w", ErrClock)
+		return Reading{}, fmt.Errorf("assess agent clock: %w", ErrClock)
 	}
+	return reading, nil
+}
+
+func (t *Transitions) validateClockBoundary(frame switchwire.Frame, reading Reading) error {
 	deadline, grace := frame.State.Deadline, frame.State.Grace
 	// The frame decoder rejects negative deadlines before this checked cast.
 	if deadline < 0 || grace > uint64(math.MaxInt64-deadline) { // #nosec G115 -- The nonnegative deadline is at most MaxInt64.

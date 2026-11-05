@@ -73,8 +73,18 @@ This storage API retains opaque protocol material.
 The transition adapter must authenticate that material and enforce one immutable enrollment before each commit.
 It must validate freshness before a new clock assessment and before any receipt or share.
 The journal does not provide protocol semantics.
-The transition adapter supplies prepare and arm endpoints.
+The transition adapter supplies prepare, arm, and signed check-in endpoints.
 The release scheduler and public recovery endpoint remain incomplete.
+
+`POST /agent/v1/switches/{id}/checkins` uses the existing signed envelope and HTTPS identity pins.
+The agent verifies the enrolled owner, immutable content, increasing sequence, and nondecreasing signed deadline.
+An exact retry preserves the accepted request and receipt bytes.
+One fresh clock assessment checks both the prior release boundary and the proposed release boundary.
+Arrival time never extends either signed deadline.
+The agent persists accepted intent before it signs and persists a receipt.
+Restart validates renewed material against the retained original prepare request and the complete authority journal.
+Possible disclosure and unsafe clocks prevent renewal.
+The owner-local client journal, CLI renewal, and public status reconciliation remain incomplete in this slice of issue #32.
 
 Verified interface: [x/sys v0.49.0 Flock](https://pkg.go.dev/golang.org/x/sys@v0.49.0/unix#Flock), retrieved 2026-11-05.
 The implementation also uses the pinned Go filesystem APIs for bounded files and directory persistence.
