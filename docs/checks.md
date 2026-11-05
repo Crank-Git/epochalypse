@@ -38,6 +38,7 @@ An uncertain write quarantines live access.
 Restart either rejects incomplete evidence or validates intact authority before an exact retry.
 Initialization tests inject marker, journal, and directory durability failures.
 Replay tests preserve filesystem error causes and verify lock release after an unsuccessful open.
+Close tests preserve concurrent journal and lock failures and verify that a new caller can acquire authority.
 Checksummed journal tests reject invalid generations, chains, phases, and cleared irreversible latches.
 Owner-local export tests reject directory-sync failures before prepare or arm transmission.
 Owner-local file tests reject write, file-sync, and close failures before arm transmission.

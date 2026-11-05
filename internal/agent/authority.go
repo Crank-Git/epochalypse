@@ -311,10 +311,8 @@ func (j *Journal) Commit(next State) (State, error) {
 		PreviousSHA256: hex.EncodeToString(j.headHash[:]),
 		State:          stateCopy,
 	}
-	payload, err := json.Marshal(record)
-	if err != nil {
-		return State{}, fmt.Errorf("encode authority record: %w", err)
-	}
+	// diskRecord contains only integers, booleans, strings, and byte slices.
+	payload, _ := json.Marshal(record)
 	if len(payload) > int(j.config.MaxRecordBytes) {
 		return State{}, ErrRecordLimit
 	}
@@ -394,10 +392,7 @@ func (j *Journal) Close() error {
 	if err := j.journal.Close(); err != nil {
 		result = fmt.Errorf("close authority journal: %w", err)
 	}
-	if err := releaseAuthorityLock(j.lock); err != nil && result == nil {
-		result = err
-	}
-	return result
+	return errors.Join(result, releaseAuthorityLock(j.lock))
 }
 
 func (j *Journal) replay() error {
@@ -531,8 +526,8 @@ func readAuthorityCheckpoint(root *os.Root, maximum uint32) (checkpoint, error) 
 	if err := decodeStrictJSON(data, &saved); err != nil {
 		return checkpoint{}, fmt.Errorf("%w: decode checkpoint: %w", ErrQuarantined, err)
 	}
-	checksum, err := checkpointChecksum(saved)
-	if err != nil || saved.Checksum != checksum {
+	checksum := checkpointChecksum(saved)
+	if saved.Checksum != checksum {
 		return checkpoint{}, fmt.Errorf("%w: checkpoint checksum does not match", ErrQuarantined)
 	}
 	return saved, nil
@@ -576,15 +571,9 @@ func (j *Journal) writeCheckpoint() error {
 		HeadSHA256: hex.EncodeToString(j.headHash[:]),
 		State:      cloneAuthorityState(j.state),
 	}
-	checksum, err := checkpointChecksum(saved)
-	if err != nil {
-		return fmt.Errorf("encode checkpoint checksum: %w", err)
-	}
-	saved.Checksum = checksum
-	data, err := json.Marshal(saved)
-	if err != nil {
-		return fmt.Errorf("encode checkpoint: %w", err)
-	}
+	saved.Checksum = checkpointChecksum(saved)
+	// checkpoint has the same concrete JSON field types as diskRecord.
+	data, _ := json.Marshal(saved)
 	if len(data) > int(j.config.MaxRecordBytes) {
 		return ErrRecordLimit
 	}
@@ -592,7 +581,7 @@ func (j *Journal) writeCheckpoint() error {
 		return fmt.Errorf("create checkpoint directory: %w", err)
 	}
 	var root *os.Root
-	err = j.io("open-checkpoint-root", func() error {
+	err := j.io("open-checkpoint-root", func() error {
 		var openErr error
 		root, openErr = os.OpenRoot(j.config.CheckpointDirectory)
 		return openErr
@@ -602,9 +591,8 @@ func (j *Journal) writeCheckpoint() error {
 	}
 	defer func() { _ = root.Close() }()
 	var randomName [16]byte
-	if _, err := rand.Read(randomName[:]); err != nil {
-		return fmt.Errorf("create checkpoint name: %w", err)
-	}
+	// crypto/rand.Read always fills the buffer or terminates the process.
+	_, _ = rand.Read(randomName[:])
 	temporaryName := ".checkpoint-" + hex.EncodeToString(randomName[:])
 	var temporary *os.File
 	err = j.io("create-checkpoint-file", func() error {
@@ -783,14 +771,12 @@ func decodeStrictJSON(data []byte, destination any) error {
 	return nil
 }
 
-func checkpointChecksum(saved checkpoint) (string, error) {
+func checkpointChecksum(saved checkpoint) string {
 	saved.Checksum = ""
-	data, err := json.Marshal(saved)
-	if err != nil {
-		return "", err
-	}
+	// checkpoint has no fallible JSON field type or custom marshaler.
+	data, _ := json.Marshal(saved)
 	hash := sha256.Sum256(data)
-	return hex.EncodeToString(hash[:]), nil
+	return hex.EncodeToString(hash[:])
 }
 
 func equalAuthorityState(left, right State) bool {

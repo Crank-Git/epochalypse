@@ -61,15 +61,12 @@ func Prepare(source io.Reader, recipientStrings [shareCount]string) (Material, e
 	defer clear(plaintext)
 
 	var key [contentKeyBytes]byte
-	if _, err := rand.Read(key[:]); err != nil {
-		return Material{}, fmt.Errorf("generate content key: %w", err)
-	}
+	// Go 1.27 crypto/rand.Read fills the buffer or terminates the process.
+	_, _ = rand.Read(key[:])
 	defer clear(key[:])
 
 	var material Material
-	if _, err := rand.Read(material.KeyID[:]); err != nil {
-		return Material{}, fmt.Errorf("generate key identity: %w", err)
-	}
+	_, _ = rand.Read(material.KeyID[:])
 	material.Ciphertext, err = encryptContent(plaintext, key[:], material.KeyID)
 	if err != nil {
 		return Material{}, err
@@ -229,9 +226,7 @@ func encryptContent(plaintext, key []byte, keyID [keyIDBytes]byte) ([]byte, erro
 	header[4] = frameVersion
 	copy(header[framePrefixSize:framePrefixSize+keyIDBytes], keyID[:])
 	nonce := make([]byte, aead.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
-		return nil, fmt.Errorf("generate content nonce: %w", err)
-	}
+	_, _ = rand.Read(nonce)
 	frame := make([]byte, 0, frameOverhead+len(plaintext))
 	frame = append(frame, header...)
 	frame = append(frame, nonce...)

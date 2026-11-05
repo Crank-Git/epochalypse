@@ -197,11 +197,7 @@ func TestAuthorityRejectsDivergentAndNewerCheckpoint(t *testing.T) {
 				t.Fatal(err)
 			}
 			mutate.edit(&saved)
-			checksum, err := checkpointChecksum(saved)
-			if err != nil {
-				t.Fatal(err)
-			}
-			saved.Checksum = checksum
+			saved.Checksum = checkpointChecksum(saved)
 			data, err = json.Marshal(saved)
 			if err != nil {
 				t.Fatal(err)
