@@ -72,6 +72,9 @@ Later HTTP handlers must retain the existing four shared capsule slots and reque
 Committed stub `9b47f6a` records three failing behavior tests, including all ten failure subtests.
 The focused capsule race suite passes after implementation. The focused linter reports zero issues.
 These checks do not replace the final aggregate coverage gate or full required suite.
+The final focused profile measures 93.9 percent for the capsule package. It is not the project's aggregate coverage result.
+The merge-base check removes both new implementation files while it retains the tests.
+The tests fail with missing adapter symbols. The restore leaves a clean Git status.
 
 The next slice must connect the adapter to the shared store without retaining a tlock private key.
 It must authenticate drafts before publication and charge every wrapper byte to the shared budget.
