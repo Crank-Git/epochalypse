@@ -26,6 +26,14 @@ func TestResolverFixtureAccessProcess(t *testing.T) {
 	if actual := fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()); actual != expected {
 		t.Fatalf("fixture process user is %s; want %s", actual, expected)
 	}
+	portPolicy, err := os.ReadFile("/proc/sys/net/ipv4/ip_unprivileged_port_start")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(portPolicy) != "0\n" {
+		t.Fatalf("fixture namespace requires unprivileged port 53: %q", portPolicy)
+	}
+	t.Logf("fixture user=%s ip_unprivileged_port_start=0", expected)
 	private, err := os.ReadFile("/fixture/synthetic.private")
 	if err != nil {
 		t.Fatal(err)
@@ -57,8 +65,8 @@ func TestResolverFixtureOwnership(t *testing.T) {
 		t.Fatalf("fixture isolation changes: %s", policy)
 	}
 	user := fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
-	docker(t, "exec", "--env", "EPOCHALYPSE_FIXTURE_USER="+user, container,
-		"/fixture/authority.test", "-test.run=^TestResolverFixtureAccessProcess$")
+	t.Log(docker(t, "exec", "--env", "EPOCHALYPSE_FIXTURE_USER="+user, container,
+		"/fixture/authority.test", "-test.v", "-test.run=^TestResolverFixtureAccessProcess$"))
 	docker(t, "exec", "--user", fmt.Sprintf("%d:%d", os.Getuid()+1, os.Getgid()),
 		"--env", "EPOCHALYPSE_FIXTURE_DENY=1", container,
 		"/tmp/resolver-access.test", "-test.run=^TestResolverFixtureAccessProcess$")

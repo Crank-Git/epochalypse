@@ -48,6 +48,7 @@ Resolver fixture processes use the host user's numeric user and group identifier
 Linux bind mounts preserve those identifiers. The pinned BIND image's default user cannot read another user's owner-only fixture files.
 Each fixture container drops all capabilities and disables privilege escalation.
 The ownership regression checks the process identity and the protected file modes.
+It requires `ip_unprivileged_port_start=0` in the container network namespace for DNS port 53 without capabilities.
 It also rejects access from another Linux user to container-local private files and directories.
 Container-local files exercise Linux access rules even when Docker Desktop translates bind-mount access.
 The [observation guide](observations.md) describes metadata provenance and the retained-state schema.
