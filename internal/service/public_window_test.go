@@ -90,7 +90,6 @@ func TestPublicWindowObservesEarlyLiveAuthority(t *testing.T) {
 	if h.state.probeAuthority(request.WithContext(ctx), record).State != "unavailable" {
 		t.Fatal("canceled request reports live evidence")
 	}
-	// Stop the authority before the unavailable check to avoid a concurrent responder change.
 	listener.close()
 	if h.state.probeAuthority(request, record).State != "unavailable" {
 		t.Fatal("closed authority reports live evidence")
