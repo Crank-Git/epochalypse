@@ -13,6 +13,7 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.7
 	go.etcd.io/bbolt v1.5.0
 	golang.org/x/crypto v0.58.0
+	golang.org/x/sys v0.49.0
 )
 
 require (
@@ -21,7 +22,6 @@ require (
 	github.com/kilic/bls12-381 v0.1.0 // indirect
 	go.dedis.ch/fixbuf v1.0.3 // indirect
 	golang.org/x/net v0.60.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261005182115-fad411399dd8 // indirect
 	google.golang.org/grpc v1.83.2 // indirect

@@ -24,6 +24,7 @@ It binds the request to the admitted content, key, grace, and enrollment digest.
 Prepare entries bind each recipient fingerprint to the configured agent.
 Arm entries contain three signed prepared receipts for the identical state.
 `Confirm` requires a matching durable receipt from each distinct enrolled agent at the requested phase.
+It rejects confirmation when a receipt records possible disclosure.
 The orchestration must request armed receipts before it reports confirmed arm.
 
 `VerifyEnvelope` supplies low-level signature verification with a caller-supplied key map.
@@ -31,6 +32,39 @@ It does not replace enrollment admission or operation-specific authorization.
 The transport and agent transition adapters must enforce lifecycle, sequence, freshness, and local clock cutoffs.
 They must validate product interval limits through the certificate.
 Wire verification alone does not prove durable agent storage.
+
+## Independent authority
+
+`internal/agent.Initialize` creates an empty authority on an explicitly pinned private volume.
+`Open` requires the configured volume identity and an intact committed journal.
+It obtains an exclusive process lock before replay.
+The disposable checkpoint directory must remain outside the authority directory.
+Deployment must keep the authority outside ordinary archive restores.
+Directory separation alone does not prove independent storage or failure domains.
+
+`Journal.Commit` appends complete state with an increasing generation and a hash chain.
+The record contains exact accepted bytes, enrollment, ciphertext, manifest, encrypted share, receipt, and release envelope.
+The journal persists the body before the final commit marker.
+It persists the committed marker before it updates and syncs the checkpoint.
+The caller receives the committed result after that order completes.
+The journal permanently retains possible-disclosure and unsafe-clock latches.
+It rejects attempts to clear either latch.
+
+Replay validates the full committed prefix before the caller can obtain state.
+An incomplete suffix quarantines the journal.
+A missing checkpoint can reconstruct from the valid head.
+An older checkpoint must match an exact committed prefix before reconstruction from the current head.
+Reconstruction retains the current authority and all latches.
+A corrupt, divergent, or newer checkpoint quarantines the journal.
+Common rollback of the entire authority remains outside the intact-state premise.
+
+This storage API retains opaque protocol material.
+The transition adapter must authenticate that material and enforce one immutable enrollment before each commit.
+It must validate freshness before a new clock assessment and before any receipt or share.
+The journal does not provide a prepare endpoint, receipt signer, release scheduler, or public recovery endpoint.
+
+Verified interface: [x/sys v0.49.0 Flock](https://pkg.go.dev/golang.org/x/sys@v0.49.0/unix#Flock), retrieved 2026-11-05.
+The implementation also uses the pinned Go filesystem APIs for bounded files and directory persistence.
 
 ## Clock assessment
 
