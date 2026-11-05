@@ -71,7 +71,7 @@ func parseBackupOptions(args []string, stderr io.Writer) (backupOptions, error) 
 		valid = options.input != "" && options.destination != "" && options.identity != "" && options.uid >= 0 && options.gid >= 0
 	}
 	if flags.NArg() != 0 || options.commit == "" || options.limits.MaxBytes < 1 || !valid {
-		err := errors.New("backup requires explicit paths, commit, positive limits, and a numeric restore identity")
+		err := errors.New("backup requires the documented flags and positive limits")
 		_, _ = fmt.Fprintln(stderr, err)
 		return options, err
 	}
