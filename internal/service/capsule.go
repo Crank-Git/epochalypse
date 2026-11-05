@@ -20,10 +20,12 @@ type capsuleAPI struct {
 	now     func() time.Time
 	slots   chan struct{}
 	timeout time.Duration
+	beacon  capsule.BeaconSource
 }
 
 func (api *capsuleAPI) routes(mux *http.ServeMux, owners *owner.Store, lab bool) {
 	api.ownerControls(mux, owners, lab)
+	api.publicControls(mux, lab)
 	for _, route := range []struct {
 		path, method string
 		serve        http.HandlerFunc

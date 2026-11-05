@@ -24,6 +24,8 @@ assert.equal(init.status, 0, init.stderr);
 const server = spawn(`${directory}/epochalypse`, ['server', '--config', `${directory}/config.json`, '--state-dir', '/tmp/epochalypse-owner-data', '--http-addr', '127.0.0.1:8080', '--local-lab', '--zone', 'windows.example.', '--key-file', `${directory}/synthetic.private`], {env, stdio: ['ignore', 'ignore', 'pipe']});
 let diagnostic = '';
 server.stderr.on('data', data => { diagnostic = (diagnostic + data).slice(-2000); });
+const fixture = spawn(`${directory}/capsule-fixture`, ['-test.run=^TestPublicCapsuleBrowserFixture$', '-test.timeout=90s'], {cwd: '/work/internal/service', env: {...env, EPOCHALYPSE_CAPSULE_BROWSER_FIXTURE: '1'}, stdio: ['ignore', 'ignore', 'pipe']});
+fixture.stderr.on('data', data => { diagnostic = (diagnostic + data).slice(-2000); });
 try {
   let ready = false;
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -34,9 +36,15 @@ try {
     await pause(50);
   }
   assert.ok(ready, 'The server starts');
+  for (let attempt = 0; attempt < 100; attempt++) {
+    assert.equal(fixture.exitCode, null, diagnostic);
+    try { if ((await fetch('http://127.0.0.1:8081/fixture')).ok) break; }
+    catch { /* The fixture starts after the test process. */ }
+    await pause(50);
+  }
   const executable = spawnSync('find', ['/ms-playwright', '-name', 'chrome', '-type', 'f'], {encoding: 'utf8', timeout: 3000}).stdout.trim().split('\n')[0];
   assert.ok(executable, 'The pinned image contains Chromium');
-  const result = spawnSync('node', ['/work/scripts/owner_browser.mjs', executable, `${directory}/chrome`, 'http://127.0.0.1:8080', `${directory}/window-record.json`, preparedPath], {stdio: 'inherit', timeout: 30000});
+  const result = spawnSync('node', ['/work/scripts/owner_browser.mjs', executable, `${directory}/chrome`, 'http://127.0.0.1:8080', `${directory}/window-record.json`, preparedPath], {stdio: 'inherit', timeout: 45000});
   assert.equal(result.status, 0, 'The owner browser flow passes');
   const record = JSON.parse(await readFile(`${directory}/window-record.json`, 'utf8'));
   assert.equal((await fetch('http://127.0.0.1:8080/healthz', {signal: AbortSignal.timeout(1000)})).status, 200);
@@ -45,6 +53,7 @@ try {
   assert.match(locked.stderr, /open installation database/);
   assert.equal(locked.stdout, '');
 } finally {
+  fixture.kill('SIGTERM');
   server.kill('SIGTERM');
   if (server.exitCode === null && server.signalCode === null) {
     await new Promise(resolve => {
