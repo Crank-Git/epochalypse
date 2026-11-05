@@ -2,6 +2,7 @@
 .NOTPARALLEL:
 
 export GOCACHE ?= $(CURDIR)/var/cache/go-build
+export GOPATH ?= $(CURDIR)/var/gopath
 export GOMODCACHE ?= $(CURDIR)/var/cache/go-mod
 export GOTMPDIR ?= $(CURDIR)/var/tmp
 export GOLANGCI_LINT_CACHE ?= $(CURDIR)/var/cache/golangci-lint
@@ -12,7 +13,7 @@ VERSION_FLAGS = -X github.com/Crank-Git/epochalypse/internal/version.Commit=$(EP
 $(shell mkdir -p "$(GOCACHE)" "$(GOMODCACHE)" "$(GOTMPDIR)" "$(GOLANGCI_LINT_CACHE)" "$(BUILDX_CONFIG)")
 
 check: check-tools
-	$(MAKE) test-unit test-integration test-e2e test-race coverage fuzz-smoke lint build
+	$(MAKE) test-unit test-integration test-e2e test-resolvers test-race coverage fuzz-smoke lint build
 
 check-tools:
 	@test "$$(go version | awk '{print $$3}')" = go1.27.3 || { echo 'Install Go 1.27.3.' >&2; exit 1; }
@@ -27,28 +28,29 @@ test-unit:
 
 test-e2e:
 	python3 -m unittest discover -s scripts -p 'test_e2e.py'
+	python3 -m unittest discover -s scripts -p 'test_browser.py'
+	python3 -m unittest discover -s scripts -p 'test_lab.py'
 
 test-integration:
 	python3 scripts/go_tests.py -count=1 ./tests/integration
 
 test-resolvers:
-	@echo '$@: unavailable until the service or resolver feature supplies its suite. See docs/checks.md.' >&2
-	@exit 1
+	python3 scripts/go_tests.py -tags=resolvers -count=1 ./tests/resolvers
 
 test-race:
 	python3 scripts/go_tests.py -race -count=1 ./...
 
 coverage:
 	mkdir -p .test-artifacts
-	python3 scripts/go_tests.py -count=1 -coverpkg=./... -covermode=atomic -coverprofile=.test-artifacts/unit.out ./...
+	python3 scripts/go_tests.py -count=1 -coverpkg=github.com/Crank-Git/epochalypse/... -covermode=atomic -coverprofile=.test-artifacts/unit.out ./...
 	$(MAKE) test-e2e
-	python3 scripts/coverage_gate.py .test-artifacts/unit.out .test-artifacts/cli.out
+	python3 scripts/coverage_gate.py .test-artifacts/unit.out .test-artifacts/cli.out .test-artifacts/browser.out
 
 fuzz-smoke:
 	go test ./internal/command -run='^$$' -fuzz=FuzzRun -fuzztime=30s -parallel=2
 
 lint: check-tools
-	@test -z "$$(gofmt -l $$(find cmd internal tests -name '*.go' 2>/dev/null))" || { echo 'Run gofmt on the reported Go files.' >&2; exit 1; }
+	@test -z "$$(gofmt -l $$(find cmd internal web tests -name '*.go' 2>/dev/null))" || { echo 'Run gofmt on the reported Go files.' >&2; exit 1; }
 	go vet ./...
 	golangci-lint run ./...
 

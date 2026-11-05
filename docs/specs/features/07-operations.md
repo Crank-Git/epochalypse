@@ -32,7 +32,11 @@ As an owner, I want this feature so that I can verify the release behavior befor
 
 ```mermaid
 flowchart TD
- Configure[Configure hosts and domain] --> Check{Readiness checks pass?}
+ Configure[Configure hosts and domain] --> Slice{Deployment slice?}
+ Slice -->|Completed features| Check{Applicable readiness checks pass?}
+ Slice -->|Live switches| Gate{Protocol accepted?}
+ Gate -->|No| Blocked[Keep switch operations disabled]
+ Gate -->|Yes| Check
  Check -->|No| Error[Show blocked checks]
  Check -->|Yes| Stage[Deploy tested commit]
  Stage --> Verify[Verify health and recovery]
@@ -43,7 +47,8 @@ flowchart TD
 1. Configure the hosts and domain.
 2. Run readiness checks.
 3. Deploy the tested commit to a staging environment.
-4. Run the recovery exercise.
+4. Run the applicable feature recovery exercise.
+   Run live switch exercises only after protocol acceptance.
 5. Approve production promotion.
 6. Verify the deployed commit.
 
@@ -53,7 +58,11 @@ This feature has no dedicated screen. The CLI reports progress, success, and str
 
 ## Behaviour rules
 
-Use a main Linux VPS and three independently reachable agents for the reference deployment.
+Deploy completed DNSSEC, capsule, and countdown features without switch protocol acceptance.
+Verify the main service commit, applicable health checks, backups, and feature recovery for this deployment slice.
+Keep switch-specific readiness, live-agent restoration, and switch recovery drills behind protocol acceptance.
+For the later switch reference deployment, use a main Linux VPS and three independently reachable agents.
+The live switch drill verifies recovery by Bmax plus E under the reviewed clock and publication assumptions.
 Place agents across three failure domains. Owner-operated and trusted-operator layouts use the same protocol.
 Use TLS for HTTPS. Pin agent identities independently of DNSSEC.
 Expose DNS over UDP and TCP port 53. Expose public recovery over HTTPS port 443.
@@ -102,6 +111,9 @@ Each criterion requires a test or a reproducible review record. The quoted behav
 - AC-operations-6 covers FR-operations-6: The deployment status command verifies the requested commit on every required service.
 - AC-operations-7 covers FR-operations-7: The deployment guide documents DNSSEC delegation checks.
 - AC-operations-8 covers FR-operations-8: The operator can retrieve public recovery data directly from an agent.
+
+- AC-operations-9 covers FR-operations-1: Completed-feature deployment proceeds without agents or switch protocol acceptance.
+- AC-operations-10 covers FR-operations-4: Live switch drills remain disabled until the revised model and independent protocol review pass.
 
 ## Out of scope
 

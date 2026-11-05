@@ -155,7 +155,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ul></aside>
 <main>
 <h1>Feature: DNS countdowns</h1>
-<p class="meta">Epic 6: DNS countdowns &nbsp; <span class="badge">issued</span></p>
+<p class="meta">Epic 6: DNS countdowns &nbsp; <span class="badge">built</span></p>
 <h2 id="countdowns-dns-countdowns">DNS countdowns</h2>
 <h3 id="countdowns-purpose">Purpose</h3>
 <p>Expose an event time through DNS with an advisory TTL countdown and a reliable absolute timestamp.</p>
@@ -200,6 +200,7 @@ body.rv-open .layout { padding-right:21rem; }
 <p><a href="../mockups/countdowns.html">Open the mockup</a>.</p>
 <p>Empty: create event. Pending: publish event. Active: show event time. Complete: show completion. Error: show time-sync status. Unauthorized: block edits.</p>
 <h3 id="countdowns-behaviour-rules">Behaviour rules</h3>
+<p>Use a configured countdown subdomain separate from the signature-window experimental subdomain. Derive the DNS owner name from the opaque countdown identifier under that subdomain and return the actual name in metadata. Use a separate configured signing-key reference and preserve valid countdown infrastructure when experiments change. Delegation changes remain an operator action.</p>
 <p>Compute <code>max(0, floor(event_time - authoritative_now))</code>. Cap the TTL at 2147483647 seconds. Reject initial events beyond that horizon in v1. Use TTL zero at and after the event. Retain the TXT event timestamp until owner deletion. Use a static event TXT RRset with a signed original TTL at least as large as the emitted TTL. Keep signature validity independent of the event boundary. Renew ordinary signatures before expiration. Verify the TTL signature rule through the resolver lab before production use. A recursive resolver can cap TTL, prefetch, or serve stale data. Never use TTL as a security boundary. The web page resynchronizes time from the server after sleep. Show an unavailable-time state if synchronization fails.</p>
 <h3 id="countdowns-data-touched">Data touched</h3>
 <p>Countdown: identifier, title, event time, DNS name, state. Public metadata contains no secret.</p>

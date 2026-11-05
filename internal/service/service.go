@@ -1,4 +1,4 @@
-// Package service provides local listeners without release behavior.
+// Package service provides local listeners and capsule release interfaces.
 package service
 
 import (
@@ -51,20 +51,39 @@ func Serve(ctx context.Context, config Config, ready func(Addresses)) error {
 	defer func() { _ = httpListener.Close() }()
 	addresses := Addresses{HTTP: httpListener.Addr().String()}
 	results := make(chan error, 3)
-	var dns *dnsListeners
-	if config.Mode == "dns" {
-		dns, err = openDNS(ctx, config.DNSAddr)
+	handler := Handler()
+	var respond func([]byte, bool) []byte
+	var state *mainState
+	if config.Mode == "server" {
+		state, err = openMainState(config)
+		if err != nil {
+			return err
+		}
+		defer state.close()
+		state.routes(handler, config.LocalLab)
+		respond = state.dnsResponder()
+	}
+	if config.Mode == "dns" || respond != nil {
+		dns, err := openDNS(ctx, config.DNSAddr)
 		if err != nil {
 			return err
 		}
 		defer dns.close()
+		dns.respond = respond
 		addresses.DNS = dns.tcp.Addr().String()
+		state.setDirectAddress(dns.tcp.Addr())
 		go func() { results <- dns.serveUDP() }()
 		go func() { results <- dns.serveTCP() }()
 	}
-	server := &http.Server{Handler: Handler(), ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second}
+	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 20 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16384}
 	defer func() { _ = server.Close() }()
-	go func() { results <- server.Serve(httpListener) }()
+	go func() {
+		if config.TLSCert != "" {
+			results <- server.ServeTLS(httpListener, config.TLSCert, config.TLSKey)
+			return
+		}
+		results <- server.Serve(httpListener)
+	}()
 	ready(addresses)
 	select {
 	case <-ctx.Done():
