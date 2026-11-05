@@ -1,6 +1,7 @@
 package window
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -9,6 +10,24 @@ import (
 
 type ordinarySigner interface {
 	SignCurrentTXT(*dns.TXT, time.Time) (*dns.RRSIG, *dns.DNSKEY, error)
+}
+
+func TestOrdinarySignatureAcceptsTheFullDNSNameLimit(t *testing.T) {
+	s := currentSigner(t)
+	name := strings.Repeat("a", 63) + "." + strings.Repeat("b", 63) + "." + strings.Repeat("c", 63) + "." + strings.Repeat("d", 45) + ".windows.example."
+	txt := &dns.TXT{Hdr: dns.Header{Name: name, Class: dns.ClassINET, TTL: 2147483647}, Txt: []string{"public"}}
+	if len(name) != 254 {
+		t.Fatal("fixture does not reach the DNS name limit")
+	}
+	if _, _, err := s.SignCurrentTXT(txt, testNow); err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []string{"a" + name, "bad_label.windows.example.", "event.windows.example"} {
+		txt.Hdr.Name = bad
+		if _, _, err := s.SignCurrentTXT(txt, testNow); err == nil {
+			t.Fatalf("accepts invalid name %q", bad)
+		}
+	}
 }
 
 func currentSigner(t *testing.T) ordinarySigner {

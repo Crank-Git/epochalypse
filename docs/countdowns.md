@@ -29,11 +29,19 @@ The commands use the shared `--max-objects` and `--quota-bytes` limits.
 The typed producer for the next countdown slices is `internal/countdown.Store`.
 `Get(id)` returns one immutable `Record`. `List()` returns a snapshot for an authoritative adapter.
 `Record.TXT()` returns an independent TXT record with `v=epochalypse1 event=<UTC timestamp>`.
-Its initial TTL is 2147483647. The signer must use that value as the signed Original TTL.
+Its initial TTL is 2147483647. The signer uses that value as the signed Original TTL.
 The authoritative adapter then lowers the emitted TTL without changing the event data.
 The producer preserves the current time's subsecond precision for the later TTL calculation.
 
-The remaining #36 work adds the signed producer, HTTP adapters, service configuration, and owner controls.
+`countdown.LoadSigner(zone, path)` verifies the separate protected countdown key reference.
+`Signer.Records(record, now)` validates the retained metadata and returns independent TXT, RRSIG, and DNSKEY records.
+Each call signs the same absolute event data with ordinary validity from `now - 5 minutes` through `now + 48 hours`.
+Call this producer before signature expiration. It renews validity after the event without rewriting the event time.
+The producer uses the existing protected key loader. It preserves explicit signature windows in the window experiment.
+It rejects records from another zone and clocks outside the supported DNSSEC timestamp range.
+No signature cache retains deleted countdowns.
+
+The remaining #36 work adds HTTP adapters, service configuration, and owner controls.
 Issue #37 supplies the final authoritative TTL and resolver proof.
 Issue #38 supplies the public page and advisory labels.
 The batch ships these slices together.

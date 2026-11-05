@@ -58,7 +58,7 @@ func runCountdown(args []string, stdout, stderr io.Writer) int {
 
 func executeCountdown(directory, zone, key, id string, input countdown.Input, limits window.Limits) (countdown.Record, error) {
 	if id == "" {
-		if _, err := window.LoadSigner(zone, key); err != nil {
+		if _, err := countdown.LoadSigner(zone, key); err != nil {
 			return countdown.Record{}, err
 		}
 	}
