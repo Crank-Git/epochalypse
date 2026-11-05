@@ -12,10 +12,12 @@ import (
 )
 
 type mainState struct {
-	owner     *owner.Store
-	windows   *window.Store
-	authority *authority.Authority
-	jobs      *resolver.Jobs
+	owner         *owner.Store
+	windows       *window.Store
+	authority     *authority.Authority
+	jobs          *resolver.Jobs
+	directAddress string
+	directSlots   chan struct{}
 }
 
 func openMainState(config Config) (*mainState, error) {
@@ -23,7 +25,7 @@ func openMainState(config Config) (*mainState, error) {
 	if err != nil {
 		return nil, err
 	}
-	state := &mainState{owner: owners}
+	state := &mainState{owner: owners, directSlots: make(chan struct{}, 4)}
 	if config.Zone == "" {
 		return state, nil
 	}
@@ -71,6 +73,7 @@ func (s *mainState) close() {
 }
 
 func (s *mainState) routes(mux *http.ServeMux, lab bool) {
+	s.publicWindowRoutes(mux, lab)
 	s.observationRoutes(mux, lab)
 	mux.Handle("/api/v1/windows", owner.SecureHandler(lab, s.owner.RequireOwner(windowHandler(s.windows, time.Now))))
 	ownerHandler := s.owner.Handler(lab)

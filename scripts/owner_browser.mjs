@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {readFile, writeFile} from 'node:fs/promises';
 import {setTimeout as pause} from 'node:timers/promises';
+import {checkPublicWindow} from './public_window_browser.mjs';
 
 const [chrome, profile, origin, windowResult] = process.argv.slice(2);
 const sandbox = process.getuid?.() === 0 ? ['--no-sandbox'] : [];
@@ -110,13 +111,14 @@ try {
   const csrf = await evaluate("document.querySelector('[name=csrf_token]').value");
   const inception = new Date(Date.now() + 3600000).toISOString().replace(/\.\d{3}Z$/, 'Z');
   const expiration = new Date(Date.now() + 7200000).toISOString().replace(/\.\d{3}Z$/, 'Z');
-  const windowBody = JSON.stringify({content: 'public browser experiment', inception, expiration});
+  const publicContent = 'public browser experiment <img src=x onerror="globalThis.publicWindowXSS=1">';
+  const windowBody = JSON.stringify({content: publicContent, inception, expiration});
   assert.equal((await request('POST', '/api/v1/windows', windowBody)).status, 403);
   assert.equal((await request('POST', '/api/v1/windows', windowBody, 'wrong')).status, 403);
   const signedWindow = await request('POST', '/api/v1/windows', windowBody, csrf);
   assert.equal(signedWindow.status, 201, signedWindow.body);
   const windowRecord = JSON.parse(signedWindow.body);
-  assert.equal(windowRecord.content, 'public browser experiment');
+  assert.equal(windowRecord.content, publicContent);
   assert.equal(windowRecord.inception, inception);
   assert.equal(windowRecord.expiration, expiration);
   assert.match(windowRecord.rrsig, /RRSIG\s+TXT 13 /);
@@ -147,6 +149,7 @@ try {
   assert.equal(observed.results[0].resolver.clock.offset_nanoseconds, null);
   assert.equal(observed.results[0].rcode, null);
   assert.equal(observed.results[0].flags, null);
+  await checkPublicWindow({call, evaluate, waitFor, origin, record: windowRecord, observed});
   await writeFile(windowResult, JSON.stringify(windowRecord), {mode: 0o600});
   const invalidWindow = await request('POST', '/api/v1/windows', JSON.stringify({content: 'public', inception, expiration: inception}), csrf);
   assert.equal(invalidWindow.status, 400);
@@ -183,6 +186,13 @@ try {
   assert.equal((await request('POST', '/api/v1/windows', windowBody, csrf)).status, 401);
   assert.equal((await request('POST', observationPath, '{}', csrf)).status, 401);
   assert.equal((await request('GET', observationPath)).status, 200);
+  await call('Page.navigate', {url: origin + '/windows/' + windowRecord.id});
+  await waitFor("document.querySelector('#status')?.textContent === 'Retained observations.'");
+  assert.equal(await evaluate("document.querySelector('#direct-state').textContent"), 'State: observed');
+  await evaluate("document.querySelector('#compare').click()");
+  await waitFor("document.querySelector('#status').textContent.includes('Sign in as the owner')");
+  await call('Page.navigate', {url: origin + '/owner'});
+  await waitFor("document.querySelector('h1')?.textContent === 'Owner sign-in'");
   await evaluate("document.body.dataset.beforeReload = 'true'");
   await call('Page.reload');
   await waitFor("document.body.dataset.beforeReload !== 'true' && document.querySelector('h1')?.textContent === 'Owner sign-in'");

@@ -53,8 +53,9 @@ func Serve(ctx context.Context, config Config, ready func(Addresses)) error {
 	results := make(chan error, 3)
 	handler := Handler()
 	var respond func([]byte, bool) []byte
+	var state *mainState
 	if config.Mode == "server" {
-		state, err := openMainState(config)
+		state, err = openMainState(config)
 		if err != nil {
 			return err
 		}
@@ -70,6 +71,7 @@ func Serve(ctx context.Context, config Config, ready func(Addresses)) error {
 		defer dns.close()
 		dns.respond = respond
 		addresses.DNS = dns.tcp.Addr().String()
+		state.setDirectAddress(dns.tcp.Addr())
 		go func() { results <- dns.serveUDP() }()
 		go func() { results <- dns.serveTCP() }()
 	}
