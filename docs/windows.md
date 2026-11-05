@@ -154,7 +154,56 @@ Malformed names receive FORMERR.
 These restrictions prevent the adapter's dotted text representation from changing wire-label boundaries.
 
 Direct access exposes public content. Resolver acceptance remains an observation, rather than an exact-time or confidentiality guarantee.
-Issue #11 verifies trust chains. This slice does not establish public delegation through a local anchor.
+## Deployment trust check
+
+Run the check while the main process serves DNS. The check requires no private key or database access.
+Obtain the public anchor through a trusted operator channel before the check.
+The anchor file contains one algorithm 13 DNSKEY or one SHA-256 DS record for the experimental zone.
+Use one record on one line. Directives, comments, and record groups are invalid.
+
+```sh
+epochalypse lab verify --zone windows.example.net. \
+  --address 127.0.0.1:1053 --anchor-file /protected/window.key
+```
+
+The address requires an IP address and port. The zone requires a canonical lowercase subdomain with a final dot.
+The check requests DNSKEY and SOA records with DO and CD. It verifies signatures locally, independently of AD.
+A DNSKEY anchor must match a key in the signed DNSKEY set.
+A DS anchor must match the derived SHA-256 digest of a key in that set.
+The authenticated set then verifies the current SOA signature.
+This permits an additional key in the signed set. It does not implement production key rotation or a store migration.
+
+The JSON result names `status`, `trust_source`, `zone`, and `detail`.
+Only `verified` returns exit code 0. Invalid command input returns 2. Other diagnostic results return 1.
+
+| Status | Meaning |
+|---|---|
+| `verified` | The explicit anchor verifies current DNSKEY and SOA infrastructure. |
+| `bogus` | The supplied anchor or an infrastructure signature fails verification. |
+| `insecure` | The authority supplies no DNSKEY. Public delegation remains unverified. |
+| `unreachable` | The bounded DNS exchange fails. |
+| `indeterminate` | The response, clock, target, or unsupported public chain prevents verification. |
+
+An explicit anchor uses `trust_source: explicit-local-anchor`. It establishes no complete public delegation chain.
+Without `--anchor-file`, the check reports `indeterminate` with `trust_source: none` and makes no DNS queries.
+Complete public delegation verification remains unsupported. AD alone cannot establish that chain.
+The child apex correctly supplies signed NODATA for DS. A supplied DS anchor represents trusted parent-publication metadata.
+The check does not query the child apex for DS or change any parent delegation.
+
+The check separates current infrastructure from deliberately future or expired experimental TXT signatures.
+It makes no claim about exact resolver acceptance or confidentiality.
+Signature times use whole UTC seconds from 1970 through the final unsigned 32-bit timestamp.
+The check rejects wrapped intervals and intervals of 2147483648 seconds or more.
+Both signature boundaries are inclusive. The check applies no clock skew allowance.
+
+Anchor input permits at most 4096 bytes. Each DNS answer permits at most 16 records.
+Two lookups share a four-second deadline. Each lookup uses the authority's two-second UDP/TCP fallback bound.
+The check bounds signature attempts through the record limit. Parser errors exclude file contents.
+
+Verified interfaces, retrieved 2026-11-04:
+[codeberg.org/miekg/dns v0.6.128](https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128) supplies `RRSIG.Verify`, `DNSKEY.ToDS`, and public record parsers.
+Its shipped documentation requires separate RRset, covered-type, and time checks around `RRSIG.Verify`.
+[RFC 4035, sections 4.4 and 5.3](https://www.rfc-editor.org/rfc/rfc4035.html#section-5.3) defines explicit anchors and signature verification.
 
 Protocol sources:
 [RFC 4034, section 6.1](https://www.rfc-editor.org/rfc/rfc4034.html#section-6.1) defines canonical name order.
