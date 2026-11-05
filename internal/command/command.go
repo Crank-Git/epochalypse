@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 
 	"github.com/Crank-Git/epochalypse/internal/service"
@@ -36,7 +37,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return runService(ctx, args, stderr)
 		}
 	}
-	if len(args) > 1 || (len(args) == 1 && args[0] != "help" && args[0] != "-h" && args[0] != "--help") {
+	if len(args) > 1 || (len(args) == 1 && !slices.Contains([]string{"help", "-h", "--help"}, args[0])) {
 		if _, err := fmt.Fprintln(stderr, "invalid command: use epochalypse help"); err != nil {
 			return 1
 		}
