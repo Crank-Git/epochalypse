@@ -42,6 +42,8 @@ Close tests preserve concurrent journal and lock failures and verify that a new 
 Checksummed journal tests reject invalid generations, chains, phases, and cleared irreversible latches.
 Owner-local export tests reject directory-sync failures before prepare or arm transmission.
 Owner-local file tests reject write, file-sync, and close failures before arm transmission.
+Exact retries repeat file and directory sync for the private plan, recovery bundle, and signed arm intent.
+Persistent sync failures prevent arm transmission. A later durable retry preserves the retained bytes.
 The export tests replace a package-local sync function and run without parallel tests.
 
 The executable switch test retries the exact arm request after three agents accept it.

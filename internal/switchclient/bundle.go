@@ -103,13 +103,22 @@ func persistExact(path string, data []byte) error {
 		return errors.New("owner intent exceeds limit")
 	}
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // #nosec G304 -- The owner chooses the local export path.
-	if errors.Is(err, os.ErrExist) {
-		return verifyExactFile(path, data)
+	existing := errors.Is(err, os.ErrExist)
+	if existing {
+		if err := verifyExactFile(path, data); err != nil {
+			return err
+		}
+		// Exact bytes can survive a failed sync. A retry must establish durability again.
+		f, err = os.OpenFile(path, os.O_RDWR, 0) // #nosec G304 -- The owner chooses the verified local export path.
 	}
 	if err != nil {
 		return fmt.Errorf("create recovery bundle: %w", err)
 	}
-	err = errors.Join(writeBundleFile(path, f, data), syncBundleFile(path, f), closeBundleFile(path, f))
+	var writeErr error
+	if !existing {
+		writeErr = writeBundleFile(path, f, data)
+	}
+	err = errors.Join(writeErr, syncBundleFile(path, f), closeBundleFile(path, f))
 	if err != nil {
 		return fmt.Errorf("persist recovery bundle: %w", err)
 	}
