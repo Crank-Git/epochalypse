@@ -358,14 +358,28 @@ Do not compress the protocol review to preserve an estimate.
 
 ### First usable local milestone
 
-On 2026-11-05, the owner selects DNSSEC experiments, time capsules, countdowns, and owner access for the first usable local milestone.
+On 2026-11-05, the owner selects these completed features in `dev` for the first usable local milestone:
 
-Use the completed features in `dev`. Provide verified local startup, a synthetic walkthrough, and the required test evidence.
+- DNSSEC experiments.
+- Time capsules.
+- Countdowns.
+- Owner access.
+
+Provide these deliverables:
+
+- Verified local startup.
+- A synthetic walkthrough.
+- The required test evidence.
+
 Switch runtime work and its dependent deployment exercises belong to a later milestone.
+Preserve these switch artifacts:
 
-Preserve the switch requirements, reviewed protocol, parked implementation, and historical counterexamples.
+- The requirements.
+- The reviewed protocol.
+- The parked implementation.
+- The historical counterexamples.
+
 Switch completion does not block this local milestone. Actual-host certification and promotion to `main` remain separate gates.
-
 Every required test must pass. Aggregate first-party Go statement coverage must reach 95.00 percent before rounding.
 
 ### Full project roadmap
