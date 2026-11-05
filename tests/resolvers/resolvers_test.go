@@ -17,6 +17,7 @@ import (
 
 	"codeberg.org/miekg/dns"
 	"github.com/Crank-Git/epochalypse/internal/authority"
+	"github.com/Crank-Git/epochalypse/internal/countdown"
 	"github.com/Crank-Git/epochalypse/internal/observation"
 	"github.com/Crank-Git/epochalypse/internal/resolver"
 	"github.com/Crank-Git/epochalypse/internal/window"
@@ -46,9 +47,14 @@ func TestResolverAuthorityProcess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	countdownAuthority := openCountdownAuthority(t)
 	handler := dns.HandlerFunc(func(_ context.Context, writer dns.ResponseWriter, request *dns.Msg) {
 		udp := writer.RemoteAddr().Network() == "udp"
-		reply := &dns.Msg{Data: a.Packet(request.Data, udp, time.Now())}
+		selected := a
+		if strings.HasPrefix(request.Question[0].Header().Name, "c") && request.Question[0].Header().Name != "current.windows.example." {
+			selected = countdownAuthority
+		}
+		reply := &dns.Msg{Data: selected.Packet(request.Data, udp, time.Now())}
 		if _, err := io.Copy(writer, reply); err != nil {
 			t.Error(err)
 		}
@@ -64,13 +70,15 @@ func TestResolverAuthorityProcess(t *testing.T) {
 }
 
 type resolverLab struct {
-	nativePlatform string
-	directory      string
-	network        string
-	authorityIP    string
-	key            *dns.DNSKEY
-	records        map[string]window.Window
-	clock          observation.Clock
+	nativePlatform   string
+	directory        string
+	network          string
+	authorityIP      string
+	key              *dns.DNSKEY
+	records          map[string]window.Window
+	clock            observation.Clock
+	countdowns       map[string]countdown.Record
+	authorityAddress string
 }
 
 func newResolverLab(t *testing.T) resolverLab {
@@ -94,6 +102,7 @@ func newResolverLab(t *testing.T) resolverLab {
 		t.Fatalf("build authority: %v: %s", err, output)
 	}
 	key, records := createFixture(t, directory)
+	countdowns := createCountdownFixture(t, directory)
 	network := fmt.Sprintf("epochalypse-worker9-%d", time.Now().UnixNano())
 	docker(t, "network", "create", network)
 	t.Cleanup(func() { docker(t, "network", "rm", network) })
@@ -101,7 +110,7 @@ func newResolverLab(t *testing.T) resolverLab {
 	ip := docker(t, "inspect", "--format", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", container)
 	lower, upper := sampleClock(t, container)
 	zero := int64(0)
-	return resolverLab{nativePlatform: "linux/" + architecture, directory: directory, network: network, authorityIP: ip, key: key, records: records, clock: observation.Clock{OffsetNanoseconds: &zero, Source: "configured zero; shared Docker clock sample", LowerNanoseconds: &lower, UpperNanoseconds: &upper}}
+	return resolverLab{nativePlatform: "linux/" + architecture, directory: directory, network: network, authorityIP: ip, key: key, records: records, countdowns: countdowns, authorityAddress: docker(t, "port", container, "53/udp"), clock: observation.Clock{OffsetNanoseconds: &zero, Source: "configured zero; shared Docker clock sample", LowerNanoseconds: &lower, UpperNanoseconds: &upper}}
 }
 
 func (lab resolverLab) startResolver(t *testing.T, kind, label string) observation.Target {
