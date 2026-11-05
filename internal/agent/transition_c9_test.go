@@ -207,13 +207,12 @@ func TestPrepareRejectsGraceDeadlineBoundaryWithoutReceipt(t *testing.T) {
 func TestPrepareWithholdsReceiptWhenReceiptPersistenceFails(t *testing.T) {
 	fixture := newTransitionFixture(t)
 	fault := errors.New("receipt persistence failed")
-	syncCalls := 0
+	receiptSyncFailed := false
 	fixture.journal.performIO = func(name string, action func() error) error {
-		if name == "sync-record-body" {
-			syncCalls++
-			if syncCalls == 2 {
-				return fault
-			}
+		accepted := fixture.journal.state
+		if name == "sync-record-body" && accepted.Phase == switchwire.PhasePrepared && len(accepted.Receipt) == 0 {
+			receiptSyncFailed = true
+			return fault
 		}
 		return action()
 	}
@@ -225,8 +224,8 @@ func TestPrepareWithholdsReceiptWhenReceiptPersistenceFails(t *testing.T) {
 	if !errors.Is(err, fault) || len(receipt.Body) != 0 || len(receipt.Signature) != 0 {
 		t.Fatalf("receipt persistence failure returns receipt or loses cause: %v", err)
 	}
-	if syncCalls != 2 {
-		t.Fatalf("sync-record-body calls = %d, want 2", syncCalls)
+	if !receiptSyncFailed {
+		t.Fatal("receipt persistence does not reach the durability failure")
 	}
 	if _, err := fixture.journal.Snapshot(); !errors.Is(err, ErrQuarantined) {
 		t.Fatalf("uncertain receipt persistence remains available: %v", err)
