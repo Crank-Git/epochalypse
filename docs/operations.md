@@ -258,7 +258,12 @@ If the final parent-directory sync fails, the complete destination can exist des
 Inspect that destination before a retry. The retry never replaces it.
 Use a trusted destination parent. Keep source configuration, keys, and temporary state inaccessible to other writers.
 Successful installation does not start a service or run a bootstrap job.
-The CLI exposes these checks through `backup restore`. The isolated Linux recovery exercise remains pending.
+The CLI exposes these checks through `backup restore`.
+`scripts/test_backup.py` exercises encrypted backup and direct recovery in isolated Linux volumes.
+Run it through `make test-e2e` or `python3 -m unittest discover -s scripts -p 'test_backup.py'`.
+The exercise uses synthetic state, a private network namespace, and no published ports.
+It verifies the existing owner, retained window signature, server-held capsule recovery, countdown state, and source isolation.
+The [verification record](operations-verification.md#isolated-encrypted-recovery) reports its evidence and limits.
 
 ### Backup commands
 
