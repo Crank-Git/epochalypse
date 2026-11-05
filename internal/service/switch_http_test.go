@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/Crank-Git/epochalypse/internal/owner"
+	"github.com/Crank-Git/epochalypse/internal/switches"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -107,7 +108,12 @@ func TestSwitchHTTPRequiresOwnerProof(t *testing.T) {
 
 func TestSwitchHTTPBoundsWork(t *testing.T) {
 	h, token := newSwitchHTTP(t)
-	api := &switchAPI{store: h.state.switches, now: time.Now, slots: make(chan struct{}, 1)}
+	store, err := switches.Attach(h.state.content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	api := &switchAPI{store: store, now: time.Now, slots: make(chan struct{}, 1)}
 	mux := http.NewServeMux()
 	api.routes(mux, h.state.owner, false)
 	h.handler = mux
@@ -148,9 +154,24 @@ func TestSwitchOwnerPageRequiresSession(t *testing.T) {
 	if w := h.send(r); w.Code != 200 || !strings.Contains(w.Body.String(), "Deadline local:") {
 		t.Fatalf("owner script: %d %s", w.Code, w.Body)
 	}
-	_ = h.state.switches.Close()
+	_ = h.state.content.Close()
 	r.URL.Path = "/owner/switches"
 	if w := h.send(r); w.Code != 503 {
+		t.Fatalf("closed storage: %d", w.Code)
+	}
+}
+
+func TestSwitchHTTPReportsQuotaAndClosedStorage(t *testing.T) {
+	h, token := newSwitchHTTP(t)
+	h.state.content.Limits.MaxObjects = 1
+	if w := h.send(countdownRequest("POST", "/api/v1/switches", "{}", token)); w.Code != 201 {
+		t.Fatalf("first draft: %d", w.Code)
+	}
+	if w := h.send(countdownRequest("POST", "/api/v1/switches", "{}", token)); w.Code != 409 {
+		t.Fatalf("full quota: %d %s", w.Code, w.Body)
+	}
+	_ = h.state.content.Close()
+	if w := h.send(countdownRequest("POST", "/api/v1/switches", "{}", token)); w.Code != 503 {
 		t.Fatalf("closed storage: %d", w.Code)
 	}
 }

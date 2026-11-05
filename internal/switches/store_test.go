@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +18,14 @@ func TestInputUsesDefaultsAndRejectsUnsupportedDurations(t *testing.T) {
 	interval, grace, err := (Input{}).durations()
 	if err != nil || interval != DefaultIntervalSeconds || grace != DefaultGraceSeconds {
 		t.Fatalf("defaults: interval=%d grace=%d err=%v", interval, grace, err)
+	}
+	for _, input := range []Input{
+		{IntervalSeconds: ptrInt64(MinIntervalSeconds), GraceSeconds: ptrInt64(0)},
+		{IntervalSeconds: ptrInt64(MaxIntervalSeconds), GraceSeconds: ptrInt64(MaxGraceSeconds)},
+	} {
+		if gotInterval, gotGrace, err := input.durations(); err != nil || gotInterval != *input.IntervalSeconds || gotGrace != *input.GraceSeconds {
+			t.Fatalf("boundary %+v: %d %d %v", input, gotInterval, gotGrace, err)
+		}
 	}
 	for _, input := range []Input{
 		{IntervalSeconds: ptrInt64(MinIntervalSeconds - 1)},
@@ -217,3 +226,48 @@ func TestRecordValidatorRejectsDraftAuthorityFields(t *testing.T) {
 }
 
 func ptrInt64(value int64) *int64 { return &value }
+
+func TestStoreRejectsClosedDatabaseAndUnknownRecordFields(t *testing.T) {
+	if _, err := Attach(nil); !errors.Is(err, ErrInput) {
+		t.Fatalf("nil installation: %v", err)
+	}
+	shared, err := installation.Open(t.TempDir(), installation.DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := Attach(shared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := s.Create(context.Background(), Input{}, switchTestNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range [][]byte{append(append([]byte{}, data[:len(data)-1]...), []byte(`,"deadline":"2026-11-05T12:00:00Z"}`)...), []byte(strings.Repeat("x", 4097))} {
+		if err := shared.Update(func(tx *bolt.Tx) error {
+			return tx.Bucket([]byte(installation.SwitchesBucket)).Put([]byte(record.ID), bad)
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.Get(record.ID); !errors.Is(err, ErrIntegrity) {
+			t.Fatalf("invalid retained fields: %v", err)
+		}
+	}
+	if err := shared.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Attach(shared); err == nil {
+		t.Fatal("closed installation accepts an attachment")
+	}
+	if _, err := s.Create(context.Background(), Input{}, switchTestNow); err == nil {
+		t.Fatal("closed installation accepts a draft")
+	}
+	if _, err := s.List(); err == nil {
+		t.Fatal("closed installation returns a list")
+	}
+	_ = s.Close()
+}
