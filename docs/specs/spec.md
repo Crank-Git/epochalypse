@@ -90,6 +90,7 @@ A separate research epic assesses loss of all project-operated servers.
 | CSRF | noun | Cross-site request forgery. | authentication |
 | VPS | noun | Virtual private server. | managed service guarantee |
 | CI | noun | Continuous integration checks. | coverage alone |
+| JWE | noun | JSON Web Encryption compact serialization for authenticated capsule content. | unframed ciphertext |
 | TDD | noun | Test-driven development through fail, pass, and refactor steps. | tests after behavior only |
 | E2E | noun | End-to-end verification through public interfaces. | unit test |
 | create | verb | Make a new entity. | provision when entity creation applies |
