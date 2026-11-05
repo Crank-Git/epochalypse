@@ -2,7 +2,7 @@
 id: dns-window
 feature: "DNSSEC signature windows"
 epic: "Epic 1: DNSSEC lab"
-status: issued
+status: built
 issues: [6, 7, 8, 9, 10, 11]
 mockups: [mockups/dns-window.html]
 ---
@@ -70,6 +70,7 @@ Window: identifier, public content, zone, inception, expiration, DNSKEY referenc
 
 ## Interfaces
 
+`GET /windows/{id}` serves the public-data page with direct-authority evidence and resolver observations.
 `POST /api/v1/windows` accepts `{content,inception,expiration}` and returns 201 with the window.
 `POST /api/v1/windows/{id}/observations` starts a lab run and returns 202.
 `GET /api/v1/windows/{id}/observations` returns the observations.
