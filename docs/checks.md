@@ -36,7 +36,11 @@ Agent durability tests inject failures at named journal and checkpoint operation
 Each failure withholds the receipt and preserves its error cause.
 An uncertain write quarantines live access.
 Restart either rejects incomplete evidence or validates intact authority before an exact retry.
+Initialization tests inject marker, journal, and directory durability failures.
+Replay tests preserve filesystem error causes and verify lock release after an unsuccessful open.
+Checksummed journal tests reject invalid generations, chains, phases, and cleared irreversible latches.
 Owner-local export tests reject directory-sync failures before prepare or arm transmission.
+Owner-local file tests reject write, file-sync, and close failures before arm transmission.
 The export tests replace a package-local sync function and run without parallel tests.
 
 Coverage combines unit tests, CLI executions, browser executions, and backup executions.

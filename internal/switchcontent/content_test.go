@@ -241,6 +241,31 @@ func TestRecoverRejectsUnsupportedFrameVersion(t *testing.T) {
 	}
 }
 
+func TestValidateBindingRejectsMalformedFrameHeader(t *testing.T) {
+	material, _ := preparedContent(t, []byte("content"))
+	for name, mutate := range map[string]func([]byte){
+		"magic":   func(frame []byte) { frame[0] ^= 1 },
+		"version": func(frame []byte) { frame[4]++ },
+	} {
+		t.Run(name, func(t *testing.T) {
+			frame := bytes.Clone(material.Ciphertext)
+			mutate(frame)
+			if err := ValidateBinding(frame, material.KeyID, sha256.Sum256(frame)); err == nil {
+				t.Fatal("accepts a malformed content frame")
+			}
+		})
+	}
+	if err := ValidateBinding(material.Ciphertext[:frameOverhead-1], material.KeyID, sha256.Sum256(material.Ciphertext[:frameOverhead-1])); err == nil {
+		t.Fatal("accepts a truncated content frame")
+	}
+}
+
+func TestDecryptShareRejectsNilIdentity(t *testing.T) {
+	if _, err := DecryptShare([]byte{1}, nil); err == nil || err.Error() != "age identity is nil" {
+		t.Fatalf("decrypt error = %v, want nil-identity error", err)
+	}
+}
+
 func TestDecryptShareRejectsAuthenticatedPayloadWithWrongSize(t *testing.T) {
 	identity, err := age.GenerateX25519Identity()
 	if err != nil {

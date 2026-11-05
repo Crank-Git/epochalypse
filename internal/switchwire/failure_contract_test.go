@@ -86,3 +86,30 @@ func TestVerifyEnvelopeRejectsInvalidTrustInputs(t *testing.T) {
 		})
 	}
 }
+
+func TestEncodeFrameRejectsInvalidReleaseEvidence(t *testing.T) {
+	frame, _ := fixture(t)
+	frame.Operation = OperationRelease
+	frame.Signer = "agent-a"
+	frame.Durable = frame.State.Sequence
+	frame.Released = true
+	frame.Entries = []Entry{{ID: frame.Signer, Data: bytes.Repeat([]byte{1}, 33)}}
+	if _, err := EncodeFrame(frame); err != nil {
+		t.Fatalf("valid release evidence: %v", err)
+	}
+	for name, change := range map[string]func(*Frame){
+		"missing released flag":   func(f *Frame) { f.Released = false },
+		"wrong durable sequence":  func(f *Frame) { f.Durable++ },
+		"wrong evidence identity": func(f *Frame) { f.Entries[0].ID = "agent-b" },
+		"short evidence":          func(f *Frame) { f.Entries[0].Data = f.Entries[0].Data[:32] },
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := frame
+			candidate.Entries = []Entry{{ID: frame.Entries[0].ID, Data: bytes.Clone(frame.Entries[0].Data)}}
+			change(&candidate)
+			if _, err := EncodeFrame(candidate); err == nil {
+				t.Fatal("accepts invalid release evidence")
+			}
+		})
+	}
+}

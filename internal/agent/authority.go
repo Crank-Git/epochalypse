@@ -43,6 +43,7 @@ type Config struct {
 	CheckpointDirectory string
 	ExpectedVolumeID    string
 	MaxRecordBytes      uint32
+	performIO           func(string, func() error) error
 }
 
 type State struct {
@@ -121,20 +122,25 @@ func Initialize(config Config) error {
 	}
 	defer func() { _ = root.Close() }()
 	marker := []byte(config.ExpectedVolumeID + "\n")
-	if err := writeNewSyncedFile(root, authorityMarkerName, marker); err != nil {
+	if err := writeNewSyncedFile(config.performIO, root, authorityMarkerName, marker, "initialize-marker"); err != nil {
 		return fmt.Errorf("write authority volume identity: %w", err)
 	}
-	journal, err := root.OpenFile(authorityJournalName, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
+	var journal *os.File
+	err = authorityIO(config.performIO, "initialize-journal-create", func() error {
+		var openErr error
+		journal, openErr = root.OpenFile(authorityJournalName, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
+		return openErr
+	})
 	if err != nil {
 		return fmt.Errorf("create authority journal: %w", err)
 	}
-	if err := journal.Sync(); err != nil {
-		return errors.Join(fmt.Errorf("sync authority journal: %w", err), journal.Close())
+	if err := authorityIO(config.performIO, "initialize-journal-sync", journal.Sync); err != nil {
+		return errors.Join(fmt.Errorf("sync authority journal: %w", err), authorityIO(config.performIO, "initialize-journal-close", journal.Close))
 	}
-	if err := journal.Close(); err != nil {
+	if err := authorityIO(config.performIO, "initialize-journal-close", journal.Close); err != nil {
 		return fmt.Errorf("close authority journal: %w", err)
 	}
-	if err := syncRoot(root); err != nil {
+	if err := authorityIO(config.performIO, "initialize-volume-sync", func() error { return syncRoot(root) }); err != nil {
 		return fmt.Errorf("sync authority volume: %w", err)
 	}
 	return nil
@@ -157,7 +163,7 @@ func Open(config Config) (*Journal, error) {
 		return nil, err
 	}
 
-	instance := &Journal{config: config, journal: journal, lock: lock}
+	instance := &Journal{config: config, journal: journal, lock: lock, performIO: config.performIO}
 	if err := instance.replay(); err != nil {
 		return nil, errors.Join(err, instance.Close())
 	}
@@ -395,10 +401,10 @@ func (j *Journal) Close() error {
 }
 
 func (j *Journal) replay() error {
-	if _, err := j.journal.Seek(0, io.SeekStart); err != nil {
+	if err := j.io("replay-journal-seek-start", func() error { _, err := j.journal.Seek(0, io.SeekStart); return err }); err != nil {
 		return fmt.Errorf("seek authority journal: %w", err)
 	}
-	reader := io.NewSectionReader(j.journal, 0, 1<<63-1)
+	reader := io.NewSectionReader(authorityReaderAt{journal: j.journal, performIO: j.performIO}, 0, 1<<63-1)
 	state := State{}
 	var previous [sha256.Size]byte
 	for {
@@ -414,12 +420,27 @@ func (j *Journal) replay() error {
 			return err
 		}
 	}
-	if _, err := j.journal.Seek(0, io.SeekEnd); err != nil {
+	if err := j.io("replay-journal-seek-end", func() error { _, err := j.journal.Seek(0, io.SeekEnd); return err }); err != nil {
 		return fmt.Errorf("seek authority journal end: %w", err)
 	}
 	j.state = state
 	j.headHash = previous
 	return nil
+}
+
+type authorityReaderAt struct {
+	journal   *os.File
+	performIO func(string, func() error) error
+}
+
+func (r authorityReaderAt) ReadAt(data []byte, offset int64) (int, error) {
+	var count int
+	err := authorityIO(r.performIO, "replay-journal-read", func() error {
+		var readErr error
+		count, readErr = r.journal.ReadAt(data, offset)
+		return readErr
+	})
+	return count, err
 }
 
 func readAuthorityRecord(reader io.Reader, maximum uint32) ([]byte, [sha256.Size]byte, error) {
@@ -430,7 +451,7 @@ func readAuthorityRecord(reader io.Reader, maximum uint32) ([]byte, [sha256.Size
 		return nil, empty, io.EOF
 	}
 	if err != nil {
-		return nil, empty, fmt.Errorf("%w: incomplete authority record length", ErrQuarantined)
+		return nil, empty, fmt.Errorf("%w: incomplete authority record length: %w", ErrQuarantined, err)
 	}
 	length, err := strconv.ParseUint(string(lengthBytes[:]), 16, 64)
 	if err != nil || length == 0 || length > uint64(maximum) {
@@ -438,11 +459,11 @@ func readAuthorityRecord(reader io.Reader, maximum uint32) ([]byte, [sha256.Size
 	}
 	payload := make([]byte, length)
 	if _, err := io.ReadFull(reader, payload); err != nil {
-		return nil, empty, fmt.Errorf("%w: incomplete authority record", ErrQuarantined)
+		return nil, empty, fmt.Errorf("%w: incomplete authority record: %w", ErrQuarantined, err)
 	}
 	var checksum [sha256.Size]byte
 	if _, err := io.ReadFull(reader, checksum[:]); err != nil {
-		return nil, empty, fmt.Errorf("%w: incomplete authority checksum", ErrQuarantined)
+		return nil, empty, fmt.Errorf("%w: incomplete authority checksum: %w", ErrQuarantined, err)
 	}
 	var marker [len(authorityCommitMarker)]byte
 	if _, err := io.ReadFull(reader, marker[:]); err != nil || string(marker[:]) != authorityCommitMarker {
@@ -708,18 +729,30 @@ func ownerOnlyFile(info os.FileInfo) bool {
 	return info.Mode().IsRegular() && info.Mode().Perm()&0o600 == 0o600 && info.Mode().Perm()&0o077 == 0
 }
 
-func writeNewSyncedFile(root *os.Root, name string, content []byte) error {
-	file, err := root.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+func writeNewSyncedFile(performIO func(string, func() error) error, root *os.Root, name string, content []byte, operation string) error {
+	var file *os.File
+	err := authorityIO(performIO, operation+"-create", func() error {
+		var openErr error
+		file, openErr = root.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		return openErr
+	})
 	if err != nil {
 		return err
 	}
-	if err := writeAll(file, content); err != nil {
-		return errors.Join(err, file.Close())
+	if err := authorityIO(performIO, operation+"-write", func() error { return writeAll(file, content) }); err != nil {
+		return errors.Join(err, authorityIO(performIO, operation+"-close", file.Close))
 	}
-	if err := file.Sync(); err != nil {
-		return errors.Join(err, file.Close())
+	if err := authorityIO(performIO, operation+"-sync", file.Sync); err != nil {
+		return errors.Join(err, authorityIO(performIO, operation+"-close", file.Close))
 	}
-	return file.Close()
+	return authorityIO(performIO, operation+"-close", file.Close)
+}
+
+func authorityIO(performIO func(string, func() error) error, operation string, action func() error) error {
+	if performIO != nil {
+		return performIO(operation, action)
+	}
+	return action()
 }
 
 func frameHeader(size int) []byte {

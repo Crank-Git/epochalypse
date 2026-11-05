@@ -17,6 +17,12 @@ import (
 const maxBundleBytes = 16 << 20
 
 var syncDirectory = func(_ string, directory *os.File) error { return directory.Sync() }
+var writeBundleFile = func(_ string, file *os.File, data []byte) error {
+	_, err := file.Write(data)
+	return err
+}
+var syncBundleFile = func(_ string, file *os.File) error { return file.Sync() }
+var closeBundleFile = func(_ string, file *os.File) error { return file.Close() }
 
 // Bundle retains public enrollment, encrypted content, and prepared receipts.
 type Bundle struct {
@@ -103,8 +109,7 @@ func persistExact(path string, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("create recovery bundle: %w", err)
 	}
-	_, writeErr := f.Write(data)
-	err = errors.Join(writeErr, f.Sync(), f.Close())
+	err = errors.Join(writeBundleFile(path, f, data), syncBundleFile(path, f), closeBundleFile(path, f))
 	if err != nil {
 		return fmt.Errorf("persist recovery bundle: %w", err)
 	}

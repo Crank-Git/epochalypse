@@ -87,3 +87,20 @@ func TestOwnerRequestRejectsSubstitutedEnrollmentSnapshot(t *testing.T) {
 		t.Fatal("oversized envelope is admitted")
 	}
 }
+
+func TestAdmitCertificateRejectsOutOfOrderAgentField(t *testing.T) {
+	certificate, key, _ := certificateFixture(t)
+	body, err := EncodeCertificate(certificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutated := bytes.Clone(body)
+	index := bytes.Index(mutated, []byte("agent-a"))
+	if index < 0 {
+		t.Fatal("certificate fixture does not contain its first agent")
+	}
+	mutated[index+6] = 'z'
+	if _, err := AdmitCertificate(mutated, ed25519.Sign(key, mutated), key.Public().(ed25519.PublicKey)); err == nil {
+		t.Fatal("admits a certificate with out-of-order agent identities")
+	}
+}
