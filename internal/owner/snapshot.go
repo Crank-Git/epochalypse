@@ -30,6 +30,10 @@ func ValidateSnapshot(tx *bolt.Tx) error {
 			return errors.New("snapshot requires every owner bucket")
 		}
 	}
+	// Check the byte limit before the identity parser allocates from stored JSON.
+	if err := tx.Bucket(stateBucket).ForEach(validateSnapshotIdentity); err != nil {
+		return err
+	}
 	identity, err := readIdentity(tx)
 	if err != nil {
 		return err
@@ -38,14 +42,13 @@ func ValidateSnapshot(tx *bolt.Tx) error {
 		return errors.New("snapshot requires a hexadecimal owner identifier")
 	}
 	checks := []func([]byte, []byte) error{
-		validateSnapshotIdentity,
 		func(key, data []byte) error { return validateSnapshotSession(key, data, identity.ID) },
 		func(key, data []byte) error { return validateSnapshotToken(key, data, identity.ID) },
 		func(key, data []byte) error {
 			return validateSnapshotAudit(key, data, tx.Bucket(auditBucket).Sequence())
 		},
 	}
-	for i, name := range names {
+	for i, name := range names[1:] {
 		if err := tx.Bucket(name).ForEach(checks[i]); err != nil {
 			return err
 		}

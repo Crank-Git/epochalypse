@@ -43,14 +43,14 @@ func validateOwnerSnapshot(t *testing.T, path string) error {
 
 func TestSnapshotAcceptsOwnerStateWithoutMutation(t *testing.T) {
 	path := ownerSnapshot(t)
-	before, err := os.ReadFile(path)
+	before, err := os.ReadFile(path) // #nosec G304 -- The fixture creates this path in t.TempDir.
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := validateOwnerSnapshot(t, path); err != nil {
 		t.Fatal(err)
 	}
-	after, err := os.ReadFile(path)
+	after, err := os.ReadFile(path) // #nosec G304 -- The fixture creates this path in t.TempDir.
 	if err != nil || !bytes.Equal(before, after) {
 		t.Fatal("snapshot validation changes owner state")
 	}
@@ -77,22 +77,29 @@ func TestSnapshotRejectsInvalidOwnerIdentity(t *testing.T) {
 
 func TestSnapshotRejectsIncompatibleOwnerRecords(t *testing.T) {
 	cases := map[string]func(*bolt.Tx) error{
-		"missing bucket":  func(tx *bolt.Tx) error { return tx.DeleteBucket(sessionBucket) },
-		"unknown bucket":  func(tx *bolt.Tx) error { _, err := tx.CreateBucket([]byte("owner-v2")); return err },
-		"extra identity":  func(tx *bolt.Tx) error { return tx.Bucket(stateBucket).Put([]byte("extra"), []byte(`{}`)) },
+		"missing bucket": func(tx *bolt.Tx) error { return tx.DeleteBucket(sessionBucket) },
+		"unknown bucket": func(tx *bolt.Tx) error { _, err := tx.CreateBucket([]byte("owner-v2")); return err },
+		"extra identity": func(tx *bolt.Tx) error { return tx.Bucket(stateBucket).Put([]byte("extra"), []byte(`{}`)) },
+		"identity identifier": func(tx *bolt.Tx) error {
+			return changeSnapshotRecord(tx, stateBucket, "id", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
+		},
+		"oversized identity": func(tx *bolt.Tx) error {
+			return tx.Bucket(stateBucket).Put(identityKey, bytes.Repeat([]byte("x"), 16385))
+		},
 		"nested bucket":   func(tx *bolt.Tx) error { _, err := tx.Bucket(tokenBucket).CreateBucket([]byte("nested")); return err },
 		"session version": func(tx *bolt.Tx) error { return changeSnapshotRecord(tx, sessionBucket, "version", 2) },
 		"session owner":   func(tx *bolt.Tx) error { return changeSnapshotRecord(tx, sessionBucket, "owner_id", "other") },
 		"session time": func(tx *bolt.Tx) error {
 			return changeSnapshotRecord(tx, sessionBucket, "seen", tokenClock.Add(-time.Second))
 		},
-		"session key":   func(tx *bolt.Tx) error { return changeSnapshotKey(tx, sessionBucket, []byte("wrong")) },
-		"token owner":   func(tx *bolt.Tx) error { return changeSnapshotRecord(tx, tokenBucket, "owner_id", "other") },
-		"token digest":  func(tx *bolt.Tx) error { return changeSnapshotRecord(tx, tokenBucket, "digest", "wrong") },
-		"token scope":   func(tx *bolt.Tx) error { return changeSnapshotRecord(tx, tokenBucket, "scopes", []string{"admin"}) },
-		"audit action":  func(tx *bolt.Tx) error { return changeSnapshotRecord(tx, auditBucket, "action", "unknown") },
-		"audit key":     func(tx *bolt.Tx) error { return changeSnapshotKey(tx, auditBucket, []byte("wrong")) },
-		"unknown field": func(tx *bolt.Tx) error { return changeSnapshotRecord(tx, stateBucket, "future", true) },
+		"session key":    func(tx *bolt.Tx) error { return changeSnapshotKey(tx, sessionBucket, []byte("wrong")) },
+		"token owner":    func(tx *bolt.Tx) error { return changeSnapshotRecord(tx, tokenBucket, "owner_id", "other") },
+		"token digest":   func(tx *bolt.Tx) error { return changeSnapshotRecord(tx, tokenBucket, "digest", "wrong") },
+		"token scope":    func(tx *bolt.Tx) error { return changeSnapshotRecord(tx, tokenBucket, "scopes", []string{"admin"}) },
+		"audit action":   func(tx *bolt.Tx) error { return changeSnapshotRecord(tx, auditBucket, "action", "unknown") },
+		"audit key":      func(tx *bolt.Tx) error { return changeSnapshotKey(tx, auditBucket, []byte("wrong")) },
+		"audit sequence": func(tx *bolt.Tx) error { return changeSnapshotKey(tx, auditBucket, make([]byte, 8)) },
+		"unknown field":  func(tx *bolt.Tx) error { return changeSnapshotRecord(tx, stateBucket, "future", true) },
 		"invalid JSON": func(tx *bolt.Tx) error {
 			return tx.Bucket(sessionBucket).Put(bytes.Repeat([]byte{1}, 32), []byte(`secret-invalid`))
 		},
