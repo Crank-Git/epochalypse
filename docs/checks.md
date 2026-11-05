@@ -50,6 +50,11 @@ After one agent stops, the CLI preserves prior armed evidence and reports the in
 Public capsule cancellation tests withhold plaintext and released keys.
 Cancelled imports and publication requests preserve retained state.
 Clock acquisition tests require a fresh epoch after an unavailable baseline or a negative elapsed sample.
+Request deadline failures withhold switch and countdown mutations.
+Deletion tests reject noncanonical confirmation and preserve retained content after cancellation.
+Startup tests reject corrupt observations and release the owner lock after failure.
+Backup validation preserves cancellation causes and releases the database after cancelled authentication.
+Countdown DNS tests withhold records from a retained previous zone.
 
 Coverage combines unit tests, CLI executions, browser executions, and backup executions.
 Instrumentation uses the explicit first-party module path to exclude dependencies.
