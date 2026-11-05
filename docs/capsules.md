@@ -7,7 +7,8 @@ The [tlock integration record](research/tlock-production.md) defines its current
 
 All three modes use the authenticated content object defined in [ADR 0008](adr/0008-capsule-authenticated-object.md).
 Each draft receives a fresh identifier and 32-byte content key.
-The record contains the object and its SHA-256 digest. The private-key bucket stores the key separately.
+The record contains the object and its SHA-256 digest.
+The private-key bucket stores the public or server-held key separately. Tlock retains only its preparation digest there.
 Neither the manifest nor the record contains a key.
 
 Public mode is public data after publication. Its key becomes available immediately at publication.
@@ -91,7 +92,7 @@ A missing or malformed private key returns `ErrUnavailable` after release become
 A key that fails object authentication returns `ErrIntegrity` without a key.
 These results let later interfaces distinguish release eligibility from content availability.
 
-The later capsule slices extend this producer for tlock, public pages, and recovery bundles.
+The later capsule slices consume this producer for public pages, downloads, and recovery bundle export.
 They must preserve bounded authenticated object handling and the shared installation transaction.
 
 ### Recovery producer
