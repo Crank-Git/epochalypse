@@ -2,14 +2,14 @@
 
 Issue #28 reviews integration commit `3c9fbdb9d5f033b31c59841b339c6337aadd5743` on 2026-11-05.
 The reviewer did not implement the producers in #27, #106, or #107.
-This report recommends a design decision for the maintainer. It records no maintainer acceptance or production enablement.
+This report records the independent review and the separate maintainer decision. Production use remains disabled.
 
 ## Result
 
-Recommend acceptance of the proposed protocol design for subsequent implementation under ADR 0012.
-Select the fresh UTC policy in [clock-profile.md](clock-profile.md) and the version-two contracts in [production-contracts.md](production-contracts.md).
+The maintainer accepts the reviewed protocol design for subsequent implementation under ADR 0012 after the protocol batch gate.
+The design selects the fresh UTC policy in [clock-profile.md](clock-profile.md) and the version-two contracts in [production-contracts.md](production-contracts.md).
 The independent review finds no architectural contradiction under their explicit assumptions.
-The engineering review passes. The separate maintainer decision remains pending.
+The engineering review passes. The [separate maintainer decision](https://github.com/Crank-Git/epochalypse/issues/28#issuecomment-6664941171) records the acceptance scope on 2026-11-05.
 Keep switch production use disabled until implementation and deployment verification also pass.
 
 The accepted product tradeoff includes uncertainty approaching 24 hours with the default interval.
@@ -133,18 +133,22 @@ No runtime or host evidence exists in these research fixtures.
 These checks verify the design during implementation and deployment; they do not require completed services before the design decision.
 Live promotion remains a separate owner-approved step.
 
-## Proposed maintainer decision and criteria
+## Maintainer decision and criteria
 
-Accept this protocol design for subsequent implementation under ADR 0012.
-Accept the candidate epsilon=2 seconds and E=34 seconds as explicit ceilings subject to readiness verification.
-Retain the general formula `E=2*epsilon+S+W` and every premise above.
-Require implementation verification and actual host readiness before any production switch claim or enablement.
-This recommendation requests no changed product guarantee.
+The [maintainer decision](https://github.com/Crank-Git/epochalypse/issues/28#issuecomment-6664941171) accepts this design for subsequent implementation under ADR 0012 after the protocol batch gate.
+It selects fresh conservative UTC samples with candidate ceilings epsilon=2 seconds, S=5 seconds, W=25 seconds, P=30 seconds, and E=34 seconds.
+The recorded assessment and publication contract remains a prerequisite. The general formula remains `E=2*epsilon+S+W`.
+The decision requires authenticated canonical enrollment and intent, distinct agent keys and recipients, and irreversible release history.
+Durable state and freshness validation outside restored backups precede trusted clock samples.
+
+Runtime persistence, transport, process recovery, actual-host clock and publication evidence, and deployment verification remain required before production use.
+The decision approves no real host, service, domain change, or production enablement.
+It preserves the old exact-confirmation counterexamples as historical evidence.
 
 AC-switch-protocol-11 is met by the explicit candidate limits, conditional argument, validation contract, and reproducible evidence in this report.
 It does not certify a deployment or claim measured production bounds.
-AC-switch-protocol-8 awaits the maintainer's separate recorded decision on this recommendation.
-The worker cannot supply that decision by marking its own engineering review as accepted.
+AC-switch-protocol-8 is met by the separate recorded maintainer decision linked above.
+Design acceptance permits implementation after the batch gate. Production use remains disabled pending the later verification gates.
 
 ## Reproduce this review
 
