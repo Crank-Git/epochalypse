@@ -51,7 +51,7 @@ func parseCapsuleFlags(args []string, stderr io.Writer) (capsuleFlags, error) {
 	flags.IntVar(&options.limit, "plaintext-limit", capsule.DefaultPlaintextLimit, "Maximum plaintext bytes for new capsules")
 	mode, kind := "", "text"
 	if args[1] == "create" {
-		flags.StringVar(&mode, "mode", "", "public or server-held; public content is immediately available after publication")
+		flags.StringVar(&mode, "mode", "", "public, server-held, or tlock; preparation stays on this host")
 		flags.StringVar(&kind, "kind", "text", "text (UTF-8) or file (opaque bytes)")
 		flags.StringVar(&options.path, "content-file", "", "Local regular file; preparation stays on this host")
 		flags.StringVar(&options.input.Title, "title", "", "Capsule title")
@@ -77,10 +77,6 @@ func parseCapsuleFlags(args []string, stderr io.Writer) (capsuleFlags, error) {
 }
 
 func executeCapsule(action string, options capsuleFlags) (capsule.Manifest, error) {
-	// The transport gate excludes incomplete recovery formats.
-	if options.input.Mode == capsule.Tlock {
-		return capsule.Manifest{}, capsule.ErrUnsupportedMode
-	}
 	limits, err := parseWindowLimits(options.objects, options.bytes)
 	if err != nil {
 		return capsule.Manifest{}, err

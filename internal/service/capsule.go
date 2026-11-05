@@ -94,11 +94,6 @@ func (api *capsuleAPI) create(w http.ResponseWriter, r *http.Request) {
 		capsuleRequestError(w, r.Context().Err())
 		return
 	}
-	// Tlock transport stays disabled until its recovery producer and disclosures are complete.
-	if input.Mode == capsule.Tlock {
-		capsuleDomainError(w, capsule.ErrUnsupportedMode)
-		return
-	}
 	record, err := api.store.Create(input, bytes.NewReader(content), api.now())
 	if err != nil {
 		capsuleDomainError(w, err)

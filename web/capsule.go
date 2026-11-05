@@ -8,12 +8,13 @@ const CapsuleHTML = `<!doctype html>
 <p>Web preparation passes plaintext through the server in v1. The server operator can read your content during preparation.</p>
 <p>Public mode is public data after publication. Its requested date is advisory. Its key becomes available immediately.</p>
 <p>Server-held mode trusts the server operator to keep the key private until release. A server outage can delay availability. A lost key has no automatic recovery.</p>
-<p>CLI preparation uses a local file on the owner's machine. Local tlock preparation becomes available in a later release. Web tlock preparation remains unavailable.</p>
+<p>CLI tlock preparation stays on the owner's machine. It sends neither plaintext nor the unwrapped content key to the server.</p>
+<p>Tlock uses the pinned quicknet beacon round at or after the requested time. Beacon failure can delay availability. Published ciphertext cannot be recalled.</p>
 </section>
 <p id="allowance" data-limit="{{.}}">Maximum plaintext: {{.}} bytes. Text must use UTF-8. Files remain opaque bytes.</p>
 <noscript>Enable JavaScript to prepare and publish a capsule.</noscript>
 <form id="create-capsule"><fieldset disabled id="capsule-fields"><legend>Private draft</legend>
-<p><label for="mode">Mode</label> <select id="mode" required><option value="server-held">Server-held</option><option value="public">Public</option><option disabled>tlock — unavailable</option></select></p>
+<p><label for="mode">Mode</label> <select id="mode" required><option value="server-held">Server-held</option><option value="public">Public</option><option value="tlock">tlock</option></select></p>
 <p><label for="title">Title</label> <input id="title" maxlength="256"></p>
 <p><label for="release-at">Requested release time (UTC, RFC 3339)</label> <input id="release-at" placeholder="2099-01-01T00:00:00Z" required></p>
 <p><label for="kind">Content kind</label> <select id="kind"><option value="text">UTF-8 text</option><option value="file">Opaque file</option></select></p>
@@ -86,7 +87,12 @@ publish.addEventListener('click', async () => {
   try {
     const value = await request('/api/v1/capsules/' + draft + '/publish', {method: 'POST', headers: {'X-CSRF-Token': proof}});
     showMetadata(value);
-    status.textContent = value.mode === 'public' ? 'Published. The public-mode key is available immediately.' : 'Published. The server withholds its key until ' + value.effective_release_at + '. An outage can delay availability.';
+    const messages = {
+      public: 'Published. The public-mode key is available immediately.',
+      'server-held': 'Published. The server withholds its key until ' + value.effective_release_at + '. An outage can delay availability.',
+      tlock: 'Published. The pinned beacon round permits release at ' + value.effective_release_at + '. Beacon failure can delay availability. Published ciphertext cannot be recalled.'
+    };
+    status.textContent = messages[value.mode];
   } catch (error) { showError(error); publish.disabled = false; }
   finally { fields.disabled = false; }
 });
