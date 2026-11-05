@@ -39,6 +39,14 @@ func TestResolverFixtureAccessProcess(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// Another user cannot traverse the protected fixture mount on native Linux.
+	binary, err := os.ReadFile("/fixture/authority.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("/tmp/resolver-access.test", binary, 0755); err != nil { // #nosec G306 -- The public test executable needs cross-user access.
+		t.Fatal(err)
+	}
 }
 
 func TestResolverFixtureOwnership(t *testing.T) {
@@ -53,7 +61,7 @@ func TestResolverFixtureOwnership(t *testing.T) {
 		"/fixture/authority.test", "-test.run=^TestResolverFixtureAccessProcess$")
 	docker(t, "exec", "--user", fmt.Sprintf("%d:%d", os.Getuid()+1, os.Getgid()),
 		"--env", "EPOCHALYPSE_FIXTURE_DENY=1", container,
-		"/fixture/authority.test", "-test.run=^TestResolverFixtureAccessProcess$")
+		"/tmp/resolver-access.test", "-test.run=^TestResolverFixtureAccessProcess$")
 	for path, mode := range map[string]os.FileMode{
 		"synthetic.private": 0600, "synthetic.key": 0600, "state/v1/windows.db": 0600,
 		".": 0700, "state": 0700, "state/v1": 0700,
