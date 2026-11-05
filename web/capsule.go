@@ -86,7 +86,7 @@ publish.addEventListener('click', async () => {
   try {
     const value = await request('/api/v1/capsules/' + draft + '/publish', {method: 'POST', headers: {'X-CSRF-Token': proof}});
     showMetadata(value);
-    status.textContent = value.mode === 'public' ? 'Published. Public content is available immediately.' : 'Published. The server withholds its key until ' + value.effective_release_at + '. An outage can delay availability.';
+    status.textContent = value.mode === 'public' ? 'Published. The public-mode key is available immediately.' : 'Published. The server withholds its key until ' + value.effective_release_at + '. An outage can delay availability.';
   } catch (error) { showError(error); publish.disabled = false; }
   finally { fields.disabled = false; }
 });

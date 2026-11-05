@@ -36,7 +36,7 @@ export async function checkCapsules(call, evaluate, waitFor, origin) {
   assert.equal(publicDraft.filename, 'synthetic.bin');
   assert.equal(publicDraft.plaintext_bytes, 4);
   await evaluate("document.querySelector('#publish').click()");
-  await waitFor("document.querySelector('#capsule-status').textContent.includes('available immediately')");
+  await waitFor("document.querySelector('#capsule-status').textContent === 'Published. The public-mode key is available immediately.'");
   assert.equal(await keyStatus(publicDraft.id), 200);
   await call('Page.navigate', {url: origin + '/owner'});
   await waitFor("document.querySelector('h1')?.textContent === 'Signed in'");
