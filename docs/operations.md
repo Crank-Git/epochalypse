@@ -1,0 +1,241 @@
+# Deploy completed features
+
+This guide covers the main service, DNSSEC windows, capsules, and countdowns.
+These features require no agent or switch protocol acceptance.
+Switch production use remains disabled. Agent scaffolds provide no switch release behavior.
+The [four-process lab](lab.md) serves development checks. Use the main-only example below for this deployment slice.
+
+## Local containers
+
+Use synthetic content only. The example creates a known password and self-signed certificates.
+Docker stores both databases on its Linux filesystem. A macOS bind mount cannot establish the required database lock behavior.
+Run these commands from the repository root with Docker Compose 5.6.1:
+
+```sh
+mkdir -p var/main-example var/cache/buildx
+export BUILDX_CONFIG="$PWD/var/cache/buildx"
+export COMPOSE_PROJECT_NAME=completed-main
+export EPOCHALYPSE_BUILD_COMMIT="$(git rev-parse HEAD)"
+python3 -c 'from pathlib import Path; Path("var/main-example/countdown-material.mjs").write_text(Path("scripts/lab_material.mjs").read_text().replace("windows.lab.invalid.","countdowns.lab.invalid."))'
+docker compose -f deploy/main/compose.yaml build web
+docker compose -f deploy/main/compose.yaml up --detach --wait --wait-timeout 60
+docker compose -f deploy/main/compose.yaml ps --all
+docker compose -f deploy/main/compose.yaml cp web:/state/lab/tls.crt var/main-example/tls.crt
+curl --fail --cacert var/main-example/tls.crt https://localhost:8443/healthz
+curl --fail --cacert var/main-example/tls.crt https://localhost:8443/version
+```
+
+Expect one healthy `web` container and three successfully completed setup containers. No agent container starts.
+The countdown setup uses a separate volume and independently generated DNSSEC key.
+Its additional TLS files and password remain unused synthetic setup artifacts.
+The health probe skips verification inside the container. The operator's curl command verifies the copied certificate and hostname.
+Open `https://localhost:8443/owner`. Sign in with `synthetic-lab-password` after you trust this synthetic certificate locally.
+The origin in `deploy/main/local.json` matches port 8443. If you change that port, also change the origin.
+Set `MAIN_DNS_PORT` to change the loopback DNS port. Preserve all variables for later commands.
+
+Stop the main service before offline CLI commands:
+
+```sh
+docker compose -f deploy/main/compose.yaml stop web
+docker compose -f deploy/main/compose.yaml run --rm --no-deps web window create \
+  --zone windows.lab.invalid. --key-file /state/lab/window.private \
+  --content 'synthetic public window' \
+  --inception 2030-01-01T00:00:00Z --expiration 2030-01-01T01:00:00Z
+docker compose -f deploy/main/compose.yaml run --rm --no-deps web countdown create \
+  --zone countdowns.lab.invalid. --key-file /countdown/lab/window.private \
+  --title 'synthetic event' --event-at 2030-01-01T00:00:00Z
+docker compose -f deploy/main/compose.yaml up --detach --wait --wait-timeout 60
+docker compose -f deploy/main/compose.yaml exec web epochalypse lab verify \
+  --zone windows.lab.invalid. --address 127.0.0.1:1053 --anchor-file /state/lab/window.key
+docker compose -f deploy/main/compose.yaml exec web epochalypse lab verify \
+  --zone countdowns.lab.invalid. --address 127.0.0.1:1053 --anchor-file /countdown/lab/window.key
+```
+
+Use returned record names for UDP and TCP checks:
+
+```sh
+dig @127.0.0.1 -p 1153 RETURNED_NAME TXT +dnssec
+dig @127.0.0.1 -p 1153 RETURNED_NAME TXT +dnssec +tcp
+```
+
+The [capsule guide](capsules.md) describes capsule creation, publication, export, and authenticated content recovery.
+The [countdown guide](countdowns.md) describes advisory TTL behavior and public checks.
+Restart `web` to check persistence. Compare the original window signature and the retained countdown identifier after restart.
+Use `docker compose -f deploy/main/compose.yaml down` to remove this deployment's containers while preserving its volumes.
+Use `down --volumes` only when you intend to delete this synthetic deployment's state and keys.
+
+## Linux VPS example
+
+The systemd template targets systemd 257 or later on Linux.
+This repository verifies the service command in Linux containers. It does not claim a tested VPS installation or host systemd startup.
+An operator must review the host's installed systemd documentation and verify the unit before installation.
+The commands below describe operator actions. This issue performs no host installation or real deployment.
+
+1. Select a previously tested commit. Preserve its full SHA and the build artifact's digest outside the server.
+2. Run `make check` at that commit before deployment. Use the Go toolchain and pinned dependencies from the repository.
+3. Build with `make build`. The Makefile embeds the checked-out commit in the executable.
+4. Create a dedicated `epochalypse` system user and group without an interactive login.
+5. Install the matching `bin/epochalypse-linux-amd64` or `bin/epochalypse-linux-arm64` at `/opt/epochalypse/epochalypse`, owned by root and readable/executable by the service.
+6. Create `/var/lib/epochalypse`, owned by `epochalypse:epochalypse`, with mode 0700 on a persistent local disk.
+7. Create `/etc/epochalypse/keys` and `/etc/epochalypse/tls` with service-owned mode 0700.
+8. Copy `deploy/main/production.example.json` to `/etc/epochalypse/main.json`. Replace every example domain with operator-controlled names.
+9. Set the configuration file's owner to `epochalypse:epochalypse` and mode to 0600.
+10. Supply separate algorithm 13 BIND v1.3 key pairs for the two dedicated, nonoverlapping zones.
+11. Install each pair as `window.private`/`window.key` or `countdown.private`/`countdown.key` in the protected keys directory.
+12. Set all key files to mode 0600 with service ownership. Preserve each public key's original zone name.
+13. Supply a valid certificate chain for the public HTTPS hostname at `/etc/epochalypse/tls/fullchain.pem`.
+14. Supply its separate TLS private key at `/etc/epochalypse/tls/private.pem`. Use service ownership and mode 0600.
+15. Create the owner before service startup, with a protected temporary password file:
+
+```sh
+sudo -u epochalypse /opt/epochalypse/epochalypse owner init \
+  --state-dir /var/lib/epochalypse --password-file /etc/epochalypse/initial-password
+```
+
+Remove the initial password file after successful initialization. Preserve the password in the owner's separate password manager.
+Never use the lab material script or known password for a real deployment.
+Keep the administrator hostname and nameserver outside both served zones.
+Use a public address for the nameserver's A/AAAA records. Configure parent delegation as described below.
+Verify host time synchronization independently. `After=time-sync.target` does not measure clock error.
+
+Review `deploy/main/epochalypse.service` before an operator copies it to `/etc/systemd/system/epochalypse.service`.
+Run `systemd-analyze verify /etc/systemd/system/epochalypse.service` on that host.
+After successful review, the operator runs `systemctl daemon-reload` and `systemctl enable --now epochalypse.service` with host administration rights.
+Inspect `systemctl status epochalypse.service` and `journalctl -u epochalypse.service` for startup failures.
+The unit gives only the bind capability for privileged ports. Its writable persistent directory is `/var/lib/epochalypse`.
+It limits memory to 512 MiB, CPU to one core, tasks to 128, and open descriptors to 4096.
+These example limits require workload measurements before production use.
+
+Permit inbound UDP 53, TCP 53, and TCP 443 in both host and upstream firewalls.
+Keep host administration private. The main service exposes no separate agent-control listener.
+The example binds IPv4. Configure and test IPv6 separately before publishing AAAA records.
+Outbound HTTPS supports beacon retrieval for tlock capsules. Resolver experiments also require access to explicitly configured DNS targets.
+If the beacon stops, tlock availability can fail. Public windows provide no confidentiality.
+
+For containers on a Linux VPS, replace synthetic setup with operator-supplied keys, TLS files, configuration, and initialized durable state.
+Use `deploy/main/production.compose.yaml` for the exact production mounts and port mappings.
+Set `MAIN_IMAGE` to the tested image digest, including the image name and `@sha256:` digest.
+Set these absolute host paths before the operator starts Compose:
+
+```sh
+export MAIN_STATE=/var/lib/epochalypse
+export MAIN_CONFIG=/etc/epochalypse/main.json
+export MAIN_KEYS=/etc/epochalypse/keys
+export MAIN_TLS=/etc/epochalypse/tls
+docker compose -f deploy/main/production.compose.yaml config --quiet
+docker compose -f deploy/main/production.compose.yaml up --detach
+```
+
+Use the same UID 65534 for initialization and runtime in this container layout.
+Do not run the systemd service and the container against the same state or ports.
+Use the same server flags as the unit, with container ports 8080 and 1053.
+Map public TCP 443 to 8080 and both UDP/TCP 53 to 1053.
+Keep the service UID, read-only root, dropped capabilities, resource limits, and persistent state from the local template.
+Mount signing material and TLS material read-only. Match their numeric ownership to the container UID 65534.
+Do not run the local template unchanged on public interfaces.
+A managed platform qualifies only when it supports both DNS transports, HTTPS, durable local filesystem locks, ownership, and protected key mounts.
+No provider purchase or paid-host recommendation follows from this guide.
+
+## DNSSEC delegation checks
+
+Repeat these checks for each zone. Use the countdown key only for the countdown zone.
+The [window guide](windows.md#deployment-trust-check) defines the local-anchor check's exact limits.
+
+1. Obtain the authoritative server's address and public DNSKEY through an independent trusted operator channel.
+2. Confirm current DNSKEY and SOA signatures directly over UDP and TCP:
+
+```sh
+dig @AUTHORITY_IP windows.example.net. DNSKEY +dnssec
+dig @AUTHORITY_IP windows.example.net. SOA +dnssec +tcp
+epochalypse lab verify --zone windows.example.net. \
+  --address AUTHORITY_IP:53 --anchor-file /protected/window.key
+dnssec-dsfromkey -2 -f /protected/window.key windows.example.net.
+```
+
+Use BIND 9.20.21's `dnssec-dsfromkey` for the SHA-256 DS record.
+Record the full digest, algorithm, and key tag. A key tag alone does not identify a key.
+Coordinate the child NS delegation and derived DS with the parent zone's operator through the parent's authenticated process.
+Publish the DS only after both DNS transports and current infrastructure signatures pass.
+Do not derive the parent DS from a deliberately future experimental TXT signature.
+
+```sh
+dig @PARENT_AUTHORITY windows.example.net. NS +norecurse
+dig @PARENT_AUTHORITY windows.example.net. DS +dnssec +norecurse
+dig +trace +dnssec windows.example.net. SOA
+delv windows.example.net. SOA
+```
+
+Compare the parent's DS with the independently derived record. Confirm the parent NS target resolves to the intended authority.
+Use a validating resolver with a trusted root anchor for `delv`.
+Investigate an unsigned parent, missing DS, mismatched digest, expired infrastructure signature, or blocked TCP before release.
+`dig +trace +dnssec` displays the chain; it does not validate that chain.
+The project's `lab verify` validates only an explicit local anchor. It does not implement complete public delegation verification.
+An AD flag alone supplies no independent trust proof.
+Record timestamps, commands, addresses, public records, and validation results in the operator's deployment record.
+Recheck after delegation changes and TTL expiry. Coordinate key changes as a separate migration; retained windows bind the original DNSKEY.
+
+## State contract for isolated backup and restore
+
+This contract covers completed main-service features only. Issue #42 implements the encrypted backup and isolated restore test.
+The archive contains sensitive owner state and unreleased capsule keys. Encrypt it with a separate operator-controlled backup key.
+DNSSEC keys, TLS keys, capsule keys, and the backup key have different purposes. Never reuse one for another purpose.
+
+| Included item | Meaning and required format |
+|---|---|
+| `state/v1/owner.db` | Complete bbolt database: owner identity, Argon2id password profile, sessions, tokens, and audit state. Version 1 records. |
+| `state/v1/windows.db` | Complete bbolt installation database, including every bucket below. |
+| `config/main.json` | Exact version 1 settings, including both zones, public origin, resolver provenance, and applicable content limits. |
+| `keys/window.private`, `keys/window.key` | Original algorithm 13 BIND pair; private-key format v1.3. |
+| `keys/countdown.private`, `keys/countdown.key` | Separate algorithm 13 BIND pair; private-key format v1.3. |
+| `tls/fullchain.pem`, `tls/private.pem` | PEM certificate chain and separate TLS private key for the deployment. |
+| Backup metadata | Source commit, archive format version, UTC snapshot time, included paths, sizes, digests, numeric ownership, and selected limits. |
+
+The installation database contains `windows-v1`, `observations-v1`, `capsules-v1`, `capsule-keys-v1`, `countdowns-v1`, and `configuration-v1`.
+Capsule objects and manifests reside inside the database. `capsule-keys-v1` contains private content keys or tlock preparation digests, depending on the mode.
+The version 1 configuration bucket binds the window DNSKEY. Restore the entire database without bucket-level reconstruction.
+Treat unknown record or bucket formats as incompatible. Retain the matching executable commit and build digest in the operator's separate artifact store.
+`GET /version` reports only the commit today. The archive must record format versions separately.
+
+Exclude caches, executable build output, logs, test artifacts, plaintext input files, initial password files, demo state, and all agent state.
+Exclude the backup encryption key from its own archive. Keep its recovery copy through a separate operator-controlled channel.
+In the local example, map `/state/v1` to `state/v1` and both `/state/lab/window.*` files to `keys/window.*`.
+Map `/countdown/lab/window.*` to `keys/countdown.*`. Map `/state/lab/tls.*` to the corresponding TLS paths above.
+Exclude `owner.initialized`, synthetic passwords, setup metadata, and the countdown setup's unused TLS files.
+Include the effective configuration and limits, rather than assuming defaults on restore.
+
+For a coherent snapshot, block external access and stop the main process with SIGTERM through its service manager.
+Wait for process exit and database lock release. Stop all offline CLI writers before copying either database.
+Copy both complete databases and all referenced configuration and key files while they remain unchanged.
+Do not copy live database files or mix snapshots from different stops.
+Write the encrypted archive atomically. Sync the archive and its parent directory before reporting success.
+Verify the authenticated archive before extraction. Keep the service stopped until the snapshot completes or fails safely.
+Resume the original deployment only after the copy ends. Record any unavailable interval.
+
+For an isolated restore, use a new directory or fresh Linux volume with no original deployment mount.
+Use a private container network without published ports or external egress. Keep synthetic restore names outside public delegation.
+Restore regular files only. Reject links, path traversal, duplicate paths, unexpected files, and unsupported formats before installation.
+Use mode 0700 for directories and 0600 for databases and private material, owned by the restored service identity.
+Start the same commit with paths redirected to the isolated files. Keep both zones and DNSKEY bindings unchanged.
+Verify HTTPS, commit, both DNS transports, retained identifiers/signatures, capsule authenticated recovery, and countdown behavior inside that isolated network.
+Use synthetic released content for this test. Never expose restored owner sessions, tokens, or unreleased keys to public traffic.
+This procedure makes no live-agent monotonic-state or switch recovery claim.
+
+## Release checks and evidence
+
+Check HTTPS with hostname verification, `/healthz`, `/version`, both direct DNS transports, and local anchors before release.
+`/healthz` proves process liveness only. `/readyz` and the later operations scripts are not implemented in this deployment slice.
+Use feature reads and an isolated backup/restore exercise for the applicable state checks.
+Promote `dev` to `main` only through the separate owner-approved step. This guide grants no production promotion approval.
+
+Verified interfaces, retrieved 2026-11-05:
+
+- [Docker Compose services](https://docs.docker.com/reference/compose-file/services/) and installed Compose 5.6.1 help: dependencies, limits, volumes, and ports.
+- [Docker statistics](https://docs.docker.com/reference/cli/docker/container/stats/) and installed help: one-sample resource observations.
+- [systemd 257 execution options](https://github.com/systemd/systemd/blob/v257/man/systemd.exec.xml): identity, filesystem access, and bind capability.
+- [systemd 257 resource controls](https://github.com/systemd/systemd/blob/v257/man/systemd.resource-control.xml): memory, CPU, and task limits.
+- [systemd 257 service options](https://github.com/systemd/systemd/blob/v257/man/systemd.service.xml): startup, restart, and stop timeout.
+- [BIND 9.20.21 manuals](https://bind9.readthedocs.io/en/v9.20.21/manpages.html): `dig`, `delv`, and `dnssec-dsfromkey -2`.
+- [RFC 4035](https://www.rfc-editor.org/rfc/rfc4035.html), sections 2.4 and 5: parent DS coordination and validation.
+- [Node.js crypto](https://nodejs.org/api/crypto.html): the existing pinned synthetic material generator uses v26.13.0.
+
+The [local verification record](operations-verification.md) reports the measured example and its limits.

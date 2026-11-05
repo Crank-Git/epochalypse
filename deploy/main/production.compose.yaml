@@ -1,0 +1,39 @@
+name: epochalypse-main
+services:
+  web:
+    image: ${MAIN_IMAGE:?Set the tested immutable image digest}
+    user: "65534:65534"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    cpus: 1.0
+    mem_limit: 512m
+    pids_limit: 128
+    restart: unless-stopped
+    stop_grace_period: 30s
+    command: [server, --environment, production, --config, /config/main.json, --state-dir, /state, --http-addr, "0.0.0.0:8080", --dns-addr, "0.0.0.0:1053", --key-file, /keys/window.private, --countdown-key-file, /keys/countdown.private, --tls-cert, /tls/fullchain.pem, --tls-key, /tls/private.pem]
+    volumes:
+      - type: bind
+        source: ${MAIN_STATE:?Set the existing durable state directory}
+        target: /state
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${MAIN_CONFIG:?Set the existing main.json path}
+        target: /config/main.json
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${MAIN_KEYS:?Set the existing signing key directory}
+        target: /keys
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${MAIN_TLS:?Set the existing TLS directory}
+        target: /tls
+        read_only: true
+        bind: {create_host_path: false}
+    ports:
+      - "443:8080/tcp"
+      - "53:1053/udp"
+      - "53:1053/tcp"
