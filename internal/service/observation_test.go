@@ -188,14 +188,22 @@ func TestObservationHTTPPublishesBoundedPages(t *testing.T) {
 	read := func(query string) struct {
 		Runs []observation.Run `json:"runs"`
 		Next string            `json:"next_cursor"`
-	} { t.Helper(); w := httptest.NewRecorder(); h.handler.ServeHTTP(w, httptest.NewRequest("GET", "https://localhost"+path+query, nil)); if w.Code != 200 {
-		t.Fatalf("public page returns %d", w.Code)
-	}; var page struct {
-		Runs []observation.Run `json:"runs"`
-		Next string            `json:"next_cursor"`
-	}; if err := json.Unmarshal(w.Body.Bytes(), &page); err != nil {
-		t.Fatal(err)
-	}; return page }
+	} {
+		t.Helper()
+		w := httptest.NewRecorder()
+		h.handler.ServeHTTP(w, httptest.NewRequest("GET", "https://localhost"+path+query, nil))
+		if w.Code != 200 {
+			t.Fatalf("public page returns %d", w.Code)
+		}
+		var page struct {
+			Runs []observation.Run `json:"runs"`
+			Next string            `json:"next_cursor"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &page); err != nil {
+			t.Fatal(err)
+		}
+		return page
+	}
 	first := read("")
 	if len(first.Runs) != 50 || first.Next == "" {
 		t.Fatal("the first page loses its bound or cursor")
