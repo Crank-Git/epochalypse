@@ -1,218 +1,184 @@
 # Independent protocol review
 
-Issue #28 reviews commit `ad9a5eb` on 2026-11-05.
-The reviewer did not implement the model in #27.
-This report supplies a proposed decision for the maintainer. It records no production acceptance.
+Issue #28 reviews integration commit `3c9fbdb9d5f033b31c59841b339c6337aadd5743` on 2026-11-05.
+The reviewer did not implement the producers in #27, #106, or #107.
+This report recommends a design decision for the maintainer. It records no maintainer acceptance or production enablement.
 
 ## Result
 
-The revised model supports the conditional deadline argument below.
-It supplies useful evidence for implementation research under ADR 0012.
-It does not establish a complete production protocol.
-Keep switch production use disabled.
+Recommend acceptance of the proposed protocol design for subsequent implementation under ADR 0012.
+Select the fresh UTC policy in [clock-profile.md](clock-profile.md) and the version-two contracts in [production-contracts.md](production-contracts.md).
+The independent review finds no architectural contradiction under their explicit assumptions.
+The engineering review passes. The separate maintainer decision remains pending.
+Keep switch production use disabled until implementation and deployment verification also pass.
 
-ADR 0012 accepts three independent agents, three matching durable receipts for confirmation, and two release shares.
 The accepted product tradeoff includes uncertainty approaching 24 hours with the default interval.
-Two colluding agents can disclose content early.
-One unavailable agent can prevent confirmation while two surviving agents permit release.
-These accepted limits require no new product decision.
+Three distinct agents supply matching durable receipts for confirmation. Two distinct shares permit recovery.
+Two colluding agents can disclose content early. A compromised preparation client can disclose the complete key.
+One unavailable agent can prevent confirmation while two eligible survivors permit release.
+These limits follow ADR 0012 and require no new product decision.
+
+The prior review of `ad9a5eb` accepted conditional research only.
+It identified exact elapsed time, unspecified freshness authority, authenticated bytes, and incomplete lifecycle contracts as design gaps.
+Issues #106 and #107 now supply concrete algorithms for these gaps.
+They supply synthetic evidence, rather than production services or host certification.
 
 ## Review results
 
 | Contract | Result | Evidence and limit |
 | --- | --- | --- |
-| Durable intent precedes transmission | Pass in the model | `ClientJournal.Issue`, `UncertainModel.Transmit`, and `TestJournalIncludesDurableIntentBeforeTransmission`. Persistence copies values only. |
-| Exact retry and increasing sequence | Pass in the model | `TestRestartRetriesExactJournaledBytes`, `TestRejectsDelayedOlderIntentAfterLaterAcceptance`. Authentication and byte decoding remain assumptions. |
-| Lost receipts preserve uncertainty | Pass in the model | `TestLostFinalReceiptsReportUncertaintyAfterCompleteAcceptance` checks all eight receipt subsets. Three matching receipts advance B0. |
-| Each outage permits bounded recovery | Conditional pass | `TestReleasesEveryTwoIntentScheduleByBmaxPlusAllowance` checks 110,592 cases. The bound depends on the assumptions below. |
-| Fast clocks prevent early disclosure | Conditional pass | `TestConservativePolicyRejectsFastClockEarlyPublication` checks real UTC 109 against B0=110. Absolute clock accuracy remains external. |
-| Public history remains irreversible | Pass in the model | `TestRetainsReleasedSharesAfterRestartCancelAndRenewal` retains observer shares and rejects later renewal. |
-| Release and renewal serialize | Pass in the model | `TestRenewalAndReleaseRaceKeepsIrreversibleBoundary` checks both serialized orders at the boundary. No concurrent store or server exists. |
-| Ordinary restart preserves clock safety | Not established | `FaultModel.Restart` resumes a complete snapshot on the same synthetic elapsed timeline. No real process or host restart runs. |
-| Stale backups cannot restore authority | Not established | `RestartAgent` receives the stale flag from its caller. `TestQuarantinesStaleRestartWithoutRecallingObserverShares` tests the response, not detection. |
-| Exact authenticated wire protocol | Not established | `rules.md` specifies byte order and domains. No encoder, decoder, signature verifier, or wire fixture executes them. |
-| Complete switch lifecycle | Not established | `prepare` and `arm` have message proposals only. Cancellation and replacement lack complete distributed contracts. |
+| Durable intent precedes transmission | Pass | `ClientJournal.Issue` and `TestJournalIncludesDurableIntentBeforeTransmission`; real journal durability remains an implementation obligation. |
+| Exact retry and increasing sequence | Pass | `TestRestartRetriesExactJournaledBytes`, `TestRejectsDelayedOlderIntentAfterLaterAcceptance`, and `TestBindsJournalBytesToStateAndEnrollment`. |
+| Lost receipts preserve uncertainty | Pass | `TestLostFinalReceiptsReportUncertaintyAfterCompleteAcceptance` checks all eight receipt subsets. Bmax retains unsent durable intent and in-flight requests. |
+| Each outage permits bounded recovery | Pass under explicit premises | `TestSampledEpochsReleaseEveryTwoIntentOutageSchedule` checks 12,288 histories with changing offsets and reset elapsed epochs. |
+| Clock safety survives new epochs | Pass | `sampledEligibility` uses only the current `U-epsilon`; `TestFreshEpochPublishesWithoutContinuousElapsed` and `TestFreshSamplesIgnoreElapsedRate`. |
+| Missing assessment blocks authority | Pass | `TestSampledRestartRequiresFreshAssessment` blocks receipts and publication and retains the unsafe latch. `Safe` remains an external assertion. |
+| Numeric allowance has explicit limits | Pass as a candidate design profile | epsilon=2 seconds, S=5 seconds, W=25 seconds, P=30 seconds, E=34 seconds. Actual readiness remains unverified. |
+| Restore validates external authority first | Pass as an algorithm | `production-contracts.md`, “Durable authority outside restored archives”; `TestQuarantinesBeforeReceiptsOrShares` checks exact head equality. |
+| Persistence precedes irreversible output | Pass as an algorithm | The persistence table covers each crash point. `TestLifecyclePersistsBeforeOutput` checks logical commit order, not disk flushes. |
+| Distinct enrolled keys control confirmation | Pass | `admitEnrollment` validates distinct signature keys and canonical recipients. `confirm` derives keys only from that admitted value. |
+| Canonical signed bytes bind state | Pass as a format contract | `TestPreservesVersionTwoByteVector`, `TestVerifiesEveryMessageDomain`, and `TestRejectsAlteredSignedInput`. Nested certificate adapters remain implementation obligations. |
+| Maintained libraries support the representation | Pass as compatibility research | Vault v1.21.4 reconstructs a 32-byte key from each pair. age v1.3.2 restricts encrypted shares to their recipients. |
+| Complete lifecycle retains old authority | Pass as a design | Prepared agents never release. Partial arm reports uncertainty. Cancellation freezes renewal, and replacement requires a fresh switch and key. |
+| Public history remains irreversible | Pass | `TestSampledRestartCountsEveryRetainedShareSubset` covers all eight observer subsets. `TestCancelAndReplacementPreserveOldAuthority` preserves release after cancellation. |
 
-The recovery test name above refers to the two-intent enumeration in `uncertain_test.go`.
-The old `rules`, `boundaries`, `faults`, and `replacement` reports remain historical evidence.
-Their B0-only counterexamples remain valid against the former contract.
-The revised predicate does not repair that former contract.
+The distinct-key repair matters to the threshold claim.
+Three identity labels with one signature key cannot represent three independent receipt authorities.
+The admission tests reject repeated signature keys and recipients before confirmation or encrypted distribution.
+The certificate adapter must derive the admitted digest and records from the same verified canonical certificate.
+Distinct keys alone do not prove separate operators, providers, credentials, storage, or failure domains.
 
 ## Clock and publication argument
 
-Let t denote real UTC, U a clock sample, and epsilon the asserted absolute UTC error limit.
-Require `t-epsilon <= U <= t+epsilon` at initialization and every sample.
-Set the sampled lower bound to `U-epsilon`.
-Then `t-2*epsilon <= L <= t`.
-Exact elapsed projection preserves this interval between samples.
-The maximum of that projection and the next sampled lower bound preserves the interval.
+Let t denote real UTC, U the current integer UTC sample, and epsilon the absolute error limit.
+Every decision requires `t-epsilon <= U <= t+epsilon` after assessment age, capture delay, and quantization.
+Set `L=U-epsilon` for that decision only. Then `t-2*epsilon <= L <= t`.
+Release requires L to reach the accepted release boundary B.
+Thus an honest agent cannot disclose a new share before B under these premises.
+No prior sample or elapsed tick supplies release authority.
 
-An agent releases only when L reaches its accepted release boundary.
-Therefore, an honest agent cannot release before that boundary under these assumptions.
-Every accepted boundary comes from durable issued intent and remains at most Bmax.
-At real UTC `Bmax+2*epsilon`, each intact surviving agent has L at least Bmax.
-The journal requires nondecreasing boundaries, so these accepted boundaries also remain at least the initial B0.
-After later confirmation, three matching receipts establish the new common lower boundary, subject to intact durable state.
+Every accepted B comes from durable issued intent and remains at most Bmax.
+The client requires nondecreasing boundaries, so accepted authority remains at least the initial B0.
+Three matching durable receipts establish the later confirmed B0 at every agent, subject to intact state.
+An uncertain later renewal can move some agents toward Bmax without confirmation.
+This distinction preserves the accepted receipt-loss semantics.
 
-Let P bound the entire interval from mathematical eligibility to public recovery material at the observer.
-P includes the next sample, scheduling, publication, endpoint access, ciphertext retrieval, and observer retrieval.
-The proposed conditional allowance is `E=2*epsilon+P`.
-At least one surviving endpoint must supply authenticated ciphertext independently of the owner and main server.
-If the deadline includes actual plaintext recovery, P must also cover authenticated reconstruction and decryption.
-The current `ContentAvailable` predicate checks material availability, not decryption.
+At real UTC `Bmax+2*epsilon`, every surviving agent's next trusted sample has L at least its accepted B.
+Let S bound the time until that sample. Let W bound subsequent publication and independent recovery work.
+Set `P=S+W` and `E=2*epsilon+P`.
+Each survivor must complete within those bounds; the slower survivor determines completion.
+No owner client, main server, or inter-agent exchange supplies a release dependency.
+The observer needs both shares and independently retrievable authenticated ciphertext and manifest.
 
-The enumeration covers two issued intents, 64 delivery/persistence/receipt states per intent, and each one-agent outage.
-It uses every integer offset within epsilon zero, one, and two.
-Each case uses one shared fixed offset across agents; separate tests exercise selected clock steps.
-Publication values range from zero through two and derive from the schedule number.
-The tests do not independently enumerate every publication value for every schedule.
-They sample completion at the assumed bound. They do not measure publication work.
-This finite evidence supports the conditional argument, rather than a universal implementation proof.
+The proposed profile sets epsilon=2 seconds, S=5 seconds, and W=25 seconds.
+W assigns five seconds to schedule and public share work and 20 seconds to authenticated recovery, including decryption.
+The resulting candidate is P=30 seconds and E=34 seconds.
+Its assessment age ceiling is 60 seconds. Its capture-to-use ceiling is 250 milliseconds.
+The error budget includes 500 milliseconds of base uncertainty, 100 parts per million of rate uncertainty, and downward integer quantization.
+The illustrative sum is `0.5+0.0001*(60+0.25)+0.25+1=1.756025` seconds.
+Its remaining margin is 0.243975 seconds. Any additional uncertainty consumes that margin or prevents readiness.
 
-The review accepts no numeric production epsilon, P, or E.
-`ClockReading.Safe` asserts readiness. It does not establish absolute accuracy.
-The twice-epsilon comparison detects inconsistent samples under the model assumptions. It cannot detect every incorrect clock.
-An unsafe clock or quarantined agent removes a potential publisher.
-Reachability and honesty alone therefore cannot establish the bound without the reviewed clock and intact-state conditions.
+These numbers define a profile to validate. They approve no actual VPS, reference clock, scheduler, storage device, or endpoint.
+The chrony reference bound assumes correct reference time; authentication and synchronization status do not independently establish that premise.
+After restart, suspend, source loss, a clock step, or an ambiguous epoch, require the profile's fresh assessment.
+Validate restored authority and irreversible latches before that assessment.
+Include intact-state replay and assessment within S. An unlimited restart delay violates the availability premise.
 
-## Concrete implementation obligations
+An unsafe or quarantined survivor cannot support the conditional availability claim.
+Reachability and honesty alone cannot establish the bound without intact state and the reviewed clock and work limits.
+This design preserves safety by refusing new authority or disclosure when readiness fails.
+It makes no claim that a clock source or finite measurements prove universal accuracy.
 
-### Clock recovery
+## Evidence scope and preserved counterexamples
 
-The production design must define sample frequency, clock-source independence, leap-second treatment, suspend behavior, and an accuracy assessment with bounded age.
-It must account for elapsed-clock drift and time quantization in its lower bound.
-Exact synthetic elapsed seconds cannot serve as the implementation's accuracy evidence.
+The 12,288 sampled histories cover two issued intents, 64 fault schedules per intent, and each one-agent outage.
+The schedules include permanent client loss, changing offsets, and reset elapsed epochs.
+They establish material availability at assigned times, rather than execute reconstruction or measure real publication work.
+The candidate-profile test checks 780 combinations of offsets, sample gaps, and assigned recovery work.
+The isolated compatibility module separately executes pairwise reconstruction, recipient isolation, signature checks, and authenticated-content rejection.
+These finite checks support the argument under its premises. They are not a universal implementation proof.
 
-Ordinary process restart needs a fresh clock assessment and an explicit lower-bound recovery rule.
-Host restart also needs a new elapsed origin.
-One candidate re-anchors from a freshly assessed `U-epsilon` while retaining durable release and unsafe-state evidence.
-That candidate requires a separate proof and executable schedules before acceptance.
-It must neither project across incompatible elapsed origins nor clear irreversible release history.
-Readiness must block mutation and new disclosure until the recovery rule establishes safety.
-Any recovery delay must fit P or remove that agent from the conditional availability claim.
+The earlier 110,592-case enumeration remains evidence for the historical exact-elapsed experiment in `NewUncertainModel`.
+The proposed design instead selects `NewSampledModel`. Its UTC-only lower bound removes that elapsed premise.
+The original `rules`, `boundaries`, `faults`, and `replacement` reports retain their meaning.
+Their old-confirmed-boundary counterexamples remain valid against the former contract.
+This review changes no trace, original assertion, or model source.
 
-A second research candidate uses only each freshly assessed `U-epsilon`, without elapsed projection.
-Under the same absolute error assumption, each sample remains between `t-2*epsilon` and t.
-This candidate removes the exact continuous elapsed premise from the deadline argument.
-It still needs bounded sampling within P, fresh assessment after restart, and durable irreversible latches.
-Review backward samples, cutoff behavior, restart, and the publication race before choosing this candidate.
-No candidate has acceptance through this report.
+## Implementation and deployment obligations
 
-Go 1.27.3 omits monotonic readings from serialized `time.Time` values.
-Its documentation also warns that some monotonic clocks stop during sleep.
-Consequently, ordinary serialization cannot implement the model's continuous elapsed timeline.
-See the [versioned Go source](https://github.com/golang/go/blob/go1.27.3/src/time/time.go#L54-L68).
+The implementation must verify the accepted algorithms through concrete adapters:
 
-### Durable state and rollback
+- Decode and authenticate the canonical enrollment certificate and all nested prepared receipts against pinned identities.
+- Enforce product time limits, local clock cutoff, exact journal identity, operation phase, sequence, and replay rules together.
+- Use authenticated HTTPS with pinned endpoint identities, bounded requests, explicit timeouts, and bounded response bodies.
+- Implement the separate per-agent authoritative journal and its complete commit and checkpoint order.
+- Test process termination before commit, after commit, before response, and after possible disclosure.
+- Test flush errors, locking, directory persistence, incomplete records, checkpoint repair, stale archives, and lost share responses.
+- Persist possible disclosure and unsafe state before output. Retain both latches through restart and restore.
+- Verify exported recovery material before arm. Show partial arm as potentially disclosive and potentially unavailable.
+- Verify cancellation receipts without recall claims. Give replacement a fresh switch, enrollment, key, ciphertext, and recovery bundle.
+- Complete a current security and license review before production library adoption.
 
-Persist accepted state, durable sequence, release history, and clock safety evidence before a receipt or public share escapes.
-Use one serialized transaction order for renewal, release, and restart recovery.
-Test crashes before commit, after commit, before response, and after disclosure with real process restarts.
-A failed disclosure response must still preserve the durable fact that disclosure might have occurred.
+The authority resides on a separate durable volume outside ordinary archive restores.
+Startup validates the complete committed head before receipts, shares, or clock assessment.
+A missing or inconsistent head quarantines the agent. An intact head can reconstruct the disposable checkpoint after an ordinary restart.
+Common rollback of both the whole witness and its state remains outside the intact-state promise.
+A second file inside the same restored snapshot cannot detect that fault.
+Each survivor requires its own accessible authority; this contract introduces no shared network witness.
 
-A stale backup can contain a consistent old sequence and an old private-share flag.
-The backup cannot prove its own freshness.
-Specify a freshness authority outside the restored snapshot and its failure behavior.
-Quarantine must cover startup before either receipts or shares become available.
-Tests must restore stale backups after a confirmed renewal and after a lost share response.
-They must check durable refusal to renew the same content key after any possible disclosure.
-Public observers retain shares even when local history or an endpoint loses them.
+The deployment must establish source correctness, source independence, supported leap behavior, bounded assessment age, and capture delay.
+It must verify S and each W component through the observer's independent path under the supported fault envelope.
+It must verify independent providers, credentials, storage, endpoints, and restore procedures.
+No runtime or host evidence exists in these research fixtures.
+These checks verify the design during implementation and deployment; they do not require completed services before the design decision.
+Live promotion remains a separate owner-approved step.
 
-### Authenticated bytes and journal identity
+## Proposed maintainer decision and criteria
 
-The candidate format specifies fixed integer widths, lengths, ordered arrays, message domains, and rejection rules in `rules.md`.
-Implement versioned positive and negative fixtures for every proposed operation.
-Bind the verified signed bytes to their decoded state, signer, enrolled agent keys, content key, ciphertext digest, and protocol version.
-The model's `SignedIntent` accepts synthetic bytes and decoded state as an asserted association.
-It cannot detect a mismatch that a real verifier must reject.
+Accept this protocol design for subsequent implementation under ADR 0012.
+Accept the candidate epsilon=2 seconds and E=34 seconds as explicit ceilings subject to readiness verification.
+Retain the general formula `E=2*epsilon+S+W` and every premise above.
+Require implementation verification and actual host readiness before any production switch claim or enablement.
+This recommendation requests no changed product guarantee.
 
-On client restart, validate the journal's identity and configuration against the requested switch before transmission or receipt reconciliation.
-Match each returned receipt to an exact issued request and the enrolled agent identity.
-Persist receipt evidence before the client reports confirmation.
-Test another switch's journal, substituted bytes, conflicting receipts, stale configurations, corrupt journals, and receipts reordered across multiple intents.
-Keep the same signed bytes and times for retries. Arrival time must never extend authority.
-Specify timeout, body, nesting, and total message limits before allocation or signature work.
-
-### Arm, renewal, cancellation, and replacement
-
-Define durable prepared and armed states, their receipts, and the precise meaning of successful arm.
-Distribute and verify three encrypted shares and independent ciphertext copies before activation confirmation.
-Define partial arm, lost arm responses, permanent client loss, and restart at each transition.
-An arm certificate must bind the same content, enrollment, protocol version, and accepted state at every agent.
-
-Define the renewal cutoff using the reviewed clock policy.
-`CheckIn` rejects at or after its effective local release boundary, which can trail real UTC under the conservative policy.
-Confirm that the future implementation and owner status use this exact contract.
-Retain the configured interval and grace limits at the authenticated boundary.
-Test renewal just before, at, and after the cutoff, with release in each serialized order.
-
-`Cancel` currently stops local transmission only. Already in-flight requests can still arrive.
-Specify which distributed states cancellation changes and which receipts report its uncertain result.
-Cancellation cannot recall public shares or promise destruction of observer copies.
-
-Replacement cannot treat a new agent identity as a fresh threshold slot for the same content key without analysis.
-Previously disclosed shares remain available to observers.
-Specify enrollment changes, retired shares, old exports, and transition failure schedules before replacement exists.
-If replacement requires a fresh key and ciphertext, define the relationship to old independently releasable content.
-Do not claim that an old key becomes secret again.
-
-### Maintained threshold library
-
-The module already pins `github.com/drand/kyber v1.3.3` for other dependencies.
-The repository is not archived and reports activity on 2026-11-05.
-This is maintenance evidence, not a security audit or adoption decision.
-
-The [v1.3.3 source](https://github.com/drand/kyber/blob/v1.3.3/share/poly.go) exposes these exact APIs:
-
-```go
-NewPriPoly(group kyber.Group, t int, s kyber.Scalar, rand cipher.Stream) *PriPoly
-(*PriPoly).Shares(n int) []*PriShare
-RecoverSecret(g kyber.Group, shares []*PriShare, t, n int) (kyber.Scalar, error)
-(*PriPoly).Commit(b kyber.Point) *PubPoly
-(*PubPoly).Check(s *PriShare) bool
-```
-
-These APIs share and recover a group scalar. They do not establish an arbitrary content-key encoding.
-Before selection, review the group, scalar representation, key derivation, randomness, authenticated share envelopes, and malformed-share handling.
-Verify every two-agent combination reconstructs the intended key and one share supplies no recovery path.
-Review public commitments for the chosen secret representation before disclosure.
-No implementation or library adoption occurs in this review.
-
-Primary evidence, retrieved 2026-11-05:
-
-- [Go 1.27.3 time source](https://github.com/golang/go/blob/go1.27.3/src/time/time.go), lines 54–68: sleep and serialization limits.
-- [Kyber v1.3.3 source](https://github.com/drand/kyber/blob/v1.3.3/share/poly.go), lines 56, 95, 141, 180, and 404: the signatures above.
-- [Kyber v1.3.3 release](https://github.com/drand/kyber/releases/tag/v1.3.3) and [repository metadata](https://api.github.com/repos/drand/kyber): version and maintenance evidence.
-
-## Proposed maintainer decision
-
-Accept the revised synthetic model as conditional research evidence under ADR 0012.
-Retain the symbolic bound `E=2*epsilon+P` with its explicit assumptions.
-Keep production use disabled and record no numeric allowance.
-Require the concrete obligations above before a production protocol review can pass.
-
-The next engineering step compares the fresh UTC-only lower bound with a restart-aware elapsed projection.
-If the design retains elapsed projection, model bounded elapsed error and an explicit re-anchor operation.
-Then specify and test durable rollback detection, authenticated wire fixtures, and complete lifecycle contracts.
-These are engineering requirements, rather than a request to reconsider the accepted receipt-loss tradeoff.
-If a proposed implementation requires a weaker availability promise, request an explicit owner decision before changing the spec.
-
-Separate protocol algorithms from their future implementation and deployment profile.
-Clock recovery, lifecycle transitions, and authenticated byte contracts need complete algorithm definitions before protocol acceptance.
-Real stores, transport, and process tests then verify those definitions during implementation.
-The deployment profile supplies supported numeric epsilon and P for the selected hosts and endpoints.
-This review chooses no hosts and adds no availability promise outside the honest-agent, intact-state, bounded-clock assumptions.
-
-AC-switch-protocol-8 needs the maintainer's separate recorded decision after this review.
-AC-switch-protocol-11 has an explicit conditional formula here, but lacks supported production clock limits and measured publication bounds.
-The maintainer must preserve that distinction when recording the result.
+AC-switch-protocol-11 is met by the explicit candidate limits, conditional argument, validation contract, and reproducible evidence in this report.
+It does not certify a deployment or claim measured production bounds.
+AC-switch-protocol-8 awaits the maintainer's separate recorded decision on this recommendation.
+The worker cannot supply that decision by marking its own engineering review as accepted.
 
 ## Reproduce this review
 
-Run `go test ./internal/switchprotocol -count=1 -cover` with the repository's local cache paths.
-Inspect `transition.go`, `faults.go`, `journal.go`, `uncertain.go`, and their tests at commit `ad9a5eb`.
-No source behavior changes in this issue. A pre-patch behavior test does not apply.
-Package coverage measures the research model only. It does not replace the project's aggregate 95.00 percent gate.
+Use Go 1.27.3 and worktree-local GOCACHE, GOMODCACHE, GOPATH, GOTMPDIR, and XDG_CACHE_HOME paths under ignored `var/`.
+Keep `var/go.mod` as the module fence for downloaded source.
+
+```sh
+go mod download
+go test ./internal/switchprotocol -count=1 -cover
+go -C tests/compatibility/switch-contract mod download
+go -C tests/compatibility/switch-contract test -count=1 -race -cover ./...
+go -C tests/compatibility/switch-contract vet ./...
+go -C tests/compatibility/switch-contract build ./...
+git diff --check
+```
+
+This report changes no behavior, test, public runtime interface, or browser flow.
+Test-first and pre-patch behavior checks do not apply to this report.
+Package coverage measures research helpers only. It does not replace the aggregate 95.00 percent gate.
 The epic integration pull request runs the full required suite.
-The review run passes with 99.7 percent package coverage on 2026-11-05.
+The producer reports one unexplained countdown focus failure before later successful checks. The PM retains that integration verification limitation.
+
+Primary interfaces independently checked on 2026-11-05:
+
+- [Vault v1.21.4 Shamir source](https://github.com/hashicorp/vault/blob/v1.21.4/shamir/shamir.go): raw-byte shares and pairwise reconstruction.
+- [age v1.3.2 API](https://pkg.go.dev/filippo.io/age@v1.3.2): recipient parsing, canonical representation, encryption, and decryption.
+- [chrony 4.9 manual](https://chrony-project.org/doc/4.9/chronyc.html): reference-dependent clock error, frequency uncertainty, and synchronization limits.
+
+The compatibility checks exercise pinned APIs. This review adopts no production dependency or clock service.
+
+The earlier review also verifies Kyber v1.3.3 scalar-share signatures in its [versioned source](https://github.com/drand/kyber/blob/v1.3.3/share/poly.go).
+`NewPriPoly`, `Shares`, `RecoverSecret`, `Commit`, and `Check` operate on group scalars.
+That alternative supplies no selected arbitrary-key representation. The concrete compatibility evidence above uses Vault's raw-byte API.
+
+The independent rerun passes with 99.7 percent model coverage and 99.0 percent compatibility-helper coverage.
+The compatibility race tests, vet, and build pass. Test references and local report links resolve.
 `git diff --check` reports no whitespace error.
