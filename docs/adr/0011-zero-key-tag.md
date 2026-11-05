@@ -17,7 +17,8 @@ An upgrade therefore does not correct this defect.
 
 Keep a complete local copy of `codeberg.org/miekg/dns v0.6.128` in `third_party/miekg-dns`.
 Keep its module identity, license, source files, and tests.
-Select that module with a root `replace` directive.
+Select version `v0.6.128` with a root `replace` directive that names that version.
+A future dependency upgrade therefore selects its upstream module instead of the old local copy.
 Remove only `rr.KeyTag == 0 ||` from the initial `RRSIG.Sign` guard.
 Remove the equivalent loader rejection. Preserve all other loader checks.
 Compute the key tag once before the signer accepts concurrent calls.

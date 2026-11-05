@@ -2,7 +2,7 @@
 
 This directory copies the complete Go module `codeberg.org/miekg/dns v0.6.128`.
 The upstream BSD 3-Clause license remains in `LICENSE`.
-The module keeps its upstream module path. The root module selects it through `replace`.
+The module keeps its upstream module path. The root module selects version `v0.6.128` through a version-specific `replace`.
 First-party coverage and lint checks treat it as a dependency.
 
 Source: https://codeberg.org/miekg/dns/src/tag/v0.6.128

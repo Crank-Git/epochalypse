@@ -2,7 +2,7 @@ module github.com/Crank-Git/epochalypse
 
 go 1.27.3
 
-replace codeberg.org/miekg/dns => ./third_party/miekg-dns
+replace codeberg.org/miekg/dns v0.6.128 => ./third_party/miekg-dns
 
 require (
 	codeberg.org/miekg/dns v0.6.128
