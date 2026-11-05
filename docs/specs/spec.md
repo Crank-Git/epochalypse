@@ -165,12 +165,12 @@ Use `cmd/epochalypse` for the executable and `internal/` for domain modules.
 Separate modules cover authentication, DNS, capsules, switches, agent state, content, and the clock.
 Use injected clocks for deterministic tests. Use monotonic durations for local scheduling, with explicit UTC release boundaries.
 
-Select [codeberg.org/miekg/dns v0.6.128](https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128) after the compatibility spike.
+Use [codeberg.org/miekg/dns v0.6.128](https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128) for the authoritative server and DNS clients.
 Keep [miekg/dns v1.1.73](https://github.com/miekg/dns/tree/v1.1.73) as an isolated comparison dependency.
 The [compatibility report](../research/dns-compatibility.md) records real resolver evidence and API limits.
-ADR 0004 records the choice. Production integration remains separate.
-Use [tlock v1.2.0](https://github.com/drand/tlock/tree/v1.2.0) as the initial compatibility target.
-Verify quicknet configuration explicitly. Legacy examples contain conflicting network references.
+ADR 0004 records the choice. The implemented contracts are in docs/windows.md and docs/observations.md.
+The tlock v1.2.0 compatibility report verifies an explicit quicknet identity.
+Use docs/research/tlock-compatibility.md before production integration; example defaults have no authority.
 Owner state uses bbolt v1.5.0 and Argon2id from golang.org/x/crypto v0.58.0.
 ADR 0003 and docs/owner.md define the verified storage and password contracts.
 The foundation pins the lint tools in its check scripts.
