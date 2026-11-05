@@ -16,7 +16,7 @@ export async function checkCountdowns(call, evaluate, waitFor, origin) {
   catch (error) { throw new Error(error.message + ': ' + await evaluate("JSON.stringify({status: document.querySelector('#countdown-status').textContent, focus: document.activeElement.id, event: document.querySelector('#countdown-event').value, valid: document.querySelector('#countdown-form').checkValidity()})")); }
   const id = await evaluate("document.querySelector('#countdown-list li').dataset.id");
   const record = await evaluate(`fetch('/api/v1/countdowns/${id}').then(response => response.json())`);
-  assert.equal(await evaluate("document.querySelector('#countdown-list a').getAttribute('href')"), '/events/' + id);
+  assert.equal(await evaluate("document.querySelector('#countdown-list a')?.getAttribute('href')"), '/events/' + id);
   assert.equal(record.event_at, event);
   assert.equal(record.name, 'c' + id + '.countdown.example.');
   assert.equal(await evaluate("document.querySelector('#countdown-list script') === null"), true);

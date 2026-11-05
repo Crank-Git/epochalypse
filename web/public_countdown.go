@@ -7,7 +7,7 @@ const PublicCountdownHTML = `<!doctype html>
 <section aria-labelledby="event-heading"><h2 id="event-heading">Public countdown</h2>
 <p>Event time (UTC): <time id="event-at" datetime="{{.EventAt.Format "2006-01-02T15:04:05Z"}}">{{.EventAt.Format "2006-01-02T15:04:05Z"}}</time></p>
 <p id="local-event"></p><p>DNS name: <code id="dns-name">{{.Name}}</code></p>
-<p id="event-state">{{.State}} at the server page check.</p><p id="remaining">Time unavailable. Synchronize with the server.</p>
+<p id="event-state" role="status">{{.State}} at the server page check.</p><p id="remaining">Time unavailable. Synchronize with the server.</p>
 <p id="time-status" role="status">Time unavailable. Synchronize with the server.</p><button id="sync-time" type="button">Synchronize time</button>
 <noscript><p>Enable JavaScript for a live countdown. Reload for the server event state.</p></noscript></section>
 <section aria-labelledby="dns-heading"><h2 id="dns-heading">Advisory DNS TTL</h2>
@@ -40,7 +40,8 @@ const PublicCountdownJS = `'use strict';
  function render() {
   if (!sample) return;
   const delta = eventTime - (sample.server + performance.now() - sample.local);
-  state.textContent = delta <= 0 ? 'Completed' : 'Active';
+  const label = delta <= 0 ? 'Completed' : 'Active';
+  if (state.textContent !== label) state.textContent = label;
   remaining.textContent = Math.max(0, Math.floor(delta / 1000)) + ' whole seconds remain.';
  }
  async function sync() {

@@ -24,7 +24,7 @@ func (api *countdownAPI) publicControls(mux *http.ServeMux, lab bool) {
 	}
 	for _, asset := range []struct{ path, media, body string }{
 		{"/events/countdown.js", "text/javascript; charset=utf-8", web.PublicCountdownJS},
-		{"/events/style.css", "text/css; charset=utf-8", web.OwnerCSS},
+		{"/events/style.css", "text/css; charset=utf-8", web.OwnerCSS + "h1{overflow-wrap:anywhere}"},
 	} {
 		mux.Handle("GET "+asset.path, owner.SecureHandler(lab, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", asset.media)

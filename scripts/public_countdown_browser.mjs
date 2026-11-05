@@ -11,7 +11,9 @@ export async function checkPublicCountdown(call, evaluate, waitFor, origin, reco
   assert.match(await evaluate('document.body.textContent'), /not a security boundary/);
   assert.match(await evaluate("document.querySelector('#local-event').textContent"), /Event time \(local\):/);
   await call('Emulation.setDeviceMetricsOverride', {width:320,height:640,deviceScaleFactor:1,mobile:true});
+  await evaluate("document.querySelector('h1').textContent = 'x'.repeat(128)");
   assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true);
+  await evaluate(`document.querySelector('h1').textContent = ${JSON.stringify(record.title)}`);
   await call('Emulation.clearDeviceMetricsOverride');
   await evaluate(`globalThis.savedCountdownFetch = fetch;
     globalThis.savedCountdownNow = Date.now;
