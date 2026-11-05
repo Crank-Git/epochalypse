@@ -207,7 +207,7 @@ The executable runs inside the pinned Alpine image with external networking disa
 The repair changes tests and this record only. It changes no production source or archive format.
 
 The replacement fixture invokes a real `context.CancelFunc` at observable file boundaries.
-The complete `Install` path cancels when its private publication stage exists, before its first payload read.
+The complete `Install` path cancels when its private publication stage exists, before the first staged payload copy.
 A second case waits until every staged file matches the authenticated archive bytes.
 The test asserts the trigger, canceled context, closed `Done` channel, absent destination, and complete stage cleanup.
 An existing empty destination retains its original directory identity and contents after cancellation.
