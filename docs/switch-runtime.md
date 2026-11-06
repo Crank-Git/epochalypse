@@ -456,3 +456,8 @@ Agent signatures still provide protocol authentication.
 The private owner key never enters the agent request or bundle.
 The owner-local CLI records public evidence in the main draft as described above.
 Actual-host deployment and the complete product verification gates remain incomplete.
+
+The [isolated outage drill](switch-outage-drill.md) exercises main loss and each one-agent outage before release.
+It uses production HTTP, cryptography, journals, publication, and standalone CLI recovery with explicit test clock control.
+Its evidence records exact executable identity and measured results under the candidate allowance.
+It does not establish actual-host readiness or independent provider failure domains.
