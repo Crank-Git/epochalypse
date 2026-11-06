@@ -129,7 +129,18 @@ class CLITests(unittest.TestCase):
                     if mode == "dns":
                         self.check_dns_frames(dns_port)
                     with urllib.request.urlopen(f"http://127.0.0.1:{port}/version", timeout=1) as response:
-                        self.assertEqual(json.load(response), {"commit": self.commit})
+                        metadata = json.load(response)
+                        self.assertEqual(metadata["commit"], self.commit)
+                        self.assertEqual(metadata["version"], 1)
+                        self.assertEqual(metadata["state_format"], 1)
+                        self.assertEqual(metadata["protocol_format"], 2)
+                        self.assertEqual(metadata["role"], "main" if mode == "server" else "scaffold")
+                        self.assertFalse(metadata["production_ready"])
+                    with self.assertRaises(urllib.error.HTTPError) as unavailable:
+                        urllib.request.urlopen(f"http://127.0.0.1:{port}/readyz", timeout=1)
+                    self.assertEqual(unavailable.exception.code, 503)
+                    with unavailable.exception as response:
+                        self.assertFalse(json.load(response)["ready"])
                     for requested, expected in ((self.commit, "success"), ("b" * 40, "failure")):
                         result = subprocess.run([binary, "status", "--endpoints", f"http://127.0.0.1:{port}", requested], env=env, capture_output=True, text=True, timeout=10)
                         self.assertEqual(result.returncode, 0, result.stderr)

@@ -30,6 +30,7 @@ func verifyStandaloneSwitchRecovery(t *testing.T, binary string, paths switchFix
 	if string(output) != "positive executable switch fixture" {
 		t.Fatalf("standalone recovery content = %q", output)
 	}
+	verifyReadinessPublicRecovery(t, binary, paths, plan, fixture, owner)
 	stopSwitchAgentProcess(fixture.processes[1])
 	stdout, _, err := runSwitchExecutableResult(binary, args, map[string]string{"SSL_CERT_FILE": paths.certs})
 	if err == nil || stdout.Len() != 0 {

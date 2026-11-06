@@ -1,5 +1,7 @@
 # Switch runtime contracts
 
+See [deployment readiness](readiness.md) for read-only runtime metadata and operator inventory checks.
+
 Issue #31 introduces runtime contracts for the reviewed version-two protocol.
 These contracts do not enable production switches.
 The CLI provides local prepare, arm, check-in, status, export, and recover commands.
