@@ -51,7 +51,7 @@ class GoTestTests(unittest.TestCase):
         execute.assert_called_once_with(["go", "test", "-json", "-race", "-count=1", "./..."], capture_output=True, text=True, timeout=120)
 
     def test_prepares_race_before_required_execution(self):
-        result = subprocess.run(["make", "-n", "test-race"], capture_output=True, text=True, timeout=5)
+        result = subprocess.run(["make", "--no-print-directory", "-n", "test-race"], capture_output=True, text=True, timeout=5)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.splitlines(), [
             "python3 scripts/go_tests.py --prepare-race",
