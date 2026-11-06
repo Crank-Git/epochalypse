@@ -16,8 +16,11 @@ class CoverageTests(unittest.TestCase):
                 (None, 1, "coverage:"),
                 ("", 1, "empty coverage profile"),
                 ("mode: atomic\nbad", 1, "malformed coverage block"),
-                ("mode: atomic\na.go:1.1,2.1 94999 1\na.go:3.1,4.1 5001 0", 1, "below 95.00 percent"),
-                ("mode: atomic\na.go:1.1,2.1 95 1\na.go:3.1,4.1 5 0", 0, "95.0000 percent"),
+                ("mode: atomic\na.go:1.1,2.1 89999 1\na.go:3.1,4.1 10001 0", 1, "below 90.00 percent"),
+                ("mode: atomic\na.go:1.1,2.1 90 1\na.go:3.1,4.1 10 0", 0, "90.0000 percent"),
+                ("mode: atomic\na.go:1.1,2.1 925 1\na.go:3.1,4.1 75 0", 0, "92.5000 percent"),
+                ("mode: set\na.go:1.1,2.1 1 0\na.go:1.1,2.1 2 1", 1, "conflicting coverage blocks"),
+                ("mode: set\na.go:1.1,2.1 1 2", 1, "invalid coverage range or count"),
             )
             for content, code, message in cases:
                 with self.subTest(content=content):
@@ -28,7 +31,7 @@ class CoverageTests(unittest.TestCase):
                     self.assertIn(message, result.stderr if code else result.stdout)
 
     def test_accepts_exact_boundary(self):
-        self.assertEqual(measure(["mode: atomic\na.go:1.1,2.1 95 1\na.go:3.1,4.1 5 0\n"]), (95, 100))
+        self.assertEqual(measure(["mode: atomic\na.go:1.1,2.1 90 1\na.go:3.1,4.1 10 0\n"]), (90, 100))
 
     def test_rejects_invalid_profiles(self):
         for profile in ("", "mode: atomic\n", "mode: bad\na.go:1.1,2.1 1 1", "mode: set\nbad", "mode: set\na.go:1.1,2.1 -1 1", "mode: set\na.go:2.1,1.1 1 1"):
@@ -36,8 +39,8 @@ class CoverageTests(unittest.TestCase):
                 measure([profile])
 
     def test_preserves_unrounded_total(self):
-        covered, total = measure(["mode: count\na.go:1.1,2.1 94999 1\na.go:3.1,4.1 5001 0"])
-        self.assertLess(covered * 100, total * 95)
+        covered, total = measure(["mode: count\na.go:1.1,2.1 89999 1\na.go:3.1,4.1 10001 0"])
+        self.assertLess(covered * 100, total * 90)
 
     def test_combines_instrumented_runs(self):
         self.assertEqual(measure(["mode: atomic\na.go:1.1,2.1 1 0", "mode: set\na.go:1.1,2.1 1 1"]), (1, 1))

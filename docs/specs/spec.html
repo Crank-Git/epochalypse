@@ -245,7 +245,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>Pass every required test before merge.
 </li>
-<li>Maintain at least 95.00 percent aggregate statement coverage for first-party Go code.
+<li>Maintain at least 90.00 percent aggregate statement coverage for first-party Go code.
 </li>
 <li>Record a reproducible total-loss research result.
 </li>
@@ -351,7 +351,7 @@ body.rv-open .layout { padding-right:21rem; }
 </table></div>
 <p>Configuration holds the zone name, agent endpoints, failure domains, public keys, beacon chain, and protocol version. Configure distinct subdomains and signing-key references for signature-window experiments and countdowns. Countdown record names derive from their opaque identifiers under the configured countdown subdomain. Return the actual record name in public metadata. The project does not change delegation automatically. Private key files require owner-only filesystem access. Configuration contains key references rather than key values. Production startup rejects lab keys and insecure public origins. Use a small synthetic capsule, switch, countdown, and window as demo records. Real domains, VPS addresses, and the personal GitHub identity remain operator setup values. No provider budget or spending authority exists.</p>
 <h2 id="testing-strategy">Testing strategy</h2>
-<p>Required pass rate is 100 percent. Coverage is a separate minimum of 95.00 percent. Measure Go statement coverage across every first-party production package, including CLI and HTTP adapters. Exclude dependencies and generated third-party code. Do not exclude difficult branches to reach the threshold. Fail the coverage check when the profile is absent, empty, malformed, or below the unrounded threshold. Require explicit tests for every security and deadline boundary regardless of coverage.</p>
+<p>Required pass rate is 100 percent. Coverage is a separate minimum of 90.00 percent. Measure Go statement coverage across every first-party production package, including CLI and HTTP adapters. Exclude dependencies and generated third-party code. Do not exclude difficult branches to reach the threshold. Fail the coverage check when the profile is absent, empty, malformed, or below the unrounded threshold. Require explicit tests for every security and deadline boundary regardless of coverage.</p>
 <p>Use TDD for behavior changes. First demonstrate a failing assertion against the existing behavior. Then implement the smallest change that passes. Refactor while the checks remain green. A new test that fails only because of a syntax error does not demonstrate the behavior. Record the fail/pass commands in the PR description without mandatory changelog edits.</p>
 <p>Planned commands become executable in Epic 0:</p>
 <div class="table-wrap"><table>
@@ -361,7 +361,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td><code>make test-e2e</code></td><td>Browser and CLI happy paths plus critical errors pass.</td></tr>
 <tr><td><code>make test-resolvers</code></td><td>Pinned default Unbound, strict Unbound, and BIND scenarios pass.</td></tr>
 <tr><td><code>make test-race</code></td><td><code>go test -race ./...</code> reports no races.</td></tr>
-<tr><td><code>make coverage</code></td><td>Instrumented aggregate Go coverage reaches 95.00 percent.</td></tr>
+<tr><td><code>make coverage</code></td><td>Instrumented aggregate Go coverage reaches 90.00 percent.</td></tr>
 <tr><td><code>make fuzz-smoke</code></td><td>Bounded parser and protocol fuzz tests pass for 30 seconds each.</td></tr>
 <tr><td><code>make lint</code></td><td>Format, vet, complexity, nesting, dead-code, and security checks pass.</td></tr>
 <tr><td><code>make build</code></td><td>Linux amd64 and arm64 builds succeed.</td></tr>
@@ -416,7 +416,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>The historical counterexamples.
 </li>
 </ul>
-<p>Switch completion does not block this local milestone. Actual-host certification and promotion to <code>main</code> remain separate gates. Every required test must pass. Aggregate first-party Go statement coverage must reach 95.00 percent before rounding.</p>
+<p>Switch completion does not block this local milestone. Actual-host certification and promotion to <code>main</code> remain separate gates. Every required test must pass. Aggregate first-party Go statement coverage must reach 90.00 percent before rounding.</p>
 <h3 id="full-project-roadmap">Full project roadmap</h3>
 <ol>
 <li>Establish a green repository and a reproducible DNS demonstration.
@@ -482,6 +482,10 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>No unanswered product question blocks the approved plan. Technical gates block the affected implementation or production claim.</p>
 <h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-11-05: The owner lowers aggregate first-party Go statement coverage to 90.00 percent in #125. Preserve every required test and zero required skips. Explicit security, durability, and deadline tests remain required.
+</li>
+</ul>
 <ul>
 <li>2026-11-05: The owner selects DNSSEC experiments, capsules, countdowns, and owner access for the first local milestone in #120. Defer switch runtime and dependent operations. Preserve their requirements and quality gates.
 </li>
