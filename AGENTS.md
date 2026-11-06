@@ -3,7 +3,7 @@
 ## Project state
 
 epochalypse provides DNSSEC window experiments, time capsules, dead man’s switches, and DNS countdowns.
-The owner approved the spec on 2026-11-04. This repository currently contains the spec and planning scaffold only.
+The owner approved the spec on 2026-11-04. All planned software features are implemented. Actual-host verification and main promotion are deferred by the owner.
 Read docs/specs/spec.md before work. Read the relevant docs/specs/features/ file before a feature change.
 The spec is public. Keep credentials, real secrets, and private infrastructure values outside tracked files.
 
@@ -13,13 +13,13 @@ Use Go with the toolchain from the spec. Use standard HTTP, templates, JSON, and
 Product source belongs in cmd/epochalypse, internal/, and web/.
 Tests belong beside their Go packages or in tests/ for cross-service checks.
 Deployment files belong in deploy/. Automation belongs in scripts/.
-The foundation epic creates these paths and verifies dependencies before implementation uses them.
+Verify dependencies before implementation uses them.
 Keep the generated spec site and its vendored assets tracked.
 
 ## Commands
 
-The following commands are planned. They become runnable through Epic 0.
-Do not report them as passing before their implementation exists.
+The foundation provides the commands below. Read docs/checks.md for the current required suites.
+Resolver feature checks and isolated compatibility research use separate runners.
 
 - Build: `make build`.
 - Run the main service: `make run`.
@@ -50,7 +50,7 @@ Use short imperative commit subjects. Describe the behavior and verification in 
 Use dev for integration. Promote dev to main only through a separate owner-approved step.
 Each epic produces one integration pull request with required CI.
 Use test-first behavior changes and the exact quality gates from the spec.
-Every required test passes. First-party Go statement coverage reaches at least 95.00 percent.
+Every required test passes. First-party Go statement coverage reaches at least 90.00 percent.
 Keep switch production use disabled until the protocol review and maintainer decision pass.
 Approval of the project plan does not approve an unreviewed switch protocol.
 

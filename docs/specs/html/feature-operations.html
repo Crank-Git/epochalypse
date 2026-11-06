@@ -155,7 +155,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ul></aside>
 <main>
 <h1>Feature: Deployment and recovery</h1>
-<p class="meta">Epic 7: Deployment and recovery &nbsp; <span class="badge">planned</span></p>
+<p class="meta">Epic 7: Deployment and recovery &nbsp; <span class="badge">built</span></p>
 <h2 id="operations-deployment-and-recovery">Deployment and recovery</h2>
 <h3 id="operations-purpose">Purpose</h3>
 <p>Provide a provider-neutral Linux deployment with independent recovery paths and measurable health.</p>
@@ -182,7 +182,11 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <h3 id="operations-user-flows">User flows</h3>
 <div class="diagram"><pre class="mermaid">flowchart TD
- Configure[Configure hosts and domain] --&gt; Check{Readiness checks pass?}
+ Configure[Configure hosts and domain] --&gt; Slice{Deployment slice?}
+ Slice --&gt;|Completed features| Check{Applicable readiness checks pass?}
+ Slice --&gt;|Live switches| Gate{Protocol accepted?}
+ Gate --&gt;|No| Blocked[Keep switch operations disabled]
+ Gate --&gt;|Yes| Check
  Check --&gt;|No| Error[Show blocked checks]
  Check --&gt;|Yes| Stage[Deploy tested commit]
  Stage --&gt; Verify[Verify health and recovery]
@@ -195,8 +199,11 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>Deploy the tested commit to a staging environment.
 </li>
-<li>Run the recovery exercise.
+<li>Run the applicable feature recovery exercise.
 </li>
+</ol>
+<p>Run live switch exercises only after protocol acceptance.</p>
+<ol>
 <li>Approve production promotion.
 </li>
 <li>Verify the deployed commit.
@@ -205,7 +212,7 @@ body.rv-open .layout { padding-right:21rem; }
 <h3 id="operations-screens-states">Screens &amp; states</h3>
 <p>This feature has no dedicated screen. The CLI reports progress, success, and structured errors.</p>
 <h3 id="operations-behaviour-rules">Behaviour rules</h3>
-<p>Use a main Linux VPS and three independently reachable agents for the reference deployment. Place agents across three failure domains. Owner-operated and trusted-operator layouts use the same protocol. Use TLS for HTTPS. Pin agent identities independently of DNSSEC. Expose DNS over UDP and TCP port 53. Expose public recovery over HTTPS port 443. Keep administrative and agent-control ports private where public access is unnecessary. Use persistent disks, per-service identities, resource limits, and bounded request bodies. Provide systemd units and container examples. A managed platform qualifies only if it provides the required ports and durable state. Use atomic state updates with fsync before receipts. The foundation spike chooses the maintained durable store. Backups contain encrypted content and sensitive shares. Encrypt backups with separate operator-controlled keys. Restore procedures preserve monotonic state. Never restore a live agent from a stale backup without the reviewed recovery protocol. DNSSEC setup requires a delegated zone or subdomain, DNSKEY publication, and parent DS coordination. Do not purchase hosts or register a domain during planning. Budget remains unspecified. Document resource measurements before recommending a paid deployment. Use separate DNS recovery names or independently available endpoints for agents.</p>
+<p>Deploy completed DNSSEC, capsule, and countdown features without switch protocol acceptance. Verify the main service commit, applicable health checks, backups, and feature recovery for this deployment slice. Keep switch-specific readiness, live-agent restoration, and switch recovery drills behind protocol acceptance. For the later switch reference deployment, use a main Linux VPS and three independently reachable agents. The live switch drill verifies recovery by Bmax plus E under the reviewed clock and publication assumptions. Place agents across three failure domains. Owner-operated and trusted-operator layouts use the same protocol. Use TLS for HTTPS. Pin agent identities independently of DNSSEC. Expose DNS over UDP and TCP port 53. Expose public recovery over HTTPS port 443. Keep administrative and agent-control ports private where public access is unnecessary. Use persistent disks, per-service identities, resource limits, and bounded request bodies. Provide systemd units and container examples. A managed platform qualifies only if it provides the required ports and durable state. Use atomic state updates with fsync before receipts. The foundation spike chooses the maintained durable store. Backups contain encrypted content and sensitive shares. Encrypt backups with separate operator-controlled keys. Restore procedures preserve monotonic state. Never restore a live agent from a stale backup without the reviewed recovery protocol. DNSSEC setup requires a delegated zone or subdomain, DNSKEY publication, and parent DS coordination. Do not purchase hosts or register a domain during planning. Budget remains unspecified. Document resource measurements before recommending a paid deployment. Use separate DNS recovery names or independently available endpoints for agents.</p>
 <h3 id="operations-data-touched">Data touched</h3>
 <p>Deployment manifest, service commit IDs, readiness results, backup metadata, agent identities. Keep real host values outside the public spec.</p>
 <h3 id="operations-interfaces">Interfaces</h3>
@@ -231,6 +238,12 @@ body.rv-open .layout { padding-right:21rem; }
 <li>AC-operations-7 covers FR-operations-7: The deployment guide documents DNSSEC delegation checks.
 </li>
 <li>AC-operations-8 covers FR-operations-8: The operator can retrieve public recovery data directly from an agent.
+</li>
+</ul>
+<ul>
+<li>AC-operations-9 covers FR-operations-1: Completed-feature deployment proceeds without agents or switch protocol acceptance.
+</li>
+<li>AC-operations-10 covers FR-operations-4: Live switch drills remain disabled until the revised model and independent protocol review pass.
 </li>
 </ul>
 <h3 id="operations-out-of-scope">Out of scope</h3>

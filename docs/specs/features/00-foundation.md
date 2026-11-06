@@ -2,8 +2,8 @@
 id: foundation
 feature: "Foundation"
 epic: "Epic 0: Foundation"
-status: planned
-issues: []
+status: built
+issues: [1, 2, 3, 4, 5, 57, 58]
 mockups: []
 ---
 
@@ -21,7 +21,7 @@ As an owner, I want this feature so that I can verify the release behavior befor
 
 - FR-foundation-1: The repository defines Go 1.27.3 in its toolchain configuration.
 - FR-foundation-2: The command `make check` exits successfully only when every required check passes.
-- FR-foundation-3: The coverage check rejects first-party Go statement coverage below 95.00 percent.
+- FR-foundation-3: The coverage check rejects first-party Go statement coverage below 90.00 percent.
 - FR-foundation-4: The repository provides a `dev` branch for integration.
 - FR-foundation-5: The CI workflow checks pull requests into `dev` and `main`.
 - FR-foundation-6: The local lab starts the web server, DNS server, and three agents.
@@ -88,7 +88,7 @@ Each criterion requires a test or a reproducible review record. The quoted behav
 
 - AC-foundation-1 covers FR-foundation-1: The repository defines Go 1.27.3 in its toolchain configuration.
 - AC-foundation-2 covers FR-foundation-2: The command `make check` exits successfully only when every required check passes.
-- AC-foundation-3 covers FR-foundation-3: The coverage check rejects first-party Go statement coverage below 95.00 percent.
+- AC-foundation-3 covers FR-foundation-3: The coverage check rejects first-party Go statement coverage below 90.00 percent.
 - AC-foundation-4 covers FR-foundation-4: The repository provides a `dev` branch for integration.
 - AC-foundation-5 covers FR-foundation-5: The CI workflow checks pull requests into `dev` and `main`.
 - AC-foundation-6 covers FR-foundation-6: The local lab starts the web server, DNS server, and three agents.

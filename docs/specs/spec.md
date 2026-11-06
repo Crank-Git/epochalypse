@@ -6,7 +6,7 @@ status: approved
 spec_version: 2
 created: 2026-11-04
 approved: 2026-11-04
-html_generated: 2026-11-04
+html_generated: 2026-11-05
 branch_model: dev-and-live
 visibility: public
 features:
@@ -48,7 +48,10 @@ Encrypted capsules use server-held keys or a verified drand beacon.
 Independent agents support switch release after the main server fails.
 
 The owner states: “outage shouldnt stop this as it undermines the entire deadman switch behavior.”
-The initial guarantee covers main-server loss plus one unavailable agent.
+The accepted direction covers main-server loss plus one unavailable agent by Bmax plus the reviewed allowance E.
+After incomplete receipts, the client reports uncertainty from B0 through Bmax. B0 is the earliest possible disclosure boundary.
+Three durable receipts confirm renewal. No replacement protocol has production acceptance.
+See [ADR 0012](../adr/0012-switch-uncertainty.md) and the [direction report](../research/switch-protocol/directions.md).
 A separate research epic assesses loss of all project-operated servers.
 
 ## Terms
@@ -66,6 +69,11 @@ A separate research epic assesses loss of all project-operated servers.
 | deadline | noun | The latest accepted owner check-in boundary. | expiration |
 | grace | noun | The duration between the deadline and release eligibility. | timeout |
 | release boundary | noun | The deadline plus grace for one accepted state. | deadline alone |
+| B0 | noun | The last release boundary confirmed by three matching durable receipts; the earliest possible disclosure after uncertain renewal. | exact authority after receipt loss |
+| Bmax | noun | The latest release boundary in any owner-signed renewal already issued for transmission. | latest received receipt |
+| E | noun | The reviewed allowance for clock error and publication work. ADR 0013 accepts candidate E=34 seconds for implementation, subject to actual-host verification. | exact UTC guarantee |
+| uncertain outcome | noun | An incomplete response that can hide partial or complete renewal acceptance. | failed renewal |
+| client journal | noun | Durable signed intent stored before transmission, including exact bytes, sequence, deadline, and proposed boundary. | memory-only retry |
 | share | noun | One agent's part of the content key. | whole key |
 | receipt | noun | A signed acknowledgment of durable agent state. | success hint |
 | recovery bundle | noun | Exported data needed for independent content recovery. | backup alone |
@@ -75,6 +83,8 @@ A separate research epic assesses loss of all project-operated servers.
 | beacon | noun | A publicly verifiable drand round signature. | arbitrary randomness |
 | DNS | noun | Domain Name System. | name database |
 | DNSSEC | noun | DNS Security Extensions. | encryption |
+| DNSKEY | noun | A DNS record that contains a public DNSSEC key. | private key |
+| key tag | noun | A 16-bit checksum that identifies a DNSKEY candidate; different keys can have the same value. | unique key identifier |
 | RRSIG | noun | A DNS record that carries a signature and its time window. | key |
 | RRset | noun | DNS records with one owner name, class, and type. | arbitrary record group |
 | TXT | noun | The DNS text record type. | text file |
@@ -90,6 +100,7 @@ A separate research epic assesses loss of all project-operated servers.
 | CSRF | noun | Cross-site request forgery. | authentication |
 | VPS | noun | Virtual private server. | managed service guarantee |
 | CI | noun | Continuous integration checks. | coverage alone |
+| JWE | noun | JSON Web Encryption compact serialization for authenticated capsule content. | unframed ciphertext |
 | TDD | noun | Test-driven development through fail, pass, and refactor steps. | tests after behavior only |
 | E2E | noun | End-to-end verification through public interfaces. | unit test |
 | create | verb | Make a new entity. | provision when entity creation applies |
@@ -106,7 +117,7 @@ A separate research epic assesses loss of all project-operated servers.
 - Distinguish validation, confidentiality, and availability in every release mode.
 - Recover switch content after main-server loss plus one agent outage.
 - Pass every required test before merge.
-- Maintain at least 95.00 percent aggregate statement coverage for first-party Go code.
+- Maintain at least 90.00 percent aggregate statement coverage for first-party Go code.
 - Record a reproducible total-loss research result.
 
 ## Non-goals
@@ -165,13 +176,17 @@ Use `cmd/epochalypse` for the executable and `internal/` for domain modules.
 Separate modules cover authentication, DNS, capsules, switches, agent state, content, and the clock.
 Use injected clocks for deterministic tests. Use monotonic durations for local scheduling, with explicit UTC release boundaries.
 
-Evaluate [miekg/dns v1.1.73](https://github.com/miekg/dns/tree/v1.1.73) through a compatibility spike.
-Its README describes DNSSEC support but directs new work toward a successor.
-The spike chooses a maintained adapter and records its exact version before product code uses it.
-Use [tlock v1.2.0](https://github.com/drand/tlock/tree/v1.2.0) as the initial compatibility target.
-Verify quicknet configuration explicitly. Legacy examples contain conflicting network references.
-The durable store, password library, threshold library, and lint tools remain foundation decisions with version-specific documentation.
-The spec does not assume their unverified interfaces.
+Use [codeberg.org/miekg/dns v0.6.128](https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128) for the authoritative server and DNS clients.
+Keep [miekg/dns v1.1.73](https://github.com/miekg/dns/tree/v1.1.73) as an isolated comparison dependency.
+The [compatibility report](../research/dns-compatibility.md) records real resolver evidence and API limits.
+ADR 0004 records the choice. The implemented contracts are in docs/windows.md and docs/observations.md.
+The tlock v1.2.0 compatibility report verifies an explicit quicknet identity.
+Use docs/research/tlock-compatibility.md before production integration; example defaults have no authority.
+Owner state uses bbolt v1.5.0 and Argon2id from golang.org/x/crypto v0.58.0.
+ADR 0003 and docs/owner.md define the verified storage and password contracts.
+The foundation pins the lint tools in its check scripts.
+Use the pinned HashiCorp Shamir package for two-of-three switch key shares under the reviewed content and authenticated recovery contracts.
+The switch runtime guide records its scoped license and dependency decision.
 
 Use provider-neutral Linux services and container examples. Managed platforms must meet port and state requirements.
 Each agent provides its own public recovery endpoint and durable ciphertext copy.
@@ -188,6 +203,8 @@ erDiagram
  CAPSULE ||--|| OBJECT : references
  SWITCH ||--|| OBJECT : references
  SWITCH ||--|{ RECEIPT : records
+ SWITCH ||--o{ CLIENT_JOURNAL : retains
+ CLIENT_JOURNAL ||--o{ RECEIPT : reconciles
  AGENT ||--o{ RECEIPT : signs
  AGENT ||--o{ SHARE : stores
  SWITCH ||--|{ SHARE : protects
@@ -200,9 +217,10 @@ erDiagram
 | Token | ID, digest, scopes, expiry, revocation time. | Active to expired or revoked. |
 | Capsule | ID, title, mode, requested time, effective time, object digest, format version. | Draft, sealed, available, deleted. |
 | Object | Digest, byte count, media type, encrypted bytes, format version. | Prepared to retained or locally deleted. |
-| Switch | ID, owner public key, interval, grace, sequence, accepted state, object digest. | Draft, armed, degraded, released. |
+| Switch | ID, owner public key, interval, grace, sequence, confirmed state, B0, Bmax, allowance assumptions, object digest. | Draft, armed, uncertain, released. |
+| Client journal | Switch ID, exact signed bytes, sequence, deadline, proposed boundary, receipt evidence. | Durable before transmission; retained through reconciliation. |
 | Agent | ID, public key, endpoints, failure domain, protocol version. | Enrolled to ready, unavailable, or retired. |
-| Share | Switch ID, agent ID, encrypted share, release status. | Private to irreversibly public. |
+| Share | Switch ID, agent ID, content key reference, encrypted share, irreversible release history. | Private to irreversibly public; observer copies persist. |
 | Receipt | Agent ID, switch ID, sequence, deadline, digest, signature. | Append-only evidence. |
 | Countdown | ID, title, event time, DNS name. | Active, completed, deleted. |
 | Window | ID, zone, content, inception, expiration, key reference. | Draft, published, expired. |
@@ -217,10 +235,10 @@ stateDiagram-v2
  [*] --> Draft
  Draft --> Armed: All durable receipts and export
  Armed --> Armed: Confirmed renewal
- Armed --> Degraded: Missing receipt
- Degraded --> Armed: Reviewed recovery
- Armed --> Released: Release boundary
- Degraded --> Released: Reviewed release rule
+ Armed --> Uncertain: Incomplete response
+ Uncertain --> Armed: Three matching durable receipts
+ Armed --> Released: Two shares at confirmed boundary plus E
+ Uncertain --> Released: By Bmax plus E under reviewed assumptions
  Released --> [*]
 ```
 
@@ -267,6 +285,9 @@ Use these environment variables for process-level configuration:
 | EPOCHALYPSE_LOG_LEVEL | Set log detail. | info |
 
 Configuration holds the zone name, agent endpoints, failure domains, public keys, beacon chain, and protocol version.
+Configure distinct subdomains and signing-key references for signature-window experiments and countdowns.
+Countdown record names derive from their opaque identifiers under the configured countdown subdomain.
+Return the actual record name in public metadata. The project does not change delegation automatically.
 Private key files require owner-only filesystem access. Configuration contains key references rather than key values.
 Production startup rejects lab keys and insecure public origins.
 Use a small synthetic capsule, switch, countdown, and window as demo records.
@@ -275,7 +296,7 @@ No provider budget or spending authority exists.
 
 ## Testing strategy
 
-Required pass rate is 100 percent. Coverage is a separate minimum of 95.00 percent.
+Required pass rate is 100 percent. Coverage is a separate minimum of 90.00 percent.
 Measure Go statement coverage across every first-party production package, including CLI and HTTP adapters.
 Exclude dependencies and generated third-party code. Do not exclude difficult branches to reach the threshold.
 Fail the coverage check when the profile is absent, empty, malformed, or below the unrounded threshold.
@@ -295,7 +316,7 @@ Planned commands become executable in Epic 0:
 | `make test-e2e` | Browser and CLI happy paths plus critical errors pass. |
 | `make test-resolvers` | Pinned default Unbound, strict Unbound, and BIND scenarios pass. |
 | `make test-race` | `go test -race ./...` reports no races. |
-| `make coverage` | Instrumented aggregate Go coverage reaches 95.00 percent. |
+| `make coverage` | Instrumented aggregate Go coverage reaches 90.00 percent. |
 | `make fuzz-smoke` | Bounded parser and protocol fuzz tests pass for 30 seconds each. |
 | `make lint` | Format, vet, complexity, nesting, dead-code, and security checks pass. |
 | `make build` | Linux amd64 and arm64 builds succeed. |
@@ -328,19 +349,47 @@ Research can return a blocker without enabling unsafe production behavior.
 | Epic 4: Switch protocol review | 5 | 0 | The model and maintainer decision permit implementation. |
 | Epic 5: Dead man’s switches | 6 | 2, 4 | Independent recovery passes the stated outage test. |
 | Epic 6: DNS countdowns | 3 | 1, 2 | Signed countdown records pass resolver tests. |
-| Epic 7: Deployment and recovery | 5 | 3, 5, 6 | A staged deployment passes the recovery exercise. |
-| Epic 8: External release research | 5 | 4 | The report supports a maintainer decision. |
+| Epic 7: Deployment and recovery | 5 | 3, 6; switch slice also 5 | Completed features pass staging; switch drills await protocol acceptance. |
+| Epic 8: External release research | 5 | 0; independent of production switch acceptance | The report supports a maintainer decision. |
 
 Feature files define each epic's complete behavior. Split an epic before issue creation if the work exceeds six focused changes.
 Do not compress the protocol review to preserve an estimate.
 
 ## Milestones
 
+### First usable local milestone
+
+On 2026-11-05, the owner selects these completed features in `dev` for the first usable local milestone:
+
+- DNSSEC experiments.
+- Time capsules.
+- Countdowns.
+- Owner access.
+
+Provide these deliverables:
+
+- Verified local startup.
+- A synthetic walkthrough.
+- The required test evidence.
+
+Switch runtime work and its dependent deployment exercises belong to a later milestone.
+Preserve these switch artifacts:
+
+- The requirements.
+- The reviewed protocol.
+- The parked implementation.
+- The historical counterexamples.
+
+Switch completion does not block this local milestone. Actual-host certification and promotion to `main` remain separate gates.
+Every required test must pass. Aggregate first-party Go statement coverage must reach 90.00 percent before rounding.
+
+### Full project roadmap
+
 1. Establish a green repository and a reproducible DNS demonstration.
 2. Provide owner access and all capsule modes.
 3. Complete the protocol review before switch implementation.
 4. Provide switches and countdowns behind verified behavior gates.
-5. Validate the Linux deployment and independent recovery.
+5. Validate completed-feature deployment independently; validate live switch recovery after protocol acceptance.
 6. Present the external release report as a separate decision.
 
 A shippable v1 passes all required checks and the deployment exercise.
@@ -363,18 +412,23 @@ Keep provider selection and actual infrastructure cost outside this planning dec
 
 ### Review decisions
 
+- The owner accepts the bounded receipt-loss tradeoff on 2026-11-05. Clock and publication allowances remain protocol-review outputs.
+
 - The owner approved three-agent renewal and its availability tradeoff on 2026-11-04.
 - The owner approved the scaffold proposal on 2026-11-04.
 - The owner accepted server exposure during v1 web preparation on 2026-11-04.
 
 ### Technical gates
 
-- Partial renewal can leave inconsistent deadlines. The model must establish safe semantics before production switch use.
+- Incomplete receipts create uncertainty from B0 through Bmax, plus E. The owner accepts almost 24 hours under the default interval.
+- B0 does not prove actual authority after receipt loss. A missing response can hide a fully accepted renewal.
+- The revised model must verify Bmax plus E after main loss and one outage with two reachable, honest, durable agents.
+- Permanent client loss, retry journals, delayed requests, and irreversible observer history remain protocol-review obligations.
 - Published shares can survive later renewals. The protocol must account for their cumulative disclosure.
 - Two colluding agents can disclose a secret early. V1 does not cover this attack.
 - Agent clock error can cause early or late release. The protocol review defines a measured bound and an unsafe-clock response.
 - A lost signing key can prevent renewal. Export and recovery procedures must state this consequence.
-- The DNS adapter requires a maintenance and compatibility decision.
+- The DNS adapter passes synthetic compatibility checks. Production integration and public delegation remain separate gates.
 - The tlock adapter requires an explicit verified network configuration and version check.
 - The maintained store, threshold library, password library, and lint tools require pinned documentation before code uses them.
 - The reference deployment needs independent endpoints and storage, not only three containers on one VPS.
@@ -385,6 +439,129 @@ No unanswered product question blocks the approved plan. Technical gates block t
 
 ## Changelog
 
+- 2026-11-05: The owner requests full software completion and defers hosted deployment. Keep actual-host verification and separate `main` promotion approval for the later deployment phase.
+
+- 2026-11-05: The owner lowers aggregate first-party Go statement coverage to 90.00 percent in #125. Preserve every required test and zero required skips. Explicit security, durability, and deadline tests remain required.
+
+- 2026-11-05: The owner selects DNSSEC experiments, capsules, countdowns, and owner access for the first local milestone in #120. Defer switch runtime and dependent operations. Preserve their requirements and quality gates.
+
+- 2026-11-05: Accept the documented external-release blocker in issue #50. Adopt no new service and retain the reviewed independent-agent direction.
+
+- 2026-11-05: Accept the reviewed switch design for implementation in issue #28. ADR 0013 retains runtime, actual-host readiness, and production gates.
+
+- 2026-11-05: The owner accepts bounded switch uncertainty after receipt loss. ADR 0012 supersedes ADR 0005's exact-confirmation requirement. Keep production gated.
+- 2026-11-05: Separate completed-feature deployment and comparative external research from production switch acceptance. Keep live switch operations gated.
+
+- 2026-11-04: The owner selects separate DNS subdomains for signature-window experiments and countdowns. Keep delegation operator-controlled. Capsule foundation supplies shared storage before countdown implementation.
+
+- 2026-11-04: Run tlock compatibility research independently of live DNS-window implementation. Keep production capsules gated on DNS completion and the verified compatibility result.
+
+- 2026-11-04: After replacement research and independent review, the owner retains the original guarantee and leaves switch implementation blocked. Continue other features. See ADR 0005.
+
+- 2026-11-04: The owner preserves the original switch guarantee. Research a replacement in issue #70 before protocol acceptance.
+
+- 2026-11-04: Ship the baseline switch model and counterexamples as research only. Keep recovery completion and protocol acceptance blocked.
+
+- 2026-11-04: Ship DNS compatibility research separately while owner access blocks production mutations. Select the verified successor adapter in ADR 0004.
+
+- 2026-11-04: Require each implemented feature to add its applicable tests. Keep unavailable future-suite targets explicit and fail-closed. See ADR 0002.
+
+- 2026-11-04: The owner approved nine epics and 41 sub-issues. Record complete coverage of 73 functional requirements.
+
 - 2026-11-04: Create the first draft after the product interview. Record public visibility and the dev-and-live branch model.
 
 - 2026-11-04: The owner approved the spec, release tradeoffs, scaffold, and Git initialization. Technical gates remain in force.
+
+## Issue map
+
+The owner approved issue creation on 2026-11-04. Each requirement has at least one sub-issue.
+
+| Feature | Epic | Sub-issues |
+|---|---|---|
+| foundation | [#1](https://github.com/Crank-Git/epochalypse/issues/1) | [#2](https://github.com/Crank-Git/epochalypse/issues/2), [#3](https://github.com/Crank-Git/epochalypse/issues/3), [#4](https://github.com/Crank-Git/epochalypse/issues/4), [#5](https://github.com/Crank-Git/epochalypse/issues/5), [#57](https://github.com/Crank-Git/epochalypse/issues/57), [#58](https://github.com/Crank-Git/epochalypse/issues/58) |
+| dns-window | [#6](https://github.com/Crank-Git/epochalypse/issues/6) | [#7](https://github.com/Crank-Git/epochalypse/issues/7), [#8](https://github.com/Crank-Git/epochalypse/issues/8), [#9](https://github.com/Crank-Git/epochalypse/issues/9), [#10](https://github.com/Crank-Git/epochalypse/issues/10), [#11](https://github.com/Crank-Git/epochalypse/issues/11) |
+| owner | [#12](https://github.com/Crank-Git/epochalypse/issues/12) | [#13](https://github.com/Crank-Git/epochalypse/issues/13), [#14](https://github.com/Crank-Git/epochalypse/issues/14), [#15](https://github.com/Crank-Git/epochalypse/issues/15), [#16](https://github.com/Crank-Git/epochalypse/issues/16) |
+| capsules | [#17](https://github.com/Crank-Git/epochalypse/issues/17) | [#18](https://github.com/Crank-Git/epochalypse/issues/18), [#19](https://github.com/Crank-Git/epochalypse/issues/19), [#20](https://github.com/Crank-Git/epochalypse/issues/20), [#21](https://github.com/Crank-Git/epochalypse/issues/21), [#22](https://github.com/Crank-Git/epochalypse/issues/22) |
+| switch-protocol | [#23](https://github.com/Crank-Git/epochalypse/issues/23) | [#24](https://github.com/Crank-Git/epochalypse/issues/24), [#25](https://github.com/Crank-Git/epochalypse/issues/25), [#26](https://github.com/Crank-Git/epochalypse/issues/26), [#27](https://github.com/Crank-Git/epochalypse/issues/27), [#28](https://github.com/Crank-Git/epochalypse/issues/28), [#70](https://github.com/Crank-Git/epochalypse/issues/70), [#106](https://github.com/Crank-Git/epochalypse/issues/106), [#107](https://github.com/Crank-Git/epochalypse/issues/107) |
+| switches | [#29](https://github.com/Crank-Git/epochalypse/issues/29) | [#30](https://github.com/Crank-Git/epochalypse/issues/30), [#31](https://github.com/Crank-Git/epochalypse/issues/31), [#32](https://github.com/Crank-Git/epochalypse/issues/32), [#33](https://github.com/Crank-Git/epochalypse/issues/33), [#34](https://github.com/Crank-Git/epochalypse/issues/34) |
+| countdowns | [#35](https://github.com/Crank-Git/epochalypse/issues/35) | [#36](https://github.com/Crank-Git/epochalypse/issues/36), [#37](https://github.com/Crank-Git/epochalypse/issues/37), [#38](https://github.com/Crank-Git/epochalypse/issues/38) |
+| operations | [#39](https://github.com/Crank-Git/epochalypse/issues/39) | [#40](https://github.com/Crank-Git/epochalypse/issues/40), [#41](https://github.com/Crank-Git/epochalypse/issues/41), [#42](https://github.com/Crank-Git/epochalypse/issues/42), [#43](https://github.com/Crank-Git/epochalypse/issues/43), [#44](https://github.com/Crank-Git/epochalypse/issues/44) |
+| research | [#45](https://github.com/Crank-Git/epochalypse/issues/45) | [#46](https://github.com/Crank-Git/epochalypse/issues/46), [#47](https://github.com/Crank-Git/epochalypse/issues/47), [#48](https://github.com/Crank-Git/epochalypse/issues/48), [#49](https://github.com/Crank-Git/epochalypse/issues/49), [#50](https://github.com/Crank-Git/epochalypse/issues/50) |
+
+### Requirement coverage
+
+| Requirement | Sub-issues |
+|---|---|
+| FR-foundation-1 | [#2](https://github.com/Crank-Git/epochalypse/issues/2) |
+| FR-foundation-2 | [#2](https://github.com/Crank-Git/epochalypse/issues/2) |
+| FR-foundation-3 | [#2](https://github.com/Crank-Git/epochalypse/issues/2) |
+| FR-foundation-4 | [#3](https://github.com/Crank-Git/epochalypse/issues/3) |
+| FR-foundation-5 | [#3](https://github.com/Crank-Git/epochalypse/issues/3) |
+| FR-foundation-6 | [#4](https://github.com/Crank-Git/epochalypse/issues/4) |
+| FR-foundation-7 | [#4](https://github.com/Crank-Git/epochalypse/issues/4) |
+| FR-foundation-8 | [#5](https://github.com/Crank-Git/epochalypse/issues/5) |
+| FR-foundation-9 | [#5](https://github.com/Crank-Git/epochalypse/issues/5) |
+| FR-dns-window-1 | [#7](https://github.com/Crank-Git/epochalypse/issues/7), [#8](https://github.com/Crank-Git/epochalypse/issues/8) |
+| FR-dns-window-2 | [#7](https://github.com/Crank-Git/epochalypse/issues/7), [#8](https://github.com/Crank-Git/epochalypse/issues/8) |
+| FR-dns-window-3 | [#7](https://github.com/Crank-Git/epochalypse/issues/7), [#9](https://github.com/Crank-Git/epochalypse/issues/9) |
+| FR-dns-window-4 | [#9](https://github.com/Crank-Git/epochalypse/issues/9) |
+| FR-dns-window-5 | [#9](https://github.com/Crank-Git/epochalypse/issues/9) |
+| FR-dns-window-6 | [#10](https://github.com/Crank-Git/epochalypse/issues/10) |
+| FR-dns-window-7 | [#10](https://github.com/Crank-Git/epochalypse/issues/10) |
+| FR-dns-window-8 | [#9](https://github.com/Crank-Git/epochalypse/issues/9) |
+| FR-dns-window-9 | [#7](https://github.com/Crank-Git/epochalypse/issues/7), [#11](https://github.com/Crank-Git/epochalypse/issues/11) |
+| FR-owner-1 | [#13](https://github.com/Crank-Git/epochalypse/issues/13) |
+| FR-owner-2 | [#13](https://github.com/Crank-Git/epochalypse/issues/13) |
+| FR-owner-3 | [#14](https://github.com/Crank-Git/epochalypse/issues/14) |
+| FR-owner-4 | [#14](https://github.com/Crank-Git/epochalypse/issues/14) |
+| FR-owner-5 | [#15](https://github.com/Crank-Git/epochalypse/issues/15) |
+| FR-owner-6 | [#15](https://github.com/Crank-Git/epochalypse/issues/15) |
+| FR-owner-7 | [#16](https://github.com/Crank-Git/epochalypse/issues/16) |
+| FR-owner-8 | [#16](https://github.com/Crank-Git/epochalypse/issues/16) |
+| FR-capsules-1 | [#20](https://github.com/Crank-Git/epochalypse/issues/20) |
+| FR-capsules-2 | [#18](https://github.com/Crank-Git/epochalypse/issues/18) |
+| FR-capsules-3 | [#18](https://github.com/Crank-Git/epochalypse/issues/18) |
+| FR-capsules-4 | [#19](https://github.com/Crank-Git/epochalypse/issues/19), [#20](https://github.com/Crank-Git/epochalypse/issues/20) |
+| FR-capsules-5 | [#21](https://github.com/Crank-Git/epochalypse/issues/21) |
+| FR-capsules-6 | [#22](https://github.com/Crank-Git/epochalypse/issues/22) |
+| FR-capsules-7 | [#21](https://github.com/Crank-Git/epochalypse/issues/21) |
+| FR-capsules-8 | [#22](https://github.com/Crank-Git/epochalypse/issues/22) |
+| FR-capsules-9 | [#21](https://github.com/Crank-Git/epochalypse/issues/21) |
+| FR-switch-protocol-1 | [#24](https://github.com/Crank-Git/epochalypse/issues/24) |
+| FR-switch-protocol-2 | [#24](https://github.com/Crank-Git/epochalypse/issues/24) |
+| FR-switch-protocol-3 | [#25](https://github.com/Crank-Git/epochalypse/issues/25) |
+| FR-switch-protocol-4 | [#25](https://github.com/Crank-Git/epochalypse/issues/25) |
+| FR-switch-protocol-5 | [#26](https://github.com/Crank-Git/epochalypse/issues/26), [#70](https://github.com/Crank-Git/epochalypse/issues/70) |
+| FR-switch-protocol-6 | [#26](https://github.com/Crank-Git/epochalypse/issues/26) |
+| FR-switch-protocol-7 | [#27](https://github.com/Crank-Git/epochalypse/issues/27), [#70](https://github.com/Crank-Git/epochalypse/issues/70) |
+| FR-switch-protocol-8 | [#28](https://github.com/Crank-Git/epochalypse/issues/28), [#70](https://github.com/Crank-Git/epochalypse/issues/70) |
+| FR-switches-1 | [#30](https://github.com/Crank-Git/epochalypse/issues/30) |
+| FR-switches-2 | [#31](https://github.com/Crank-Git/epochalypse/issues/31) |
+| FR-switches-3 | [#32](https://github.com/Crank-Git/epochalypse/issues/32) |
+| FR-switches-4 | [#32](https://github.com/Crank-Git/epochalypse/issues/32) |
+| FR-switches-5 | [#33](https://github.com/Crank-Git/epochalypse/issues/33) |
+| FR-switches-6 | [#33](https://github.com/Crank-Git/epochalypse/issues/33) |
+| FR-switches-7 | [#33](https://github.com/Crank-Git/epochalypse/issues/33) |
+| FR-switches-8 | [#32](https://github.com/Crank-Git/epochalypse/issues/32) |
+| FR-switches-9 | [#31](https://github.com/Crank-Git/epochalypse/issues/31) |
+| FR-switches-10 | [#34](https://github.com/Crank-Git/epochalypse/issues/34) |
+| FR-countdowns-1 | [#36](https://github.com/Crank-Git/epochalypse/issues/36) |
+| FR-countdowns-2 | [#37](https://github.com/Crank-Git/epochalypse/issues/37) |
+| FR-countdowns-3 | [#36](https://github.com/Crank-Git/epochalypse/issues/36) |
+| FR-countdowns-4 | [#38](https://github.com/Crank-Git/epochalypse/issues/38) |
+| FR-countdowns-5 | [#38](https://github.com/Crank-Git/epochalypse/issues/38) |
+| FR-countdowns-6 | [#38](https://github.com/Crank-Git/epochalypse/issues/38) |
+| FR-operations-1 | [#40](https://github.com/Crank-Git/epochalypse/issues/40) |
+| FR-operations-2 | [#41](https://github.com/Crank-Git/epochalypse/issues/41) |
+| FR-operations-3 | [#42](https://github.com/Crank-Git/epochalypse/issues/42) |
+| FR-operations-4 | [#43](https://github.com/Crank-Git/epochalypse/issues/43) |
+| FR-operations-5 | [#44](https://github.com/Crank-Git/epochalypse/issues/44) |
+| FR-operations-6 | [#44](https://github.com/Crank-Git/epochalypse/issues/44) |
+| FR-operations-7 | [#40](https://github.com/Crank-Git/epochalypse/issues/40) |
+| FR-operations-8 | [#41](https://github.com/Crank-Git/epochalypse/issues/41) |
+| FR-research-1 | [#46](https://github.com/Crank-Git/epochalypse/issues/46) |
+| FR-research-2 | [#47](https://github.com/Crank-Git/epochalypse/issues/47) |
+| FR-research-3 | [#48](https://github.com/Crank-Git/epochalypse/issues/48) |
+| FR-research-4 | [#49](https://github.com/Crank-Git/epochalypse/issues/49) |
+| FR-research-5 | [#50](https://github.com/Crank-Git/epochalypse/issues/50) |
+| FR-research-6 | [#50](https://github.com/Crank-Git/epochalypse/issues/50) |

@@ -155,7 +155,7 @@ body.rv-open .layout { padding-right:21rem; }
 </ul></aside>
 <main>
 <h1>Feature: Switch protocol review</h1>
-<p class="meta">Epic 4: Switch protocol review &nbsp; <span class="badge">planned</span></p>
+<p class="meta">Epic 4: Switch protocol review &nbsp; <span class="badge">built</span></p>
 <h2 id="switch-protocol-switch-protocol-review">Switch protocol review</h2>
 <h3 id="switch-protocol-purpose">Purpose</h3>
 <p>Validate the release protocol before implementation makes an outage guarantee.</p>
@@ -175,7 +175,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>FR-switch-protocol-6: The review models old shares retained by public observers.
 </li>
-<li>FR-switch-protocol-7: The model releases content after main-server loss plus one agent outage.
+<li>FR-switch-protocol-7: The model releases content by Bmax plus E after main-server loss plus one agent outage.
 </li>
 <li>FR-switch-protocol-8: The review records a maintainer decision before production switch use.
 </li>
@@ -204,11 +204,11 @@ body.rv-open .layout { padding-right:21rem; }
 <h3 id="switch-protocol-screens-states">Screens &amp; states</h3>
 <p>This feature has no dedicated screen. The CLI reports progress, success, and structured errors.</p>
 <h3 id="switch-protocol-behaviour-rules">Behaviour rules</h3>
-<p>The initial fault model permits one unavailable agent. It assumes honest agents with bounded clock error. Two colluding agents can disclose a secret early. State this trust limit. A renewal must reach all agents. One unavailable agent can prevent renewal even when release remains available. A failed renewal leaves the old deadline as the owner's conservative deadline. An agent can retain a later local deadline after a partial renewal. Show this uncertainty explicitly. The review must establish whether partial renewal can delay release beyond the displayed confirmed deadline. If the protocol cannot meet the required bound, propose a revised protocol for maintainer review. Do not use a new threshold cryptography primitive without a maintained library and review. Specify secure share distribution, authenticated transport, replay defense, and durable state before acknowledgment. Specify backup rollback detection, released-share history, cancellation, and agent replacement. Treat a partial release as irreversible. Later renewals cannot recall published shares. Keep switch production use disabled until the review passes.</p>
+<p>The initial fault model permits one unavailable agent. It assumes honest agents with bounded clock error. Two colluding agents can disclose a secret early. State this trust limit. A renewal must reach all agents. One unavailable agent can prevent renewal even when release remains available. ADR 0012 accepts bounded uncertainty after incomplete receipts. It does not accept a production protocol. B0 is the last release boundary confirmed by three matching durable receipts. Bmax is the latest boundary in any owner-signed renewal already issued for transmission. E is the reviewed allowance for clock error and publication work. Its numeric value remains a review output. With two reachable, honest agents with intact durable state, release occurs by Bmax plus E under the reviewed clock assumptions. This promise includes permanent owner-client loss. Release does not require the main server or inter-agent coordination. After incomplete receipts, B0 is the earliest possible disclosure boundary, not proof of every agent's actual authority. A missing response can hide partial or complete acceptance. The client reports uncertainty from B0 through Bmax, with E separate. The default interval can produce almost 24 hours of uncertainty. The owner accepts this cost; grace does not remove it. Before transmission, the client durably records the signed request, sequence, deadline, and proposed boundary. Retries use the identical signed bytes, sequence, and deadline. Arrival time never extends a deadline. The model covers multiple issued requests, delayed delivery, duplicate retries, sequence conflicts, and signed time limits. The review establishes clock limits, bounded publication work, restart behavior, and rollback quarantine. The baseline and replacement counterexamples remain evidence against the former exact-confirmation contract. Preserve their traces and original assertions. Evaluate the revised predicates separately. Do not use a new threshold cryptography primitive without a maintained library and review. Specify secure share distribution, authenticated transport, replay defense, and durable state before acknowledgment. Specify backup rollback detection, released-share history, cancellation, and agent replacement. Treat a partial release as irreversible. Any agent that ever releases its share refuses renewal of the same content key. The model counts all shares retained by observers, including shares no endpoint currently displays. Keep switch production use disabled until the review passes.</p>
 <h3 id="switch-protocol-data-touched">Data touched</h3>
-<p>Protocol version, state model, counterexample schedules, decision record. This epic uses synthetic secrets only.</p>
+<p>Protocol version, durable client journal, B0, Bmax, E assumptions, state model, counterexample schedules, decision record. This epic uses synthetic secrets only.</p>
 <h3 id="switch-protocol-interfaces">Interfaces</h3>
-<p>Specify <code>prepare</code>, <code>arm</code>, <code>checkin</code>, <code>status</code>, and <code>release</code> message schemas. Each signed message includes switch ID, protocol version, sequence, deadline, grace, and content digest. Each receipt includes agent identity, accepted state, durable sequence, and signature. Use canonical byte encoding with domain separation. The spike specifies the exact encoding. Library selection and exact threshold APIs remain research outputs, not assumed external capabilities.</p>
+<p>Specify <code>prepare</code>, <code>arm</code>, <code>checkin</code>, <code>status</code>, and <code>release</code> message schemas. Each signed message includes switch ID, protocol version, sequence, deadline, grace, and content digest. Each receipt includes agent identity, accepted state, durable sequence, and signature. Status distinguishes confirmed state, per-agent evidence, issued intent, and uncertain outcome. An unresolved request survives client restart through the durable journal. Use canonical byte encoding with domain separation. The spike specifies the exact encoding. Library selection and exact threshold APIs remain research outputs, not assumed external capabilities.</p>
 <p>The API uses the shared error format in the project spec. Mutations require owner authorization unless this file states otherwise.</p>
 <h3 id="switch-protocol-edge-cases-failures">Edge cases &amp; failures</h3>
 <p>Crash before persistence, crash after persistence, lost response, replay, clock steps, concurrent renewal, and partition all need executable schedules. A common provider, shared credential, or shared disk invalidates failure independence.</p>
@@ -227,9 +227,23 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>AC-switch-protocol-6 covers FR-switch-protocol-6: The review models old shares retained by public observers.
 </li>
-<li>AC-switch-protocol-7 covers FR-switch-protocol-7: The model releases content after main-server loss plus one agent outage.
+<li>AC-switch-protocol-7 covers FR-switch-protocol-7: The model releases content by Bmax plus E after main-server loss plus one agent outage.
 </li>
 <li>AC-switch-protocol-8 covers FR-switch-protocol-8: The review records a maintainer decision before production switch use.
+</li>
+</ul>
+<ul>
+<li>AC-switch-protocol-9 covers FR-switch-protocol-5: Lost final receipts report B0 through Bmax even when all agents accept the renewal.
+</li>
+<li>AC-switch-protocol-10 covers FR-switch-protocol-7: Each unavailable-agent schedule releases by Bmax plus E after permanent main-server and owner-client loss.
+</li>
+<li>AC-switch-protocol-11 covers FR-switch-protocol-7: The review records explicit clock limits and publication bounds for two reachable, honest agents with intact durable state.
+</li>
+<li>AC-switch-protocol-12 covers FR-switch-protocol-3: Restarted clients retry journaled bytes with the same sequence and deadline without arrival-time extension.
+</li>
+<li>AC-switch-protocol-13 covers FR-switch-protocol-6: Observer-retained shares remain counted after release, restart, cancellation, and later renewal attempts.
+</li>
+<li>AC-switch-protocol-14 covers FR-switch-protocol-6: An agent that ever releases its share refuses renewal of the same content key.
 </li>
 </ul>
 <h3 id="switch-protocol-out-of-scope">Out of scope</h3>

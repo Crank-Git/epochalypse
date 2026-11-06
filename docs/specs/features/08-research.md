@@ -2,8 +2,8 @@
 id: research
 feature: "External release research"
 epic: "Epic 8: External release research"
-status: planned
-issues: []
+status: built
+issues: [45, 46, 47, 48, 49, 50]
 mockups: []
 ---
 
@@ -50,6 +50,8 @@ This feature has no dedicated screen. The CLI reports progress, success, and str
 
 ## Behaviour rules
 
+Comparative research proceeds independently of production switch acceptance.
+It approves no service, purchase, or new dependency.
 Treat the loss of all owner-operated hosts separately from the loss of all independent operators.
 Evaluate external threshold custodians and externally executed contracts as candidates, not approved dependencies.
 A public fixed-time ciphertext cannot support revocation by a later check-in.
@@ -82,6 +84,8 @@ Each criterion requires a test or a reproducible review record. The quoted behav
 - AC-research-4 covers FR-research-4: The report evaluates cost, trust, censorship, and network failure.
 - AC-research-5 covers FR-research-5: The report contains a reproducible synthetic proof of concept or a documented blocker.
 - AC-research-6 covers FR-research-6: The report requests a maintainer decision before any new service dependency.
+
+- AC-research-7 covers FR-research-1: The comparison records candidate assumptions without requiring an accepted production switch protocol.
 
 ## Out of scope
 

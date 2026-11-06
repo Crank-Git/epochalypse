@@ -2,8 +2,8 @@
 id: capsules
 feature: "Time capsules"
 epic: "Epic 3: Time capsules"
-status: planned
-issues: []
+status: built
+issues: [17, 18, 19, 20, 21, 22]
 mockups: [mockups/capsules.html]
 ---
 

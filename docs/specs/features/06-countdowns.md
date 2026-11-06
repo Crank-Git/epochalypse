@@ -2,8 +2,8 @@
 id: countdowns
 feature: "DNS countdowns"
 epic: "Epic 6: DNS countdowns"
-status: planned
-issues: []
+status: built
+issues: [35, 36, 37, 38]
 mockups: [mockups/countdowns.html]
 ---
 
@@ -51,6 +51,11 @@ flowchart TD
 Empty: create event. Pending: publish event. Active: show event time. Complete: show completion. Error: show time-sync status. Unauthorized: block edits.
 
 ## Behaviour rules
+
+Use a configured countdown subdomain separate from the signature-window experimental subdomain.
+Derive the DNS owner name from the opaque countdown identifier under that subdomain and return the actual name in metadata.
+Use a separate configured signing-key reference and preserve valid countdown infrastructure when experiments change.
+Delegation changes remain an operator action.
 
 Compute `max(0, floor(event_time - authoritative_now))`.
 Cap the TTL at 2147483647 seconds. Reject initial events beyond that horizon in v1.

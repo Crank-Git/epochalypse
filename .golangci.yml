@@ -1,0 +1,22 @@
+version: "2"
+run:
+  timeout: 5m
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - gosec
+    - gocyclo
+    - revive
+  settings:
+    gocyclo:
+      min-complexity: 16
+    revive:
+      rules:
+        - name: max-control-nesting
+          arguments: [4]
+  exclusions:
+    presets: []

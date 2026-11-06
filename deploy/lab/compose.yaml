@@ -1,0 +1,82 @@
+name: epochalypse-lab
+x-process: &process
+  image: epochalypse-lab:${LAB_IMAGE_TAG:-local}
+  build:
+    context: ../..
+    dockerfile: deploy/lab/Dockerfile
+    args:
+      EPOCHALYPSE_BUILD_COMMIT: ${EPOCHALYPSE_BUILD_COMMIT:-unknown}
+  user: "65534:65534"
+  read_only: true
+  tmpfs:
+    - /tmp
+  environment:
+    EPOCHALYPSE_HTTP_ADDR: 0.0.0.0:8080
+    EPOCHALYPSE_STATE_DIR: /state
+  healthcheck:
+    test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/healthz]
+    interval: 1s
+    timeout: 2s
+    retries: 20
+services:
+  lab-material:
+    image: mcr.microsoft.com/playwright@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+    entrypoint: [node, /setup/lab_material.mjs]
+    read_only: true
+    network_mode: none
+    tmpfs: [/tmp]
+    volumes:
+      - web-state:/state
+      - ../../scripts/lab_material.mjs:/setup/lab_material.mjs:ro
+  lab-owner:
+    <<: *process
+    entrypoint: [/bin/sh, /setup/lab_owner.sh]
+    healthcheck:
+      disable: true
+    depends_on:
+      lab-material:
+        condition: service_completed_successfully
+    volumes:
+      - web-state:/state
+      - ../../scripts/lab_owner.sh:/setup/lab_owner.sh:ro
+  web:
+    <<: *process
+    command: [server, --dns-addr, 0.0.0.0:1053, --tls-cert, /state/lab/tls.crt, --tls-key, /state/lab/tls.key]
+    environment:
+      EPOCHALYPSE_ENV: lab
+      EPOCHALYPSE_HTTP_ADDR: 0.0.0.0:8080
+      EPOCHALYPSE_STATE_DIR: /state
+      EPOCHALYPSE_KEY_FILE: /state/lab/window.private
+      EPOCHALYPSE_PUBLIC_URL: https://localhost:${LAB_HTTP_PORT:-8080}
+    depends_on:
+      lab-owner:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, wget, --no-check-certificate, -q, -O, /dev/null, https://127.0.0.1:8080/healthz]
+      interval: 1s
+      timeout: 2s
+      retries: 20
+    volumes:
+      - web-state:/state
+      - ./main.json:/app/config/local.json:ro
+    ports:
+      - "127.0.0.1:${LAB_HTTP_PORT:-8080}:8080"
+      - "127.0.0.1:${LAB_DNS_PORT:-1053}:1053/udp"
+      - "127.0.0.1:${LAB_DNS_PORT:-1053}:1053/tcp"
+  agent-1:
+    <<: *process
+    command: [agent, --agent-id, lab-agent-1]
+    volumes: [agent-1-state:/state]
+  agent-2:
+    <<: *process
+    command: [agent, --agent-id, lab-agent-2]
+    volumes: [agent-2-state:/state]
+  agent-3:
+    <<: *process
+    command: [agent, --agent-id, lab-agent-3]
+    volumes: [agent-3-state:/state]
+volumes:
+  web-state:
+  agent-1-state:
+  agent-2-state:
+  agent-3-state:

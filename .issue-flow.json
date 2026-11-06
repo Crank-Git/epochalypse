@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "forge": {
+    "type": "github",
+    "host": "github.com",
+    "owner": "Crank-Git",
+    "repo": "epochalypse",
+    "interface": "cli"
+  },
+  "concurrency": 3,
+  "batchSize": 4,
+  "runLength": {
+    "mode": "backlog"
+  },
+  "prGranularity": "batch",
+  "prAuthority": "autonomous",
+  "planReview": false,
+  "reviewWipLimit": 2,
+  "review": {
+    "when": "end-of-session"
+  },
+  "deploy": {
+    "mode": "none"
+  },
+  "docsMcp": {
+    "offered": [],
+    "installed": [],
+    "marketplacesAdded": [],
+    "declined": false,
+    "restartPending": false
+  },
+  "practices": {
+    "tdd": true,
+    "ddd": false,
+    "e2e": "user-facing",
+    "coverage": 90,
+    "commitStyle": "imperative",
+    "docs": "public-api"
+  },
+  "notes": "All required tests pass. Promotion from dev to main requires separate owner approval. Foundation lands before feature work."
+}

@@ -1,0 +1,97 @@
+import assert from 'node:assert/strict';
+
+export async function checkSwitches(call, evaluate, waitFor, origin) {
+  await call('Page.navigate', {url: origin + '/owner/switches'});
+  await waitFor("document.querySelector('#switch-fields')?.disabled === false");
+  assert.equal(await evaluate("document.querySelector('#switch-interval').value"), '86400');
+  assert.equal(await evaluate("document.querySelector('#switch-grace').value"), '3600');
+  const preview = await evaluate("document.querySelector('#switch-preview').textContent");
+  for (const text of ['Deadline UTC:', 'Deadline local:', 'Grace: 3600 seconds.', 'Release boundary UTC:', 'Release boundary local:', 'Preview only']) assert.ok(preview.includes(text), text);
+  await evaluate("document.querySelector('#switch-grace').value='0'; document.querySelector('#switch-grace').dispatchEvent(new Event('input')); document.querySelector('button').focus()");
+  await call('Input.dispatchKeyEvent', {type: 'keyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32});
+  await call('Input.dispatchKeyEvent', {type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32});
+  await waitFor("document.querySelector('#switch-status').textContent.startsWith('Draft created.')");
+  const id = await evaluate("document.querySelector('#switch-list li').dataset.id");
+  const record = await evaluate(`fetch('/api/v1/switches/${id}').then(response => response.json())`);
+  assert.equal(record.state, 'draft'); assert.equal(record.interval_seconds, 86400); assert.equal(record.grace_seconds, 0);
+  assert.equal(record.deadline, undefined); assert.equal(record.release_boundary, undefined);
+  await call('Page.reload');
+  await waitFor("document.querySelector('#switch-fields')?.disabled === false");
+  assert.ok(await evaluate("document.querySelector('#switch-list').textContent.includes('Draft — no arm evidence reported. Remote agent state is unknown.')"));
+  assert.ok(await evaluate("document.querySelector('#switch-list').textContent.includes('Grace: 0 seconds')"));
+  const query = new URLSearchParams({id, interval_seconds: String(record.interval_seconds), grace_seconds: String(record.grace_seconds), created_at: record.created_at});
+  const fixture = await fetch('http://127.0.0.1:8082/fixture/switch-evidence?' + query, {headers: {Origin: origin}});
+  assert.equal(fixture.status, 200, 'The durable agent fixture succeeds');
+  const fixtureEvidence = await fixture.json();
+  const {renewal, ...evidence} = fixtureEvidence;
+  const csrf = await evaluate("fetch('/api/v1/csrf').then(response => response.json()).then(result => result.csrf_token)");
+  const submitEvidence = value => evaluate(`(async () => {
+    const id = document.querySelector('#switch-list li').dataset.id;
+    const response = await fetch('/api/v1/switches/' + id + '/arm', {
+      method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': ${JSON.stringify(csrf)}},
+      body: ${JSON.stringify(JSON.stringify(value))}, credentials: 'same-origin'});
+    return {status: response.status, body: await response.text()};
+  })()`);
+  const uncertainEvidence = {...evidence, armed: evidence.armed.slice(0, 2)};
+  const uncertain = await submitEvidence(uncertainEvidence);
+  assert.equal(uncertain.status, 202, uncertain.body);
+  assert.equal(JSON.parse(uncertain.body).state, 'uncertain');
+  await call('Page.reload');
+  await waitFor("document.querySelector('#switch-list').textContent.includes('Uncertain outcome — the owner issues an arm request')");
+  assert.ok(await evaluate("document.querySelector('#switch-list').textContent.includes('Armed receipts: 2 of 3.')"));
+  const invalidEvidence = structuredClone(evidence);
+  invalidEvidence.armed[2].signature = 'AA==';
+  const rejected = await submitEvidence(invalidEvidence);
+  assert.equal(rejected.status, 400, rejected.body);
+  const retained = await evaluate(`fetch('/api/v1/switches/' + document.querySelector('#switch-list li').dataset.id).then(response => response.json())`);
+  assert.equal(retained.state, 'uncertain');
+  assert.equal(retained.arm.armed.length, 2);
+  assert.ok(await evaluate("document.querySelector('#switch-list').textContent.includes('Uncertain outcome — the owner issues an arm request')"));
+  const armed = await submitEvidence(evidence);
+  assert.equal(armed.status, 200, armed.body);
+  assert.equal(JSON.parse(armed.body).state, 'armed');
+  await call('Page.reload');
+  await waitFor("document.querySelector('#switch-list').textContent.includes('Armed — three matching durable receipts')");
+  assert.ok(await evaluate("document.querySelector('#switch-list').textContent.includes('Armed receipts: 3 of 3.')"));
+  const importRenewal = value => evaluate(`(async () => {
+    const form = document.querySelector('.renewal-evidence-form');
+    const input = form.elements.evidence;
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([${JSON.stringify(JSON.stringify(value))}], 'renewal.json', {type: 'application/json'}));
+    input.files = transfer.files;
+    form.requestSubmit();
+    return true;
+  })()`);
+  const waitForRenewalReload = async outcome => {
+    await waitFor(`document.querySelector('.renewal-outcome')?.textContent.includes(${JSON.stringify(outcome)})`);
+    await waitFor("document.querySelector('.renewal-time')?.textContent.includes(' UTC / ')");
+  };
+  const partialRenewal = {...renewal, confirmed_request: evidence.request, confirmed_receipts: evidence.armed, receipts: renewal.receipts.slice(0, 2)};
+  await importRenewal(partialRenewal);
+  await waitForRenewalReload('Uncertain outcome');
+  const renewalText = await evaluate("document.querySelector('.renewal-status').textContent");
+  assert.ok(renewalText.includes('B0:') && renewalText.includes('Bmax:') && renewalText.includes('E assumptions:'));
+  assert.equal(await evaluate("document.querySelectorAll('.renewal-agents [data-agent-id]').length"), 3);
+  assert.ok(await evaluate("[...document.querySelectorAll('.renewal-agents li')].some(agent => agent.textContent.includes('uncertain'))"));
+  assert.equal(await evaluate("document.querySelector('.renewal-status').textContent.includes('UTC /')"), true);
+  assert.equal(await evaluate("document.querySelector('.renewal-status').textContent.includes('local')"), true);
+  assert.equal(await evaluate("document.querySelector('.renewal-outcome').textContent.includes('Armed')"), false);
+  const invalidRenewal = structuredClone(renewal);
+  invalidRenewal.receipts[2].signature = 'AA==';
+  await importRenewal(invalidRenewal);
+  await waitFor("document.querySelector('.renewal-evidence-form button').disabled === false && document.querySelector('.renewal-evidence-status').textContent.includes('Provide valid')");
+  await importRenewal(renewal);
+  await waitForRenewalReload('Renewed');
+  assert.equal(await evaluate("document.querySelectorAll('.renewal-agents li').length"), 3);
+  const regression = {...partialRenewal, receipts: partialRenewal.receipts.slice(0, 1)};
+  await importRenewal(regression);
+  await waitFor("document.querySelector('.renewal-evidence-form button').disabled === false && document.querySelector('.renewal-evidence-status').textContent.includes('Provide valid')");
+  assert.ok(await evaluate("document.querySelector('.renewal-outcome').textContent.includes('Renewed')"));
+  const switchScript = await evaluate("fetch('/owner/switches.js').then(response => response.text())");
+  await evaluate("document.querySelector('.renewal-time').dataset.unix='10000000000000'; document.querySelector('#switch-fields').disabled=true");
+  await evaluate(switchScript);
+  await waitFor("document.querySelector('#switch-fields').disabled === false");
+  assert.ok(await evaluate("document.querySelector('.renewal-time').textContent.includes('outside the browser date range')"));
+  await call('Page.navigate', {url: origin + '/owner'});
+  await waitFor("document.querySelector('h1')?.textContent === 'Signed in'");
+}

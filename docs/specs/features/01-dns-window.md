@@ -2,8 +2,8 @@
 id: dns-window
 feature: "DNSSEC signature windows"
 epic: "Epic 1: DNSSEC lab"
-status: planned
-issues: []
+status: built
+issues: [6, 7, 8, 9, 10, 11]
 mockups: [mockups/dns-window.html]
 ---
 
@@ -70,6 +70,7 @@ Window: identifier, public content, zone, inception, expiration, DNSKEY referenc
 
 ## Interfaces
 
+`GET /windows/{id}` serves the public-data page with direct-authority evidence and resolver observations.
 `POST /api/v1/windows` accepts `{content,inception,expiration}` and returns 201 with the window.
 `POST /api/v1/windows/{id}/observations` starts a lab run and returns 202.
 `GET /api/v1/windows/{id}/observations` returns the observations.
@@ -78,8 +79,9 @@ DNS: TXT, RRSIG, DNSKEY, DS, SOA, NS, and authenticated denial responses.
 Protocol sources: [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034.html), sections 3.1.4 and 3.1.5;
 [RFC 4035](https://www.rfc-editor.org/rfc/rfc4035.html), sections 4.7 and 5.3.1;
 [RFC 8914](https://www.rfc-editor.org/rfc/rfc8914.html), code 8.
-Candidate adapter: [miekg/dns v1.1.73](https://github.com/miekg/dns/tree/v1.1.73).
-Its upstream README recommends a successor. The compatibility spike decides the supported adapter before implementation.
+Selected adapter: [codeberg.org/miekg/dns v0.6.128](https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128).
+The isolated compatibility report retains miekg/dns v1.1.73 as a comparison dependency.
+ADR 0004 records the verified selection. docs/windows.md defines the implemented adapter contract.
 Resolver source: [Unbound 1.26.2 manual](https://unbound.docs.nlnetlabs.nl/en/latest/manpages/unbound.conf.html).
 The foundation pins actual resolver images after it verifies their version-specific manuals.
 

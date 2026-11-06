@@ -1,0 +1,1 @@
+{"version":1,"id":"00112233445566778899aabbccddeeff","created_at":"2026-11-04T00:00:00Z","password":{"algorithm":"argon2id","version":19,"memory_kib":65536,"iterations":3,"lanes":4,"salt":"AAAAAAAAAAAAAAAAAAAAAA","digest":"lAQf3cu7dmLBE9xuIx5FBacKA9QnA9HPrlrea3ZFSa8"}}

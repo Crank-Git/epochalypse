@@ -153,6 +153,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li><a class="sub" href="#assumptions">Assumptions</a></li>
 <li><a class="sub" href="#risks-open-questions">Risks &amp; open questions</a></li>
 <li><a class="sub" href="#changelog">Changelog</a></li>
+<li><a class="sub" href="#issue-map">Issue map</a></li>
 </ul>
 <h2>Pages</h2><ul>
 <li><a href="html/page-research-evidence.html">Research evidence</a></li>
@@ -170,13 +171,13 @@ body.rv-open .layout { padding-right:21rem; }
 <li><a href="html/feature-research.html">External release research</a></li>
 </ul></aside>
 <main>
-<p class="meta"><span class="badge">approved</span> &nbsp; created 2026-11-04 &nbsp; rendered 2026-11-04</p>
+<p class="meta"><span class="badge">approved</span> &nbsp; created 2026-11-04 &nbsp; rendered 2026-11-05</p>
 <h1>epochalypse</h1>
 <h1 id="epochalypse">epochalypse</h1>
 <h2 id="overview">Overview</h2>
 <p>epochalypse provides time capsules, renewable dead man’s switches, and DNS countdowns. Developers use a Go CLI and a resolver lab. Individuals use an owner dashboard and public release pages. The project supports local containers and Linux VPS hosts.</p>
 <p>DNSSEC signature windows demonstrate validator behavior. They do not keep published data secret. Encrypted capsules use server-held keys or a verified drand beacon. Independent agents support switch release after the main server fails.</p>
-<p>The owner states: “outage shouldnt stop this as it undermines the entire deadman switch behavior.” The initial guarantee covers main-server loss plus one unavailable agent. A separate research epic assesses loss of all project-operated servers.</p>
+<p>The owner states: “outage shouldnt stop this as it undermines the entire deadman switch behavior.” The accepted direction covers main-server loss plus one unavailable agent by Bmax plus the reviewed allowance E. After incomplete receipts, the client reports uncertainty from B0 through Bmax. B0 is the earliest possible disclosure boundary. Three durable receipts confirm renewal. No replacement protocol has production acceptance. See <a href="../adr/0012-switch-uncertainty.md">ADR 0012</a> and the <a href="../research/switch-protocol/directions.md">direction report</a>. A separate research epic assesses loss of all project-operated servers.</p>
 <h2 id="terms">Terms</h2>
 <div class="table-wrap"><table>
 <tr><th>Term</th><th>Part of speech</th><th>Meaning in this project</th><th>Do not use</th></tr>
@@ -191,6 +192,11 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>deadline</td><td>noun</td><td>The latest accepted owner check-in boundary.</td><td>expiration</td></tr>
 <tr><td>grace</td><td>noun</td><td>The duration between the deadline and release eligibility.</td><td>timeout</td></tr>
 <tr><td>release boundary</td><td>noun</td><td>The deadline plus grace for one accepted state.</td><td>deadline alone</td></tr>
+<tr><td>B0</td><td>noun</td><td>The last release boundary confirmed by three matching durable receipts; the earliest possible disclosure after uncertain renewal.</td><td>exact authority after receipt loss</td></tr>
+<tr><td>Bmax</td><td>noun</td><td>The latest release boundary in any owner-signed renewal already issued for transmission.</td><td>latest received receipt</td></tr>
+<tr><td>E</td><td>noun</td><td>The reviewed allowance for clock error and publication work. ADR 0013 accepts candidate E=34 seconds for implementation, subject to actual-host verification.</td><td>exact UTC guarantee</td></tr>
+<tr><td>uncertain outcome</td><td>noun</td><td>An incomplete response that can hide partial or complete renewal acceptance.</td><td>failed renewal</td></tr>
+<tr><td>client journal</td><td>noun</td><td>Durable signed intent stored before transmission, including exact bytes, sequence, deadline, and proposed boundary.</td><td>memory-only retry</td></tr>
 <tr><td>share</td><td>noun</td><td>One agent's part of the content key.</td><td>whole key</td></tr>
 <tr><td>receipt</td><td>noun</td><td>A signed acknowledgment of durable agent state.</td><td>success hint</td></tr>
 <tr><td>recovery bundle</td><td>noun</td><td>Exported data needed for independent content recovery.</td><td>backup alone</td></tr>
@@ -200,6 +206,8 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>beacon</td><td>noun</td><td>A publicly verifiable drand round signature.</td><td>arbitrary randomness</td></tr>
 <tr><td>DNS</td><td>noun</td><td>Domain Name System.</td><td>name database</td></tr>
 <tr><td>DNSSEC</td><td>noun</td><td>DNS Security Extensions.</td><td>encryption</td></tr>
+<tr><td>DNSKEY</td><td>noun</td><td>A DNS record that contains a public DNSSEC key.</td><td>private key</td></tr>
+<tr><td>key tag</td><td>noun</td><td>A 16-bit checksum that identifies a DNSKEY candidate; different keys can have the same value.</td><td>unique key identifier</td></tr>
 <tr><td>RRSIG</td><td>noun</td><td>A DNS record that carries a signature and its time window.</td><td>key</td></tr>
 <tr><td>RRset</td><td>noun</td><td>DNS records with one owner name, class, and type.</td><td>arbitrary record group</td></tr>
 <tr><td>TXT</td><td>noun</td><td>The DNS text record type.</td><td>text file</td></tr>
@@ -215,6 +223,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>CSRF</td><td>noun</td><td>Cross-site request forgery.</td><td>authentication</td></tr>
 <tr><td>VPS</td><td>noun</td><td>Virtual private server.</td><td>managed service guarantee</td></tr>
 <tr><td>CI</td><td>noun</td><td>Continuous integration checks.</td><td>coverage alone</td></tr>
+<tr><td>JWE</td><td>noun</td><td>JSON Web Encryption compact serialization for authenticated capsule content.</td><td>unframed ciphertext</td></tr>
 <tr><td>TDD</td><td>noun</td><td>Test-driven development through fail, pass, and refactor steps.</td><td>tests after behavior only</td></tr>
 <tr><td>E2E</td><td>noun</td><td>End-to-end verification through public interfaces.</td><td>unit test</td></tr>
 <tr><td>create</td><td>verb</td><td>Make a new entity.</td><td>provision when entity creation applies</td></tr>
@@ -236,7 +245,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>Pass every required test before merge.
 </li>
-<li>Maintain at least 95.00 percent aggregate statement coverage for first-party Go code.
+<li>Maintain at least 90.00 percent aggregate statement coverage for first-party Go code.
 </li>
 <li>Record a reproducible total-loss research result.
 </li>
@@ -278,7 +287,7 @@ body.rv-open .layout { padding-right:21rem; }
  Visitor --&gt; Beacon[Verified drand beacon]
  Agents --&gt;|Two release shares and ciphertext| Visitor</pre></div>
 <p>Use Go 1.27.3 with standard HTTP, templates, JSON, and CLI flags. The <a href="https://go.dev/doc/devel/release">Go release history</a> documents this version and its security fixes. Use server-rendered HTML with a small local JavaScript layer. The web interface requires no external frontend service. Use <code>cmd/epochalypse</code> for the executable and <code>internal/</code> for domain modules. Separate modules cover authentication, DNS, capsules, switches, agent state, content, and the clock. Use injected clocks for deterministic tests. Use monotonic durations for local scheduling, with explicit UTC release boundaries.</p>
-<p>Evaluate <a href="https://github.com/miekg/dns/tree/v1.1.73">miekg/dns v1.1.73</a> through a compatibility spike. Its README describes DNSSEC support but directs new work toward a successor. The spike chooses a maintained adapter and records its exact version before product code uses it. Use <a href="https://github.com/drand/tlock/tree/v1.2.0">tlock v1.2.0</a> as the initial compatibility target. Verify quicknet configuration explicitly. Legacy examples contain conflicting network references. The durable store, password library, threshold library, and lint tools remain foundation decisions with version-specific documentation. The spec does not assume their unverified interfaces.</p>
+<p>Use <a href="https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128">codeberg.org/miekg/dns v0.6.128</a> for the authoritative server and DNS clients. Keep <a href="https://github.com/miekg/dns/tree/v1.1.73">miekg/dns v1.1.73</a> as an isolated comparison dependency. The <a href="../research/dns-compatibility.md">compatibility report</a> records real resolver evidence and API limits. ADR 0004 records the choice. The implemented contracts are in docs/windows.md and docs/observations.md. The tlock v1.2.0 compatibility report verifies an explicit quicknet identity. Use docs/research/tlock-compatibility.md before production integration; example defaults have no authority. Owner state uses bbolt v1.5.0 and Argon2id from golang.org/x/crypto v0.58.0. ADR 0003 and docs/owner.md define the verified storage and password contracts. The foundation pins the lint tools in its check scripts. Use the pinned HashiCorp Shamir package for two-of-three switch key shares under the reviewed content and authenticated recovery contracts. The switch runtime guide records its scoped license and dependency decision.</p>
 <p>Use provider-neutral Linux services and container examples. Managed platforms must meet port and state requirements. Each agent provides its own public recovery endpoint and durable ciphertext copy. The main server is absent from the switch recovery path.</p>
 <h2 id="data-model">Data model</h2>
 <div class="diagram"><pre class="mermaid">erDiagram
@@ -289,6 +298,8 @@ body.rv-open .layout { padding-right:21rem; }
  CAPSULE ||--|| OBJECT : references
  SWITCH ||--|| OBJECT : references
  SWITCH ||--|{ RECEIPT : records
+ SWITCH ||--o{ CLIENT_JOURNAL : retains
+ CLIENT_JOURNAL ||--o{ RECEIPT : reconciles
  AGENT ||--o{ RECEIPT : signs
  AGENT ||--o{ SHARE : stores
  SWITCH ||--|{ SHARE : protects
@@ -299,9 +310,10 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>Token</td><td>ID, digest, scopes, expiry, revocation time.</td><td>Active to expired or revoked.</td></tr>
 <tr><td>Capsule</td><td>ID, title, mode, requested time, effective time, object digest, format version.</td><td>Draft, sealed, available, deleted.</td></tr>
 <tr><td>Object</td><td>Digest, byte count, media type, encrypted bytes, format version.</td><td>Prepared to retained or locally deleted.</td></tr>
-<tr><td>Switch</td><td>ID, owner public key, interval, grace, sequence, accepted state, object digest.</td><td>Draft, armed, degraded, released.</td></tr>
+<tr><td>Switch</td><td>ID, owner public key, interval, grace, sequence, confirmed state, B0, Bmax, allowance assumptions, object digest.</td><td>Draft, armed, uncertain, released.</td></tr>
+<tr><td>Client journal</td><td>Switch ID, exact signed bytes, sequence, deadline, proposed boundary, receipt evidence.</td><td>Durable before transmission; retained through reconciliation.</td></tr>
 <tr><td>Agent</td><td>ID, public key, endpoints, failure domain, protocol version.</td><td>Enrolled to ready, unavailable, or retired.</td></tr>
-<tr><td>Share</td><td>Switch ID, agent ID, encrypted share, release status.</td><td>Private to irreversibly public.</td></tr>
+<tr><td>Share</td><td>Switch ID, agent ID, content key reference, encrypted share, irreversible release history.</td><td>Private to irreversibly public; observer copies persist.</td></tr>
 <tr><td>Receipt</td><td>Agent ID, switch ID, sequence, deadline, digest, signature.</td><td>Append-only evidence.</td></tr>
 <tr><td>Countdown</td><td>ID, title, event time, DNS name.</td><td>Active, completed, deleted.</td></tr>
 <tr><td>Window</td><td>ID, zone, content, inception, expiration, key reference.</td><td>Draft, published, expired.</td></tr>
@@ -312,10 +324,10 @@ body.rv-open .layout { padding-right:21rem; }
  [*] --&gt; Draft
  Draft --&gt; Armed: All durable receipts and export
  Armed --&gt; Armed: Confirmed renewal
- Armed --&gt; Degraded: Missing receipt
- Degraded --&gt; Armed: Reviewed recovery
- Armed --&gt; Released: Release boundary
- Degraded --&gt; Released: Reviewed release rule
+ Armed --&gt; Uncertain: Incomplete response
+ Uncertain --&gt; Armed: Three matching durable receipts
+ Armed --&gt; Released: Two shares at confirmed boundary plus E
+ Uncertain --&gt; Released: By Bmax plus E under reviewed assumptions
  Released --&gt; [*]</pre></div>
 <h2 id="cross-cutting-concerns">Cross-cutting concerns</h2>
 <p>Authenticate mutations. Authorize each token scope. Sign direct check-ins with an owner key. Use TLS outside the isolated local lab. Require anti-replay checks on agent messages. Use generic authentication errors and specific validation errors. The API error shape is <code>{error:{code,message,fields,request_id}}</code>. Use 400 for malformed input, 401 for missing authentication, and 403 for insufficient scope. Use 404 for absent public objects, 409 for state conflicts, 413 for size limits, and 429 for rate limits. Use 503 for an unavailable dependency. Use 425 for a server-held key before release. Use request IDs across logs. Exclude plaintext, passwords, tokens, private keys, and key shares from logs. Bound request time, memory, disk quotas, and concurrent work. Default to 100 retained objects and 1 GiB per installation. The owner can change storage quotas. Failed quota checks leave no armed switch.</p>
@@ -337,9 +349,9 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>EPOCHALYPSE_QUOTA_BYTES</td><td>Limit retained local content.</td><td>1073741824</td></tr>
 <tr><td>EPOCHALYPSE_LOG_LEVEL</td><td>Set log detail.</td><td>info</td></tr>
 </table></div>
-<p>Configuration holds the zone name, agent endpoints, failure domains, public keys, beacon chain, and protocol version. Private key files require owner-only filesystem access. Configuration contains key references rather than key values. Production startup rejects lab keys and insecure public origins. Use a small synthetic capsule, switch, countdown, and window as demo records. Real domains, VPS addresses, and the personal GitHub identity remain operator setup values. No provider budget or spending authority exists.</p>
+<p>Configuration holds the zone name, agent endpoints, failure domains, public keys, beacon chain, and protocol version. Configure distinct subdomains and signing-key references for signature-window experiments and countdowns. Countdown record names derive from their opaque identifiers under the configured countdown subdomain. Return the actual record name in public metadata. The project does not change delegation automatically. Private key files require owner-only filesystem access. Configuration contains key references rather than key values. Production startup rejects lab keys and insecure public origins. Use a small synthetic capsule, switch, countdown, and window as demo records. Real domains, VPS addresses, and the personal GitHub identity remain operator setup values. No provider budget or spending authority exists.</p>
 <h2 id="testing-strategy">Testing strategy</h2>
-<p>Required pass rate is 100 percent. Coverage is a separate minimum of 95.00 percent. Measure Go statement coverage across every first-party production package, including CLI and HTTP adapters. Exclude dependencies and generated third-party code. Do not exclude difficult branches to reach the threshold. Fail the coverage check when the profile is absent, empty, malformed, or below the unrounded threshold. Require explicit tests for every security and deadline boundary regardless of coverage.</p>
+<p>Required pass rate is 100 percent. Coverage is a separate minimum of 90.00 percent. Measure Go statement coverage across every first-party production package, including CLI and HTTP adapters. Exclude dependencies and generated third-party code. Do not exclude difficult branches to reach the threshold. Fail the coverage check when the profile is absent, empty, malformed, or below the unrounded threshold. Require explicit tests for every security and deadline boundary regardless of coverage.</p>
 <p>Use TDD for behavior changes. First demonstrate a failing assertion against the existing behavior. Then implement the smallest change that passes. Refactor while the checks remain green. A new test that fails only because of a syntax error does not demonstrate the behavior. Record the fail/pass commands in the PR description without mandatory changelog edits.</p>
 <p>Planned commands become executable in Epic 0:</p>
 <div class="table-wrap"><table>
@@ -349,7 +361,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td><code>make test-e2e</code></td><td>Browser and CLI happy paths plus critical errors pass.</td></tr>
 <tr><td><code>make test-resolvers</code></td><td>Pinned default Unbound, strict Unbound, and BIND scenarios pass.</td></tr>
 <tr><td><code>make test-race</code></td><td><code>go test -race ./...</code> reports no races.</td></tr>
-<tr><td><code>make coverage</code></td><td>Instrumented aggregate Go coverage reaches 95.00 percent.</td></tr>
+<tr><td><code>make coverage</code></td><td>Instrumented aggregate Go coverage reaches 90.00 percent.</td></tr>
 <tr><td><code>make fuzz-smoke</code></td><td>Bounded parser and protocol fuzz tests pass for 30 seconds each.</td></tr>
 <tr><td><code>make lint</code></td><td>Format, vet, complexity, nesting, dead-code, and security checks pass.</td></tr>
 <tr><td><code>make build</code></td><td>Linux amd64 and arm64 builds succeed.</td></tr>
@@ -367,11 +379,45 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>Epic 4: Switch protocol review</td><td>5</td><td>0</td><td>The model and maintainer decision permit implementation.</td></tr>
 <tr><td>Epic 5: Dead man’s switches</td><td>6</td><td>2, 4</td><td>Independent recovery passes the stated outage test.</td></tr>
 <tr><td>Epic 6: DNS countdowns</td><td>3</td><td>1, 2</td><td>Signed countdown records pass resolver tests.</td></tr>
-<tr><td>Epic 7: Deployment and recovery</td><td>5</td><td>3, 5, 6</td><td>A staged deployment passes the recovery exercise.</td></tr>
-<tr><td>Epic 8: External release research</td><td>5</td><td>4</td><td>The report supports a maintainer decision.</td></tr>
+<tr><td>Epic 7: Deployment and recovery</td><td>5</td><td>3, 6; switch slice also 5</td><td>Completed features pass staging; switch drills await protocol acceptance.</td></tr>
+<tr><td>Epic 8: External release research</td><td>5</td><td>0; independent of production switch acceptance</td><td>The report supports a maintainer decision.</td></tr>
 </table></div>
 <p>Feature files define each epic's complete behavior. Split an epic before issue creation if the work exceeds six focused changes. Do not compress the protocol review to preserve an estimate.</p>
 <h2 id="milestones">Milestones</h2>
+<h3 id="first-usable-local-milestone">First usable local milestone</h3>
+<p>On 2026-11-05, the owner selects these completed features in <code>dev</code> for the first usable local milestone:</p>
+<ul>
+<li>DNSSEC experiments.
+</li>
+<li>Time capsules.
+</li>
+<li>Countdowns.
+</li>
+<li>Owner access.
+</li>
+</ul>
+<p>Provide these deliverables:</p>
+<ul>
+<li>Verified local startup.
+</li>
+<li>A synthetic walkthrough.
+</li>
+<li>The required test evidence.
+</li>
+</ul>
+<p>Switch runtime work and its dependent deployment exercises belong to a later milestone. Preserve these switch artifacts:</p>
+<ul>
+<li>The requirements.
+</li>
+<li>The reviewed protocol.
+</li>
+<li>The parked implementation.
+</li>
+<li>The historical counterexamples.
+</li>
+</ul>
+<p>Switch completion does not block this local milestone. Actual-host certification and promotion to <code>main</code> remain separate gates. Every required test must pass. Aggregate first-party Go statement coverage must reach 90.00 percent before rounding.</p>
+<h3 id="full-project-roadmap">Full project roadmap</h3>
 <ol>
 <li>Establish a green repository and a reproducible DNS demonstration.
 </li>
@@ -381,7 +427,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>Provide switches and countdowns behind verified behavior gates.
 </li>
-<li>Validate the Linux deployment and independent recovery.
+<li>Validate completed-feature deployment independently; validate live switch recovery after protocol acceptance.
 </li>
 <li>Present the external release report as a separate decision.
 </li>
@@ -392,6 +438,10 @@ body.rv-open .layout { padding-right:21rem; }
 <h2 id="risks-open-questions" class="callout-h">Risks &amp; open questions</h2>
 <h3 id="review-decisions">Review decisions</h3>
 <ul>
+<li>The owner accepts the bounded receipt-loss tradeoff on 2026-11-05. Clock and publication allowances remain protocol-review outputs.
+</li>
+</ul>
+<ul>
 <li>The owner approved three-agent renewal and its availability tradeoff on 2026-11-04.
 </li>
 <li>The owner approved the scaffold proposal on 2026-11-04.
@@ -401,7 +451,13 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <h3 id="technical-gates">Technical gates</h3>
 <ul>
-<li>Partial renewal can leave inconsistent deadlines. The model must establish safe semantics before production switch use.
+<li>Incomplete receipts create uncertainty from B0 through Bmax, plus E. The owner accepts almost 24 hours under the default interval.
+</li>
+<li>B0 does not prove actual authority after receipt loss. A missing response can hide a fully accepted renewal.
+</li>
+<li>The revised model must verify Bmax plus E after main loss and one outage with two reachable, honest, durable agents.
+</li>
+<li>Permanent client loss, retry journals, delayed requests, and irreversible observer history remain protocol-review obligations.
 </li>
 <li>Published shares can survive later renewals. The protocol must account for their cumulative disclosure.
 </li>
@@ -411,7 +467,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>A lost signing key can prevent renewal. Export and recovery procedures must state this consequence.
 </li>
-<li>The DNS adapter requires a maintenance and compatibility decision.
+<li>The DNS adapter passes synthetic compatibility checks. Production integration and public delegation remain separate gates.
 </li>
 <li>The tlock adapter requires an explicit verified network configuration and version check.
 </li>
@@ -427,13 +483,162 @@ body.rv-open .layout { padding-right:21rem; }
 <p>No unanswered product question blocks the approved plan. Technical gates block the affected implementation or production claim.</p>
 <h2 id="changelog">Changelog</h2>
 <ul>
+<li>2026-11-05: The owner requests full software completion and defers hosted deployment. Keep actual-host verification and separate <code>main</code> promotion approval for the later deployment phase.
+</li>
+</ul>
+<ul>
+<li>2026-11-05: The owner lowers aggregate first-party Go statement coverage to 90.00 percent in #125. Preserve every required test and zero required skips. Explicit security, durability, and deadline tests remain required.
+</li>
+</ul>
+<ul>
+<li>2026-11-05: The owner selects DNSSEC experiments, capsules, countdowns, and owner access for the first local milestone in #120. Defer switch runtime and dependent operations. Preserve their requirements and quality gates.
+</li>
+</ul>
+<ul>
+<li>2026-11-05: Accept the documented external-release blocker in issue #50. Adopt no new service and retain the reviewed independent-agent direction.
+</li>
+</ul>
+<ul>
+<li>2026-11-05: Accept the reviewed switch design for implementation in issue #28. ADR 0013 retains runtime, actual-host readiness, and production gates.
+</li>
+</ul>
+<ul>
+<li>2026-11-05: The owner accepts bounded switch uncertainty after receipt loss. ADR 0012 supersedes ADR 0005's exact-confirmation requirement. Keep production gated.
+</li>
+<li>2026-11-05: Separate completed-feature deployment and comparative external research from production switch acceptance. Keep live switch operations gated.
+</li>
+</ul>
+<ul>
+<li>2026-11-04: The owner selects separate DNS subdomains for signature-window experiments and countdowns. Keep delegation operator-controlled. Capsule foundation supplies shared storage before countdown implementation.
+</li>
+</ul>
+<ul>
+<li>2026-11-04: Run tlock compatibility research independently of live DNS-window implementation. Keep production capsules gated on DNS completion and the verified compatibility result.
+</li>
+</ul>
+<ul>
+<li>2026-11-04: After replacement research and independent review, the owner retains the original guarantee and leaves switch implementation blocked. Continue other features. See ADR 0005.
+</li>
+</ul>
+<ul>
+<li>2026-11-04: The owner preserves the original switch guarantee. Research a replacement in issue #70 before protocol acceptance.
+</li>
+</ul>
+<ul>
+<li>2026-11-04: Ship the baseline switch model and counterexamples as research only. Keep recovery completion and protocol acceptance blocked.
+</li>
+</ul>
+<ul>
+<li>2026-11-04: Ship DNS compatibility research separately while owner access blocks production mutations. Select the verified successor adapter in ADR 0004.
+</li>
+</ul>
+<ul>
+<li>2026-11-04: Require each implemented feature to add its applicable tests. Keep unavailable future-suite targets explicit and fail-closed. See ADR 0002.
+</li>
+</ul>
+<ul>
+<li>2026-11-04: The owner approved nine epics and 41 sub-issues. Record complete coverage of 73 functional requirements.
+</li>
+</ul>
+<ul>
 <li>2026-11-04: Create the first draft after the product interview. Record public visibility and the dev-and-live branch model.
 </li>
 </ul>
 <ul>
 <li>2026-11-04: The owner approved the spec, release tradeoffs, scaffold, and Git initialization. Technical gates remain in force.
 </li>
-</ul><nav class="pager">
+</ul>
+<h2 id="issue-map">Issue map</h2>
+<p>The owner approved issue creation on 2026-11-04. Each requirement has at least one sub-issue.</p>
+<div class="table-wrap"><table>
+<tr><th>Feature</th><th>Epic</th><th>Sub-issues</th></tr>
+<tr><td>foundation</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/1">#1</a></td><td><a href="https://github.com/Crank-Git/epochalypse/issues/2">#2</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/3">#3</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/4">#4</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/5">#5</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/57">#57</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/58">#58</a></td></tr>
+<tr><td>dns-window</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/6">#6</a></td><td><a href="https://github.com/Crank-Git/epochalypse/issues/7">#7</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/8">#8</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/9">#9</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/10">#10</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/11">#11</a></td></tr>
+<tr><td>owner</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/12">#12</a></td><td><a href="https://github.com/Crank-Git/epochalypse/issues/13">#13</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/14">#14</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/15">#15</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/16">#16</a></td></tr>
+<tr><td>capsules</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/17">#17</a></td><td><a href="https://github.com/Crank-Git/epochalypse/issues/18">#18</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/19">#19</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/20">#20</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/21">#21</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/22">#22</a></td></tr>
+<tr><td>switch-protocol</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/23">#23</a></td><td><a href="https://github.com/Crank-Git/epochalypse/issues/24">#24</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/25">#25</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/26">#26</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/27">#27</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/28">#28</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/70">#70</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/106">#106</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/107">#107</a></td></tr>
+<tr><td>switches</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/29">#29</a></td><td><a href="https://github.com/Crank-Git/epochalypse/issues/30">#30</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/31">#31</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/32">#32</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/33">#33</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/34">#34</a></td></tr>
+<tr><td>countdowns</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/35">#35</a></td><td><a href="https://github.com/Crank-Git/epochalypse/issues/36">#36</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/37">#37</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/38">#38</a></td></tr>
+<tr><td>operations</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/39">#39</a></td><td><a href="https://github.com/Crank-Git/epochalypse/issues/40">#40</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/41">#41</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/42">#42</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/43">#43</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/44">#44</a></td></tr>
+<tr><td>research</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/45">#45</a></td><td><a href="https://github.com/Crank-Git/epochalypse/issues/46">#46</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/47">#47</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/48">#48</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/49">#49</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/50">#50</a></td></tr>
+</table></div>
+<h3 id="requirement-coverage">Requirement coverage</h3>
+<div class="table-wrap"><table>
+<tr><th>Requirement</th><th>Sub-issues</th></tr>
+<tr><td>FR-foundation-1</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/2">#2</a></td></tr>
+<tr><td>FR-foundation-2</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/2">#2</a></td></tr>
+<tr><td>FR-foundation-3</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/2">#2</a></td></tr>
+<tr><td>FR-foundation-4</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/3">#3</a></td></tr>
+<tr><td>FR-foundation-5</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/3">#3</a></td></tr>
+<tr><td>FR-foundation-6</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/4">#4</a></td></tr>
+<tr><td>FR-foundation-7</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/4">#4</a></td></tr>
+<tr><td>FR-foundation-8</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/5">#5</a></td></tr>
+<tr><td>FR-foundation-9</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/5">#5</a></td></tr>
+<tr><td>FR-dns-window-1</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/7">#7</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/8">#8</a></td></tr>
+<tr><td>FR-dns-window-2</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/7">#7</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/8">#8</a></td></tr>
+<tr><td>FR-dns-window-3</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/7">#7</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/9">#9</a></td></tr>
+<tr><td>FR-dns-window-4</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/9">#9</a></td></tr>
+<tr><td>FR-dns-window-5</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/9">#9</a></td></tr>
+<tr><td>FR-dns-window-6</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/10">#10</a></td></tr>
+<tr><td>FR-dns-window-7</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/10">#10</a></td></tr>
+<tr><td>FR-dns-window-8</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/9">#9</a></td></tr>
+<tr><td>FR-dns-window-9</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/7">#7</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/11">#11</a></td></tr>
+<tr><td>FR-owner-1</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/13">#13</a></td></tr>
+<tr><td>FR-owner-2</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/13">#13</a></td></tr>
+<tr><td>FR-owner-3</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/14">#14</a></td></tr>
+<tr><td>FR-owner-4</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/14">#14</a></td></tr>
+<tr><td>FR-owner-5</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/15">#15</a></td></tr>
+<tr><td>FR-owner-6</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/15">#15</a></td></tr>
+<tr><td>FR-owner-7</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/16">#16</a></td></tr>
+<tr><td>FR-owner-8</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/16">#16</a></td></tr>
+<tr><td>FR-capsules-1</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/20">#20</a></td></tr>
+<tr><td>FR-capsules-2</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/18">#18</a></td></tr>
+<tr><td>FR-capsules-3</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/18">#18</a></td></tr>
+<tr><td>FR-capsules-4</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/19">#19</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/20">#20</a></td></tr>
+<tr><td>FR-capsules-5</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/21">#21</a></td></tr>
+<tr><td>FR-capsules-6</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/22">#22</a></td></tr>
+<tr><td>FR-capsules-7</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/21">#21</a></td></tr>
+<tr><td>FR-capsules-8</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/22">#22</a></td></tr>
+<tr><td>FR-capsules-9</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/21">#21</a></td></tr>
+<tr><td>FR-switch-protocol-1</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/24">#24</a></td></tr>
+<tr><td>FR-switch-protocol-2</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/24">#24</a></td></tr>
+<tr><td>FR-switch-protocol-3</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/25">#25</a></td></tr>
+<tr><td>FR-switch-protocol-4</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/25">#25</a></td></tr>
+<tr><td>FR-switch-protocol-5</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/26">#26</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/70">#70</a></td></tr>
+<tr><td>FR-switch-protocol-6</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/26">#26</a></td></tr>
+<tr><td>FR-switch-protocol-7</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/27">#27</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/70">#70</a></td></tr>
+<tr><td>FR-switch-protocol-8</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/28">#28</a>, <a href="https://github.com/Crank-Git/epochalypse/issues/70">#70</a></td></tr>
+<tr><td>FR-switches-1</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/30">#30</a></td></tr>
+<tr><td>FR-switches-2</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/31">#31</a></td></tr>
+<tr><td>FR-switches-3</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/32">#32</a></td></tr>
+<tr><td>FR-switches-4</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/32">#32</a></td></tr>
+<tr><td>FR-switches-5</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/33">#33</a></td></tr>
+<tr><td>FR-switches-6</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/33">#33</a></td></tr>
+<tr><td>FR-switches-7</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/33">#33</a></td></tr>
+<tr><td>FR-switches-8</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/32">#32</a></td></tr>
+<tr><td>FR-switches-9</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/31">#31</a></td></tr>
+<tr><td>FR-switches-10</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/34">#34</a></td></tr>
+<tr><td>FR-countdowns-1</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/36">#36</a></td></tr>
+<tr><td>FR-countdowns-2</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/37">#37</a></td></tr>
+<tr><td>FR-countdowns-3</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/36">#36</a></td></tr>
+<tr><td>FR-countdowns-4</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/38">#38</a></td></tr>
+<tr><td>FR-countdowns-5</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/38">#38</a></td></tr>
+<tr><td>FR-countdowns-6</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/38">#38</a></td></tr>
+<tr><td>FR-operations-1</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/40">#40</a></td></tr>
+<tr><td>FR-operations-2</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/41">#41</a></td></tr>
+<tr><td>FR-operations-3</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/42">#42</a></td></tr>
+<tr><td>FR-operations-4</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/43">#43</a></td></tr>
+<tr><td>FR-operations-5</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/44">#44</a></td></tr>
+<tr><td>FR-operations-6</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/44">#44</a></td></tr>
+<tr><td>FR-operations-7</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/40">#40</a></td></tr>
+<tr><td>FR-operations-8</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/41">#41</a></td></tr>
+<tr><td>FR-research-1</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/46">#46</a></td></tr>
+<tr><td>FR-research-2</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/47">#47</a></td></tr>
+<tr><td>FR-research-3</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/48">#48</a></td></tr>
+<tr><td>FR-research-4</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/49">#49</a></td></tr>
+<tr><td>FR-research-5</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/50">#50</a></td></tr>
+<tr><td>FR-research-6</td><td><a href="https://github.com/Crank-Git/epochalypse/issues/50">#50</a></td></tr>
+</table></div><nav class="pager">
 <span></span>
 <a href="html/page-research-evidence.html">Research evidence &rarr;</a>
 </nav>

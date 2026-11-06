@@ -2,8 +2,8 @@
 id: owner
 feature: "Owner access"
 epic: "Epic 2: Owner access"
-status: planned
-issues: []
+status: built
+issues: [12, 13, 14, 15, 16]
 mockups: [mockups/owner.html]
 ---
 
