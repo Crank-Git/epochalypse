@@ -96,6 +96,99 @@ func TestRenewalCapacityRefusalPrecedesAcceptedDeadlineMutation(t *testing.T) {
 	}
 }
 
+func TestRenewalByteCapacityRefusalPreservesRelease(t *testing.T) {
+	f, tr, next := armedCheckinFixture(t)
+	before, err := f.journal.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := f.journal.journal.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.journal.config.MaxJournalBytes = info.Size() + 2*int64(f.journal.config.MaxRecordBytes)
+	request, err := switchwire.SignFrame(next, f.ownerKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.Checkin(request); !errors.Is(err, ErrCapacity) {
+		t.Fatalf("byte capacity error=%v", err)
+	}
+	after, err := f.journal.Snapshot()
+	if err != nil || !equalAuthorityState(before, after) {
+		t.Fatal("byte refusal changes accepted state")
+	}
+	tr.clock = func() (Reading, error) { return Reading{lower: 4660}, nil }
+	if err := tr.Publish(); err != nil {
+		t.Fatalf("byte refusal consumes release: %v", err)
+	}
+}
+
+func TestReservationFailurePreservesAuthorityAndReleasesLock(t *testing.T) {
+	for _, operation := range []string{"reserve-journal", "reserve-checkpoint"} {
+		t.Run(operation, func(t *testing.T) {
+			f, _, _ := armedCheckinFixture(t)
+			before, err := f.journal.Snapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := f.journal.Close(); err != nil {
+				t.Fatal(err)
+			}
+			fault := errors.New("synthetic allocation failure")
+			config := f.authorityConfig
+			config.performIO = func(name string, action func() error) error {
+				if name == operation {
+					return fault
+				}
+				return action()
+			}
+			j, err := Open(config)
+			if j != nil {
+				_ = j.Close()
+			}
+			if !errors.Is(err, fault) {
+				t.Fatalf("allocation failure loses cause: %v", err)
+			}
+			j, err = Open(f.authorityConfig)
+			if err != nil {
+				t.Fatalf("allocation failure retains lock: %v", err)
+			}
+			defer func() { _ = j.Close() }()
+			after, err := j.Snapshot()
+			if err != nil || !equalAuthorityState(before, after) {
+				t.Fatal("allocation failure changes accepted authority")
+			}
+		})
+	}
+}
+
+func TestReservationAddsMissingCheckpointSlotWithoutAuthorityChange(t *testing.T) {
+	f, _, _ := armedCheckinFixture(t)
+	before, err := f.journal.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.journal.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(f.authorityConfig.CheckpointDirectory, checkpointSpareName)); err != nil {
+		t.Fatal(err)
+	}
+	j, err := Open(f.authorityConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = j.Close() }()
+	after, err := j.Snapshot()
+	if err != nil || !equalAuthorityState(before, after) {
+		t.Fatal("checkpoint slot migration changes authority")
+	}
+	if _, err := os.Stat(filepath.Join(f.authorityConfig.CheckpointDirectory, checkpointSpareName)); err != nil {
+		t.Fatalf("checkpoint slot is absent: %v", err)
+	}
+}
+
 func TestCheckpointParentSyncFailurePreventsReadiness(t *testing.T) {
 	config := authorityTestConfig(t)
 	config.CheckpointDirectory = filepath.Join(t.TempDir(), "new-parent", "checkpoint")

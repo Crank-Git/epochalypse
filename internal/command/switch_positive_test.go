@@ -47,6 +47,7 @@ func TestCLIArmsSwitchWithThreeDurableTLSAgents(t *testing.T) {
 	verifySwitchArmRetries(t, binary, paths, fixture)
 	stopSwitchAgentProcesses(fixture)
 	assertAgentsArmed(t, paths, fixture)
+	verifyStandaloneSwitchRecovery(t, binary, paths, plan, fixture, ownerPublic)
 }
 
 type switchFixturePaths struct{ root, state, ownerKey, ownerPublic, plan, bundle, content, agents, pins, certs string }

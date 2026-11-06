@@ -146,8 +146,11 @@ It reconstructs the key from two shares through the adopted content package.
 It verifies authenticated ciphertext before stdout receives plaintext.
 A failed recovery returns no plaintext.
 
-The initial HTTPS test recovers through two independent journals while the third endpoint returns an outage.
-Capacity admission, complete failure tests, and executable recovery verification remain incomplete under issue #33.
+The HTTPS tests recover through two independent journals while the third endpoint returns an outage.
+Negative tests reject invalid manifests, signatures, shares, and ciphertext without plaintext output.
+The executable test starts two agents from durable released state and runs the standalone recovery command.
+The main state and the third agent remain unavailable. A single reachable agent cannot recover the content.
+Controlled clock evidence creates the test release state. This test establishes no actual-host timing bound.
 These software tests establish no actual-host timing or production acceptance.
 
 ## Owner-local renewal

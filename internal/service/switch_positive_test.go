@@ -212,7 +212,7 @@ func startSwitchAgentTransitions(t *testing.T, record switches.Record, owner ed2
 		if err := os.Mkdir(directory, 0o700); err != nil {
 			t.Fatal(err)
 		}
-		config := agent.Config{Directory: directory, CheckpointDirectory: filepath.Join(root, "checkpoint"), ExpectedVolumeID: "test-" + enrolled.ID}
+		config := agent.Config{Directory: directory, CheckpointDirectory: filepath.Join(root, "checkpoint"), ExpectedVolumeID: "test-" + enrolled.ID, LabOnlySyntheticStorage: true}
 		if err := agent.Initialize(config); err != nil {
 			t.Fatal(err)
 		}
