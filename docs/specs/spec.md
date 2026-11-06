@@ -117,7 +117,7 @@ A separate research epic assesses loss of all project-operated servers.
 - Distinguish validation, confidentiality, and availability in every release mode.
 - Recover switch content after main-server loss plus one agent outage.
 - Pass every required test before merge.
-- Maintain at least 95.00 percent aggregate statement coverage for first-party Go code.
+- Maintain at least 90.00 percent aggregate statement coverage for first-party Go code.
 - Record a reproducible total-loss research result.
 
 ## Non-goals
@@ -295,7 +295,7 @@ No provider budget or spending authority exists.
 
 ## Testing strategy
 
-Required pass rate is 100 percent. Coverage is a separate minimum of 95.00 percent.
+Required pass rate is 100 percent. Coverage is a separate minimum of 90.00 percent.
 Measure Go statement coverage across every first-party production package, including CLI and HTTP adapters.
 Exclude dependencies and generated third-party code. Do not exclude difficult branches to reach the threshold.
 Fail the coverage check when the profile is absent, empty, malformed, or below the unrounded threshold.
@@ -315,7 +315,7 @@ Planned commands become executable in Epic 0:
 | `make test-e2e` | Browser and CLI happy paths plus critical errors pass. |
 | `make test-resolvers` | Pinned default Unbound, strict Unbound, and BIND scenarios pass. |
 | `make test-race` | `go test -race ./...` reports no races. |
-| `make coverage` | Instrumented aggregate Go coverage reaches 95.00 percent. |
+| `make coverage` | Instrumented aggregate Go coverage reaches 90.00 percent. |
 | `make fuzz-smoke` | Bounded parser and protocol fuzz tests pass for 30 seconds each. |
 | `make lint` | Format, vet, complexity, nesting, dead-code, and security checks pass. |
 | `make build` | Linux amd64 and arm64 builds succeed. |
@@ -380,7 +380,7 @@ Preserve these switch artifacts:
 - The historical counterexamples.
 
 Switch completion does not block this local milestone. Actual-host certification and promotion to `main` remain separate gates.
-Every required test must pass. Aggregate first-party Go statement coverage must reach 95.00 percent before rounding.
+Every required test must pass. Aggregate first-party Go statement coverage must reach 90.00 percent before rounding.
 
 ### Full project roadmap
 
@@ -437,6 +437,8 @@ Keep provider selection and actual infrastructure cost outside this planning dec
 No unanswered product question blocks the approved plan. Technical gates block the affected implementation or production claim.
 
 ## Changelog
+
+- 2026-11-05: The owner lowers aggregate first-party Go statement coverage to 90.00 percent in #125. Preserve every required test and zero required skips. Explicit security, durability, and deadline tests remain required.
 
 - 2026-11-05: The owner selects DNSSEC experiments, capsules, countdowns, and owner access for the first local milestone in #120. Defer switch runtime and dependent operations. Preserve their requirements and quality gates.
 

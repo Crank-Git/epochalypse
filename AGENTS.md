@@ -50,7 +50,7 @@ Use short imperative commit subjects. Describe the behavior and verification in 
 Use dev for integration. Promote dev to main only through a separate owner-approved step.
 Each epic produces one integration pull request with required CI.
 Use test-first behavior changes and the exact quality gates from the spec.
-Every required test passes. First-party Go statement coverage reaches at least 95.00 percent.
+Every required test passes. First-party Go statement coverage reaches at least 90.00 percent.
 Keep switch production use disabled until the protocol review and maintainer decision pass.
 Approval of the project plan does not approve an unreviewed switch protocol.
 

@@ -35,8 +35,8 @@ def measure(profiles):
 def main(paths):
     try:
         covered, total = measure([Path(path).read_text() for path in paths])
-        if covered * 100 < total * 95:
-            raise ValueError(f"coverage below 95.00 percent: {covered}/{total} statements")
+        if covered * 100 < total * 90:
+            raise ValueError(f"coverage below 90.00 percent: {covered}/{total} statements")
     except (OSError, ValueError) as error:
         print(f"coverage: {error}", file=sys.stderr)
         return 1
