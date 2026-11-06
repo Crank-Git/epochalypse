@@ -1,10 +1,12 @@
 import json
+import re
 import subprocess
 import sys
 
 
 TEST_TIMEOUT_SECONDS = 120
 RACE_PREPARATION_TIMEOUT_SECONDS = 120
+MODULE_PATH = "github.com/Crank-Git/epochalypse"
 
 
 def timeout_output(output):
@@ -16,6 +18,8 @@ def timeout_output(output):
 def run(args):
     if args == ["--prepare-race"]:
         return prepare_race()
+    if args == ["--race-groups"]:
+        return race_groups()
     try:
         result = subprocess.run(["go", "test", "-json", *args], capture_output=True, text=True, timeout=TEST_TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired as error:
@@ -60,6 +64,39 @@ def prepare_race():
     print(result.stdout, end="")
     print(result.stderr, end="", file=sys.stderr)
     return int(result.returncode != 0)
+
+
+def race_groups():
+    command = ["go", "list", "./..."]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=TEST_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired as error:
+        print(timeout_output(error.stdout), end="")
+        print(timeout_output(error.stderr), end="", file=sys.stderr)
+        print(f"Go race inventory exceeded {TEST_TIMEOUT_SECONDS} seconds. Inspect: {' '.join(command)}", file=sys.stderr)
+        return 1
+    print(result.stderr, end="", file=sys.stderr)
+    if result.returncode != 0:
+        print(result.stdout, end="")
+        print("Go race inventory failed. Inspect: go list ./...", file=sys.stderr)
+        return 1
+    packages = result.stdout.splitlines()
+    client = MODULE_PATH + "/internal/switchclient"
+    if (
+        len(packages) < 2
+        or len(set(packages)) != len(packages)
+        or client not in packages
+        or any(re.fullmatch(re.escape(MODULE_PATH) + r"(?:/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*", package) is None for package in packages)
+    ):
+        print("Go race inventory is invalid. Require unique module packages, switchclient, and a nonempty remaining group.", file=sys.stderr)
+        return 1
+    # Separate the maximum-content HTTPS test from other resource-heavy packages.
+    groups = [[client], [package for package in packages if package != client]]
+    for group in groups:
+        print(f"Go race group: go test -json -race -count=1 {' '.join(group)}", flush=True)
+        if run(["-race", "-count=1", *group]) != 0:
+            return 1
+    return 0
 
 
 if __name__ == "__main__":
