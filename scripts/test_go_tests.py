@@ -15,6 +15,59 @@ from go_tests import run
 
 
 class GoTestTests(unittest.TestCase):
+    def test_prepares_race_without_counting_tests(self):
+        stdout = io.StringIO()
+        with patch("go_tests.subprocess.run", return_value=CompletedProcess([], 0, "ok package [no tests to run]\n", "")) as execute, redirect_stdout(stdout):
+            self.assertEqual(run(["--prepare-race"]), 0)
+        execute.assert_called_once_with(["go", "test", "-race", "-run", "^$", "./..."], capture_output=True, text=True, timeout=120)
+        self.assertIn("build-only", stdout.getvalue())
+        self.assertNotIn("passed", stdout.getvalue())
+
+    def test_rejects_race_compilation_failure(self):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with patch("go_tests.subprocess.run", return_value=CompletedProcess([], 1, "build context\n", "compile error\n")), redirect_stdout(stdout), redirect_stderr(stderr):
+            self.assertEqual(run(["--prepare-race"]), 1)
+        self.assertIn("build context", stdout.getvalue())
+        self.assertIn("compile error", stderr.getvalue())
+        self.assertNotIn("passed", stdout.getvalue())
+
+    def test_retains_race_compilation_timeout_output(self):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        timeout = subprocess.TimeoutExpired([], 120, output=b"compiler output\n\xff", stderr=b"compiler error\n\xe2\x82")
+        with patch("go_tests.subprocess.run", side_effect=timeout), redirect_stdout(stdout), redirect_stderr(stderr):
+            self.assertEqual(run(["--prepare-race"]), 1)
+        self.assertIn("compiler output\n\ufffd", stdout.getvalue())
+        self.assertIn("compiler error\n\ufffd", stderr.getvalue())
+        self.assertIn("exceeded 120 seconds", stderr.getvalue())
+        self.assertIn("go test -race -run ^$ ./...", stderr.getvalue())
+        self.assertNotIn("passed", stdout.getvalue())
+
+    def test_preserves_the_required_race_command(self):
+        output = json.dumps({"Test": "TestBehavior", "Action": "pass"})
+        with patch("go_tests.subprocess.run", return_value=CompletedProcess([], 0, output, "")) as execute, redirect_stdout(io.StringIO()):
+            self.assertEqual(run(["-race", "-count=1", "./..."]), 0)
+        execute.assert_called_once_with(["go", "test", "-json", "-race", "-count=1", "./..."], capture_output=True, text=True, timeout=120)
+
+    def test_prepares_race_before_required_execution(self):
+        result = subprocess.run(["make", "-n", "test-race"], capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines(), [
+            "python3 scripts/go_tests.py --prepare-race",
+            "python3 scripts/go_tests.py -race -count=1 ./...",
+        ])
+
+    def test_stops_the_target_after_compilation_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "commands"
+            python = Path(directory) / "python3"
+            python.write_text(f"#!{sys.executable}\nfrom pathlib import Path\nimport sys\nwith Path({str(log)!r}).open('a') as output:\n    output.write(' '.join(sys.argv[1:]) + '\\n')\nsys.exit(1)\n")
+            python.chmod(0o700)
+            result = subprocess.run(["make", "test-race"], env=dict(os.environ, PATH=directory + os.pathsep + os.environ["PATH"]), capture_output=True, text=True, timeout=5)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(log.read_text().splitlines(), ["scripts/go_tests.py --prepare-race"])
+
     def test_rejects_a_hung_subprocess(self):
         execute = subprocess.run
 

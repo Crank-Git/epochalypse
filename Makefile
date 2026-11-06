@@ -39,6 +39,7 @@ test-resolvers:
 	python3 scripts/go_tests.py -tags=resolvers -count=1 ./tests/resolvers
 
 test-race:
+	python3 scripts/go_tests.py --prepare-race
 	python3 scripts/go_tests.py -race -count=1 ./...
 
 coverage:
