@@ -29,6 +29,37 @@ class GoTestTests(unittest.TestCase):
         self.assertIn("exceeded 0.1 seconds", errors.getvalue())
         self.assertIn("Inspect", errors.getvalue())
 
+    def test_retains_timeout_output(self):
+        for output, errors, expected_output, expected_errors in (
+            (b'last test output\n\xe2\x82', b'last error\n\xff', 'last test output\n\ufffd', 'last error\n\ufffd'),
+            ('last test output\n', 'last error\n', 'last test output\n', 'last error\n'),
+            (None, None, '', ''),
+            ('{"Action":"output","Output":"last test', 'partial error', '{"Action":"output","Output":"last test', 'partial error'),
+        ):
+            with self.subTest(output=output, errors=errors):
+                stdout = io.StringIO()
+                stderr = io.StringIO()
+                timeout = subprocess.TimeoutExpired(['go', 'test'], 120, output=output, stderr=errors)
+                with patch('go_tests.subprocess.run', side_effect=timeout) as execute, redirect_stdout(stdout), redirect_stderr(stderr):
+                    self.assertEqual(run(['-race', './internal/agent']), 1)
+                self.assertEqual(stdout.getvalue(), expected_output)
+                self.assertIn(expected_errors, stderr.getvalue())
+                self.assertIn('exceeded 120 seconds', stderr.getvalue())
+                self.assertIn('go test -json -race ./internal/agent', stderr.getvalue())
+                self.assertNotIn('Traceback', stderr.getvalue())
+                execute.assert_called_once_with(['go', 'test', '-json', '-race', './internal/agent'], capture_output=True, text=True, timeout=120)
+
+    def test_rejects_timeout_after_passing_events(self):
+        output = json.dumps({'Test': 'TestBehavior', 'Action': 'pass'}) + '\n'
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        timeout = subprocess.TimeoutExpired(['go', 'test'], 120, output=output)
+        with patch('go_tests.subprocess.run', side_effect=timeout), redirect_stdout(stdout), redirect_stderr(stderr):
+            self.assertEqual(run(['./...']), 1)
+        self.assertEqual(stdout.getvalue(), output)
+        self.assertNotIn('Go tests: 1 passed', stdout.getvalue())
+        self.assertIn('exceeded 120 seconds', stderr.getvalue())
+
     def test_rejects_malformed_events_through_the_cli(self):
         for event in ("not json", "[]", '{"Test":"TestBehavior"}', '{"Action":"pass","Output":1}', '{"Action":1}', '{"Action":"pass","Test":1}', '{"Action":"unexpected"}'):
             with self.subTest(event=event), tempfile.TemporaryDirectory() as directory:
