@@ -88,6 +88,41 @@ The first raw build fails because Buildx attempts to write its default cache und
 The runner now uses the existing `Makefile` convention, `BUILDX_CONFIG=<checkout>/var/cache/buildx`.
 It keeps the default Docker context and authentication configuration.
 
-The final integrated source requires a repeat of this short experiment before acceptance.
+## Final integrated result
+
+The final experiment uses source [`6b2973d7632b648c7f08563a945b84697f56a60e`](https://github.com/Crank-Git/epochalypse/tree/6b2973d7632b648c7f08563a945b84697f56a60e).
+This commit includes the core integration at `ba565e30577aeb48e1726f3bfc2b917996077fcf`.
+The runtime and build inputs match that integration commit.
+The experiment completes at `2026-11-06T03:03:28Z` on the same Linux host described above.
+The full report is [`tests/performance/metadata-result.json`](../tests/performance/metadata-result.json).
+It retains all 200 request samples and exact image identities.
+
+| Measure | Final result |
+|---|---:|
+| Offered rate | 20 requests per second |
+| Expected HTTP 200 responses | 200 of 200 |
+| Errors | 0 |
+| p50 | 2.599 ms |
+| p95 | 4.417 ms |
+| Maximum duration | 5.123 ms |
+| Maximum dispatch delay | 12.154 ms |
+| Maximum socket wait | 0.852 ms |
+| Elapsed sample time | 9959.935 ms |
+| Completed rate | 20.080 requests per second |
+| Server CPU quota | 2 CPU equivalents |
+| Server memory limit | 256 MiB |
+| Additional swap allowance | 0 |
+| Synthetic installation before startup | 116 KiB |
+| Server memory before workload | 8.461 MiB |
+| Server memory after workload | 78.03 MiB |
+
+The final p95 passes the target of less than 250 ms.
+Each metadata path returns 50 expected responses.
+An independent report check verifies counts, statuses, dispatch times, the percentile, limits, and credential exclusion.
+The source guard also rejects an actual temporary untracked build input before Docker starts.
+Python syntax, Node.js syntax, and `git diff --check` pass.
+This verification change alters no production behavior.
+The epic integration gate owns the unchanged Go suites and aggregate coverage check.
+
 This result supplies local evidence for this small, warm workload only.
 It supplies no arbitrary-VPS performance guarantee or paid deployment recommendation.
