@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Crank-Git/epochalypse/internal/runtimeinfo"
 	"net/http"
 
 	"github.com/Crank-Git/epochalypse/internal/switchwire"
@@ -22,6 +23,7 @@ type ServiceConfig struct {
 type Service struct {
 	journal     *Journal
 	transitions *Transitions
+	synthetic   bool
 }
 
 // OpenService validates authority and enrollment before it returns readiness.
@@ -64,14 +66,14 @@ func OpenService(config ServiceConfig) (*Service, error) {
 	}
 	// A durable release needs no new time decision.
 	if state.PossibleDisclosure {
-		return &Service{journal: journal, transitions: transitions}, nil
+		return &Service{journal: journal, transitions: transitions, synthetic: config.LabOnlySyntheticClock || config.Authority.LabOnlySyntheticStorage}, nil
 	}
 	if _, err := clock(); err != nil {
 		err = errors.Join(err, latchStartupClockFailure(transitions, journal))
 		_ = journal.Close()
 		return nil, fmt.Errorf("assess agent startup clock: %w", err)
 	}
-	return &Service{journal: journal, transitions: transitions}, nil
+	return &Service{journal: journal, transitions: transitions, synthetic: config.LabOnlySyntheticClock || config.Authority.LabOnlySyntheticStorage}, nil
 }
 
 func latchStartupClockFailure(transitions *Transitions, journal *Journal) error {
@@ -177,7 +179,12 @@ func emptyAgentState(state State) bool {
 }
 
 // Handler returns the bounded transition endpoints.
-func (s *Service) Handler() http.Handler { return s.transitions.Handler() }
+func (s *Service) Handler() http.Handler {
+	mux := http.NewServeMux()
+	runtimeinfo.Routes(mux, s.Readiness)
+	mux.Handle("/", s.transitions.Handler())
+	return mux
+}
 
 // RunPublisher publishes eligible material without an HTTP request or another service.
 func (s *Service) RunPublisher(ctx context.Context) error { return s.transitions.RunPublisher(ctx) }

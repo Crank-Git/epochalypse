@@ -3,7 +3,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -12,7 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Crank-Git/epochalypse/internal/version"
+	"github.com/Crank-Git/epochalypse/internal/runtimeinfo"
 )
 
 // Addresses contains the bound listener addresses.
@@ -21,16 +20,7 @@ type Addresses struct{ HTTP, DNS string }
 // Handler returns the HTTP routes for a local process.
 func Handler() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /version", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(struct {
-			Commit string `json:"commit"`
-		}{version.Commit})
-	})
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = w.Write([]byte("ok\n"))
-	})
+	runtimeinfo.Routes(mux, func() runtimeinfo.Report { return runtimeinfo.New("scaffold", "") })
 	return mux
 }
 
@@ -60,6 +50,8 @@ func Serve(ctx context.Context, config Config, ready func(Addresses)) error {
 			return err
 		}
 		defer state.close()
+		handler = http.NewServeMux()
+		runtimeinfo.Routes(handler, func() runtimeinfo.Report { return state.readiness(config) })
 		state.routes(handler, config.LocalLab)
 		respond = state.dnsResponder()
 	}

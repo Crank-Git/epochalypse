@@ -60,6 +60,38 @@ func TestPhysicalReservationPreservesBlocksAndLogicalJournalAcrossRestart(t *tes
 	}
 }
 
+func TestPhysicalReservationReadinessRejectsLostBlocksWithoutRepair(t *testing.T) {
+	config := authorityTestConfig(t)
+	config.LabOnlySyntheticStorage = false
+	config.MaxRecordBytes = 1024
+	config.MaxJournalBytes = 8192
+	config.MaxJournalRecords = 6
+	if err := Initialize(config); err != nil {
+		t.Fatal(err)
+	}
+	journal, err := Open(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = journal.Close() }()
+	if !journal.readinessStorage() {
+		t.Fatal("reserved storage fails readiness")
+	}
+	if err := unix.Fallocate(int(journal.journal.Fd()), unix.FALLOC_FL_PUNCH_HOLE|unix.FALLOC_FL_KEEP_SIZE, 0, config.MaxJournalBytes); err != nil {
+		t.Fatal(err)
+	}
+	if journal.readinessStorage() {
+		t.Fatal("lost physical reservation passes readiness")
+	}
+	var stat unix.Stat_t
+	if err := unix.Fstat(int(journal.journal.Fd()), &stat); err != nil {
+		t.Fatal(err)
+	}
+	if stat.Blocks != 0 {
+		t.Fatal("readiness repairs lost physical reservation")
+	}
+}
+
 func assertPhysicalReservationBlocks(t *testing.T, config Config) {
 	t.Helper()
 	for _, item := range []struct {

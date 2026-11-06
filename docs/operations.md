@@ -1,5 +1,7 @@
 # Deploy completed features
 
+See [deployment readiness](readiness.md) for the local inventory, public metadata, and direct recovery checks.
+
 This guide covers the main service, DNSSEC windows, capsules, and countdowns.
 These features require no agent or switch protocol acceptance.
 Switch production use remains gated on actual-host verification.

@@ -49,3 +49,21 @@ func exchangePhysicalCheckpoints(root *os.Root) error {
 	err = unix.Renameat2(int(directory.Fd()), authorityCheckpointName, int(directory.Fd()), checkpointSpareName, unix.RENAME_EXCHANGE)
 	return errors.Join(err, directory.Close())
 }
+
+func inspectPhysicalReservation(file *os.File, size int64) error {
+	var filesystem unix.Statfs_t
+	if err := unix.Fstatfs(int(file.Fd()), &filesystem); err != nil {
+		return err
+	}
+	if filesystem.Type != unix.EXT4_SUPER_MAGIC {
+		return errors.New("physical reservation requires ext4")
+	}
+	var info unix.Stat_t
+	if err := unix.Fstat(int(file.Fd()), &info); err != nil {
+		return err
+	}
+	if info.Size > size || info.Blocks*512 < size {
+		return ErrCapacity
+	}
+	return nil
+}

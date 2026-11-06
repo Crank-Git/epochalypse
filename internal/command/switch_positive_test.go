@@ -322,7 +322,7 @@ func runSwitchExecutable(t *testing.T, binary string, args []string, extra map[s
 
 func writeFixtureFile(t *testing.T, path string, data []byte, mode os.FileMode) {
 	t.Helper()
-	if err := os.WriteFile(path, data, mode); err != nil {
+	if err := os.WriteFile(path, data, mode); err != nil { // #nosec G703 -- The test fixes every path inside its private temporary fixture.
 		t.Fatal(err)
 	}
 }
