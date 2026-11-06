@@ -50,13 +50,17 @@ The legacy `agent --id` scaffold reports unavailable readiness.
 
 The main service checks its configuration and both open stores.
 Main-service readiness requires no agent clock profile.
-The main service reports no verified clock bound or production certification.
+If these checks pass in a non-synthetic production configuration, the main service reports `production_ready: true`.
+Lab configurations and local lab mode remain synthetic.
+The main service keeps `clock_ready: false` because its wall time has no verified error bound.
 Completed-feature operation can proceed with its functional readiness checks.
 
 Probes reuse the existing TLS pin verifier. Each request has a five-second limit and a 4096-byte response limit.
 The complete probe has a 20-second limit. Redirects fail the check.
 Probes verify role, agent ID, commit syntax, formats, liveness, and consistent readiness metadata.
 The report separates `ready`, `production_ready`, and `physical_independence_verified`.
+`production_ready` reports conditional software prerequisites for each service role.
+It does not certify an actual host or authorize production promotion.
 The last field remains false. Actual-host assessments and operator approval remain separate requirements.
 Exit status 0 means functional inventory readiness. Exit status 1 means an unavailable or blocked check.
 Use `--production` to require the additional production conditions. Synthetic deployments cannot pass that mode.

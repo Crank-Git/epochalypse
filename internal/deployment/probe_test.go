@@ -32,6 +32,25 @@ func TestProbePinsIdentityAndWithholdsReadinessOnFailure(t *testing.T) {
 	}
 }
 
+func TestProbeAcceptsConditionalProductionReadinessWithoutMainClockCertification(t *testing.T) {
+	prior := version.Commit
+	version.Commit = "0123456789abcdef0123456789abcdef01234567"
+	defer func() { version.Commit = prior }()
+	inventory, roots := probeFixture(t, "production")
+	report, err := Check(context.Background(), inventory, roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.Ready || !report.ProductionReady || report.PhysicalIndependenceVerified || len(report.Services) != 4 || len(report.DeclarationIssues) != 0 {
+		t.Fatalf("conditional production readiness: %+v", report)
+	}
+	for index, observed := range report.Services {
+		if !observed.Metadata.ProductionReady || observed.Metadata.Synthetic || observed.Metadata.ClockReady != (index != 0) {
+			t.Fatalf("service prerequisites: %+v", observed)
+		}
+	}
+}
+
 func probeFixture(t *testing.T, mode string) (Inventory, *x509.CertPool) {
 	t.Helper()
 	inventory := inventoryFixture(t)
@@ -49,6 +68,11 @@ func probeFixture(t *testing.T, mode string) (Inventory, *x509.CertPool) {
 		report.ClockReady = true
 		report.ConfigurationReady = true
 		report.Synthetic = true
+		if mode == "production" {
+			report.ProductionReady = true
+			report.Synthetic = false
+			report.ClockReady = index != 0
+		}
 		if mode == "identity" && index == 0 {
 			report.Role = "agent"
 		}
