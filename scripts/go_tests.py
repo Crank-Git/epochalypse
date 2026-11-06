@@ -6,10 +6,18 @@ import sys
 TEST_TIMEOUT_SECONDS = 120
 
 
+def timeout_output(output):
+    if isinstance(output, bytes):
+        return output.decode("utf-8", errors="replace")
+    return output or ""
+
+
 def run(args):
     try:
         result = subprocess.run(["go", "test", "-json", *args], capture_output=True, text=True, timeout=TEST_TIMEOUT_SECONDS)
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as error:
+        print(timeout_output(error.stdout), end="")
+        print(timeout_output(error.stderr), end="", file=sys.stderr)
         print(f"Go tests exceeded {TEST_TIMEOUT_SECONDS} seconds. Inspect the test command for a hung test: go test -json {' '.join(args)}", file=sys.stderr)
         return 1
     print(result.stderr, end="", file=sys.stderr)
