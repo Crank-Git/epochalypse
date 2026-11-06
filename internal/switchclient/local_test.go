@@ -36,7 +36,7 @@ func TestLocalHTTPSArmPersistsThreeReplicasAndRecoveryBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	journals, configs := localJournals(t, p, owner, agents, keys, identities, &handlers)
+	journals, configs := localJournals(t, p, owner, agents, keys, identities, &handlers, 1<<20)
 	bundlePath := filepath.Join(t.TempDir(), "recovery.json")
 	result, err := PrepareAndArm(context.Background(), p, key, transport, bundlePath)
 	if err != nil || !result.Confirmed {
@@ -120,7 +120,7 @@ func localEndpoints(t *testing.T, handlers *[3]http.Handler) ([3]switchwire.Agen
 	return agents, identities, keys, transport
 }
 
-func localJournals(t *testing.T, p Plan, owner ed25519.PublicKey, agents [3]switchwire.Agent, keys [3]ed25519.PrivateKey, identities [3]*age.X25519Identity, handlers *[3]http.Handler) ([3]*agent.Journal, [3]agent.Config) {
+func localJournals(t *testing.T, p Plan, owner ed25519.PublicKey, agents [3]switchwire.Agent, keys [3]ed25519.PrivateKey, identities [3]*age.X25519Identity, handlers *[3]http.Handler, maxRecordBytes uint32) ([3]*agent.Journal, [3]agent.Config) {
 	t.Helper()
 	var journals [3]*agent.Journal
 	var configs [3]agent.Config
@@ -130,7 +130,7 @@ func localJournals(t *testing.T, p Plan, owner ed25519.PublicKey, agents [3]swit
 		if err := os.Mkdir(directory, 0o700); err != nil {
 			t.Fatal(err)
 		}
-		configs[i] = agent.Config{Directory: directory, CheckpointDirectory: filepath.Join(root, "checkpoint"), ExpectedVolumeID: "lab-" + a.ID, LabOnlySyntheticStorage: true}
+		configs[i] = agent.Config{Directory: directory, CheckpointDirectory: filepath.Join(root, "checkpoint"), ExpectedVolumeID: "lab-" + a.ID, LabOnlySyntheticStorage: true, MaxRecordBytes: maxRecordBytes}
 		if err := agent.Initialize(configs[i]); err != nil {
 			t.Fatal(err)
 		}

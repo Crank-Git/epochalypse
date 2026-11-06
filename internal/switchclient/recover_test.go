@@ -43,7 +43,7 @@ func publicRecoveryFixture(t *testing.T) (ed25519.PublicKey, Bundle, *HTTPSRepli
 	if err != nil {
 		t.Fatal(err)
 	}
-	journals, _ := localJournals(t, p, owner, agents, keys, identities, &handlers)
+	journals, _ := localJournals(t, p, owner, agents, keys, identities, &handlers, 1<<20)
 	for _, journal := range journals {
 		t.Cleanup(func() { _ = journal.Close() })
 	}
