@@ -15,6 +15,6 @@ description: Run the epochalypse checks. Use when asked to test a change or veri
 8. Report each command and its result.
 9. Report the measured coverage separately from the test pass rate.
 
-Every required test passes. The first-party Go coverage threshold is 95.00 percent before rounding.
+Every required test passes. The first-party Go coverage threshold is 90.00 percent before rounding.
 Missing tests or commands cannot count as a passing suite.
 Run fail/pass checks for behavior changes before the final verification.

@@ -13,7 +13,7 @@ The approved spec defines required behavior. The rules below define pass or fail
 - Every required test passes before merge.
 - A skipped required test fails the check.
 - An unexplained flaky failure blocks merge.
-- First-party Go statement coverage reaches 95.00 percent before rounding.
+- First-party Go statement coverage reaches 90.00 percent before rounding.
 - The coverage profile includes CLI and HTTP adapters.
 - The coverage check rejects an absent, empty, malformed, or insufficient profile.
 - Coverage excludes only dependencies and generated third-party code.

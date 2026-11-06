@@ -19,6 +19,7 @@ require (
 require (
 	filippo.io/hpke v0.4.0 // indirect
 	github.com/drand/kyber-bls12381 v0.3.5 // indirect
+	github.com/hashicorp/vault v1.21.4
 	github.com/kilic/bls12-381 v0.1.0 // indirect
 	go.dedis.ch/fixbuf v1.0.3 // indirect
 	golang.org/x/net v0.60.0 // indirect

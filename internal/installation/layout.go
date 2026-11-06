@@ -13,6 +13,7 @@ const (
 	CapsulesBucket      = "capsules-v1"
 	CapsuleKeysBucket   = "capsule-keys-v1"
 	CountdownsBucket    = "countdowns-v1"
+	SwitchesBucket      = "switches-v1"
 	ConfigurationBucket = "configuration-v1"
 )
 

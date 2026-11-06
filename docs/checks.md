@@ -23,9 +23,54 @@ The command requires every currently applicable check to pass:
 - Linux amd64 and arm64 builds.
 
 The Go test runner limits each command to 120 seconds.
+The race target first prepares race binaries with a separate 120-second compilation limit.
+This build-only phase runs `go test -race -run '^$' ./...` and supplies no executed-test evidence.
+Compilation failure or timeout fails the target and retains diagnostic output.
+The runner obtains the complete package inventory with `go list ./...` under a separate 120-second limit.
+Inventory failure or timeout retains diagnostics and fails the target.
+The runner requires unique module paths, `internal/switchclient`, and a nonempty group of remaining packages.
+The first group runs `internal/switchclient` alone to isolate its maximum-content HTTPS test from other resource-heavy packages.
+The second group runs every remaining package. Each discovered package executes exactly once.
+Both groups use `go test -json -race -count=1` with their explicit package paths.
+Each group retains the 120-second execution limit and the checks below.
 If a command exceeds this limit, the runner fails with the command to inspect.
 Malformed JSON events fail with the event line number and output requirements.
 Empty suites, skipped tests, and nonzero command results fail the check.
+
+The maximum-content HTTPS functional test permits 30 seconds per request and 90 seconds for arm.
+Race instrumentation can exceed the production request limit at 10 MiB.
+This package-private test budget preserves the production five-second request limit.
+It does not establish production latency or the publication allowance.
+
+Agent durability tests inject failures at named journal and checkpoint operations.
+Each failure withholds the receipt and preserves its error cause.
+An uncertain write quarantines live access.
+Restart either rejects incomplete evidence or validates intact authority before an exact retry.
+Initialization tests inject marker, journal, and directory durability failures.
+Replay tests preserve filesystem error causes and verify lock release after an unsuccessful open.
+Close tests preserve concurrent journal and lock failures and verify that a new caller can acquire authority.
+Checksummed journal tests reject invalid generations, chains, phases, and cleared irreversible latches.
+Owner-local export tests reject directory-sync failures before prepare or arm transmission.
+Owner-local file tests reject write, file-sync, and close failures before arm transmission.
+Exact retries repeat file and directory sync for the private plan, recovery bundle, and signed arm intent.
+Persistent sync failures prevent arm transmission. A later durable retry preserves the retained bytes.
+The export tests replace a package-local sync function and run without parallel tests.
+
+The executable switch test retries the exact arm request after three agents accept it.
+The [outage drill](switch-outage-drill.md) also stops the main process and each possible one agent before release.
+It verifies lost receipts, permanent owner-client loss, agent restart, unsafe-clock quarantine, retained public shares, and bounded standalone recovery.
+Its synthetic clock and candidate allowance provide isolated runtime evidence only.
+The runner records exact commit identity, source isolation hashes, versions, and elapsed results.
+It checks that the bundle and both intent files preserve their bytes.
+After one agent stops, the CLI preserves prior armed evidence and reports the incomplete response.
+Public capsule cancellation tests withhold plaintext and released keys.
+Cancelled imports and publication requests preserve retained state.
+Clock acquisition tests require a fresh epoch after an unavailable baseline or a negative elapsed sample.
+Request deadline failures withhold switch and countdown mutations.
+Deletion tests reject noncanonical confirmation and preserve retained content after cancellation.
+Startup tests reject corrupt observations and release the owner lock after failure.
+Backup validation preserves cancellation causes and releases the database after cancelled authentication.
+Countdown DNS tests withhold records from a retained previous zone.
 
 Coverage combines unit tests, CLI executions, browser executions, and backup executions.
 Instrumentation uses the explicit first-party module path to exclude dependencies.

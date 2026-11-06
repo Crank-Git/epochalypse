@@ -190,10 +190,17 @@ These checks detect corruption; they do not authenticate a malicious operator or
 
 The trusted head comes from the intact journal, never from a pointer inside the archive being restored.
 At startup, scan the journal and validate its complete committed prefix before any output becomes available.
-Compare the archive checkpoint with that head, including generation, accepted bytes, enrollment, phase, and both latches.
-Missing, corrupt, inconsistent, partial, or older evidence quarantines the process before any receipt or share.
+Validate the archive checkpoint against the independently pinned journal, including exact state, generation, and hash.
+An older checkpoint must equal a complete committed prefix record before reconstruction from the current head.
+A missing derived checkpoint can also reconstruct from that complete head and its matching durable material.
+Missing, corrupt, inconsistent, or partial authority quarantines the process before any receipt or share.
+A divergent, newer, or corrupt checkpoint also quarantines the process.
+Reconstruction preserves the current head's accepted authority and both irreversible latches.
 A larger counter without exact state equality does not establish freshness.
-The synthetic `restore` predicate tests complete head equality, not a storage implementation or tail-deletion detector.
+The synthetic `rebuild` predicate tests prefix membership and head preservation, not disk durability or tail-deletion detection.
+Its caller supplies an already validated journal prefix and matching durable material as premises.
+The predicate does not establish those premises or authorize runtime readiness.
+The [issue #31 ruling](https://github.com/Crank-Git/epochalypse/issues/31#issuecomment-6666312262) resolves the former exact-checkpoint inconsistency.
 
 An ordinary restart with intact committed state follows this path:
 
@@ -250,7 +257,7 @@ Recovery of an unsafe clock requires the separately reviewed policy, not an auto
 | Crash point | Authoritative result before restart output |
 | --- | --- |
 | Before a complete durable commit | Keep the previous committed state. Quarantine any incomplete suffix during repair. Emit no successor receipt or share. |
-| After commit, before checkpoint | Replay the full committed successor, then validate the checkpoint and fresh clock assessment. |
+| After commit, before checkpoint | Validate the committed successor and the old checkpoint's prefix membership. Reconstruct the checkpoint from that successor before fresh clock assessment. |
 | After checkpoint, before response | Retain the successor. Exact retry returns existing evidence when eligible; a lost response remains uncertain to the client. |
 | After release commit, before any response | Retain possible disclosure. Retry publication when eligible. Refuse renewal of the same key. |
 | After public disclosure | Retain possible disclosure and all observer copies, independently of endpoint visibility. |

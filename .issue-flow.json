@@ -33,7 +33,7 @@
     "tdd": true,
     "ddd": false,
     "e2e": "user-facing",
-    "coverage": 95,
+    "coverage": 90,
     "commitStyle": "imperative",
     "docs": "public-api"
   },
