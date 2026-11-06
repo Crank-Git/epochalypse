@@ -57,9 +57,13 @@ func runStatus(flags *flag.FlagSet, args []string, stdout, stderr io.Writer) int
 		_, _ = fmt.Fprintln(stderr, "status requires one full lowercase commit SHA")
 		return 2
 	}
-	explicitEndpoints := false
-	flags.Visit(func(f *flag.Flag) { explicitEndpoints = explicitEndpoints || f.Name == "endpoints" })
-	if (*inventory != "" && explicitEndpoints) || (*inventory == "" && (*production || *details)) {
+	explicit := map[string]bool{}
+	flags.Visit(func(f *flag.Flag) { explicit[f.Name] = true })
+	if explicit["inventory"] && *inventory == "" {
+		_, _ = fmt.Fprintln(stderr, "--inventory requires a nonempty path")
+		return 2
+	}
+	if (*inventory != "" && explicit["endpoints"]) || (*inventory == "" && (*production || *details)) {
 		_, _ = fmt.Fprintln(stderr, "use --inventory with --production or --json; omit --endpoints")
 		return 2
 	}

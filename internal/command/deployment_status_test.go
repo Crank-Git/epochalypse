@@ -12,12 +12,32 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Crank-Git/epochalypse/internal/deployment"
 	"github.com/Crank-Git/epochalypse/internal/runtimeinfo"
 	"github.com/Crank-Git/epochalypse/internal/switchwire"
 )
+
+func TestStatusRejectsExplicitEmptyInventoryBeforeEndpointProbe(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		if r.URL.Path == "/version" {
+			_, _ = w.Write([]byte(`{"commit":"` + strings.Repeat("a", 40) + `"}`))
+			return
+		}
+		_, _ = w.Write([]byte("ok\n"))
+	}))
+	defer server.Close()
+	t.Setenv("EPOCHALYPSE_STATUS_ENDPOINTS", server.URL)
+	var out, diagnostic bytes.Buffer
+	code := Run([]string{"status", "--inventory", "", strings.Repeat("a", 40)}, &out, &diagnostic)
+	if code != 2 || out.Len() != 0 || requests.Load() != 0 {
+		t.Fatalf("empty inventory: exit=%d output=%q probes=%d diagnostic=%s", code, &out, requests.Load(), &diagnostic)
+	}
+}
 
 func TestStatusChecksEveryRequiredService(t *testing.T) {
 	for _, tc := range []struct{ mode, state, commit string }{
