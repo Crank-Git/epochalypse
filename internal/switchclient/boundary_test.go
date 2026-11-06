@@ -33,7 +33,7 @@ func TestMaximumContentSurvivesHTTPSJournalAndBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	journals, configs := localJournals(t, p, owner, agents, keys, identities, &handlers)
+	journals, configs := localJournals(t, p, owner, agents, keys, identities, &handlers, 0)
 	bundlePath := filepath.Join(t.TempDir(), "recovery.json")
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
