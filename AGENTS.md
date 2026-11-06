@@ -3,7 +3,7 @@
 ## Project state
 
 epochalypse provides DNSSEC window experiments, time capsules, dead man’s switches, and DNS countdowns.
-The owner approved the spec on 2026-11-04. The foundation and baseline research are implemented. The tracker records feature work still in progress.
+The owner approved the spec on 2026-11-04. All planned software features are implemented. Actual-host verification and main promotion are deferred by the owner.
 Read docs/specs/spec.md before work. Read the relevant docs/specs/features/ file before a feature change.
 The spec is public. Keep credentials, real secrets, and private infrastructure values outside tracked files.
 
@@ -19,7 +19,7 @@ Keep the generated spec site and its vendored assets tracked.
 ## Commands
 
 The foundation provides the commands below. Read docs/checks.md for the current required suites.
-Standalone resolver feature checks remain gated until their implementation exists; the isolated compatibility research has its own runner.
+Resolver feature checks and isolated compatibility research use separate runners.
 
 - Build: `make build`.
 - Run the main service: `make run`.
