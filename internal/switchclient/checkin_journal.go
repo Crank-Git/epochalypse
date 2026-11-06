@@ -95,7 +95,7 @@ func readRenewal(path string, p Plan, e switchwire.AdmittedEnrollment) (Renewal,
 		if err != nil {
 			return result, frame, err
 		}
-		result = renewalView(result.B0, frame, request, receipts, e)
+		result = renewalView(result, frame, request, receipts, e)
 		if sequence == 1 && !result.Confirmed {
 			return result, frame, errors.New("client journal lacks three initial arm receipts")
 		}

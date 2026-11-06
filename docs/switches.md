@@ -61,7 +61,42 @@ All content domains share the installation retention limits.
 `switches.ValidateRecord` validates the version-one draft representation for main-state backup consumers.
 Consumers must also reject unknown JSON fields and verify that the bucket key equals the record identifier.
 The main database contains no authoritative agent state.
-Future arm work must extend or migrate this versioned contract.
+Public arm and renewal evidence extend this versioned contract. Backup validation authenticates the retained evidence.
+
+## Direct check-ins
+
+The CLI sends signed check-ins directly to the three enrolled HTTPS agents.
+The main service holds no owner signing key, private plan, ciphertext, or key share.
+The client journal preserves exact signed intent before transmission. A new CLI process retries the same incomplete request.
+
+```sh
+epochalypse switch checkin --plan plan.json --owner-key owner.key --pins pins.json --journal recovery.json.checkins --evidence renewal.json
+epochalypse switch status --plan plan.json --owner-key owner.key --journal recovery.json.checkins
+```
+
+These commands require no main service. The optional evidence export occurs after direct agent requests.
+An export error cannot prevent those requests. The journal retains the evidence for a later retry.
+The JSON result contains each agent receipt and the public `evidence` object.
+The optional export contains only that public object.
+Import it on the owner switch page, or submit it to `POST /api/v1/switches/{id}/checkins`.
+This route requires the same owner authorization and CSRF proof as arm evidence.
+Its body limit is 65536 bytes. Unknown fields, invalid signatures, and evidence regressions return 400.
+The route returns 202 for incomplete receipts. It returns 200 only for three authenticated matching durable receipts.
+It sends no agent request and creates no owner signature.
+
+The proof has four fields: `confirmed_request`, `confirmed_receipts`, `request`, and `receipts`.
+The confirmed request carries three matching receipts. The current request carries each available receipt.
+Main derives the disclosure bounds from these authenticated requests. It rejects caller-supplied bounds.
+`GET /api/v1/switches/{id}` includes the retained `renewal` proof and derived `renewal_status`.
+Status contains `confirmed`, `b0`, `bmax`, `deadline`, `grace_seconds`, `allowance_assumptions`, and `agents`.
+Each agent has an `id` and a `state` of `durable` or `uncertain`.
+
+Three matching durable receipts confirm renewal. Incomplete receipts leave an uncertain outcome.
+B0 identifies the earliest possible disclosure boundary after an uncertain outcome.
+Bmax identifies the latest already-issued signed release boundary. E assumptions remain separate.
+The owner page shows deadline, grace, B0, and Bmax with UTC and browser-local times.
+An absent receipt does not prove rejection. With the default interval, uncertainty can approach 24 hours.
+Actual hosts have no numeric E acceptance. Production switch use remains disabled.
 
 The store uses the pinned bbolt v1.5.0 managed transactions.
 Verified against the [bbolt v1.5.0 transaction source](https://github.com/etcd-io/bbolt/blob/v1.5.0/db.go) and bucket source, retrieved 2026-11-05.

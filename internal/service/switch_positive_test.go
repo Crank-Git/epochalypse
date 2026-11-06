@@ -102,6 +102,12 @@ func assertSwitchRecordState(t *testing.T, record switches.Record, state string,
 
 func signedSwitchArmEvidence(t *testing.T, record switches.Record) switches.ArmEvidence {
 	t.Helper()
+	arm, _ := signedSwitchRenewalEvidence(t, record, false)
+	return arm
+}
+
+func signedSwitchRenewalEvidence(t *testing.T, record switches.Record, renew bool) (switches.ArmEvidence, switches.RenewalEvidence) {
+	t.Helper()
 	ownerPublic, ownerPrivate, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -138,13 +144,29 @@ func signedSwitchArmEvidence(t *testing.T, record switches.Record) switches.ArmE
 		}
 		evidence.Armed = append(evidence.Armed, receipt)
 	}
+	assertSwitchArmedJournals(t, journals)
+	if !renew {
+		return evidence, switches.RenewalEvidence{}
+	}
+	path := bundlePath + ".checkins"
+	if err := switchclient.InitializeRenewal(path, plan, ownerPrivate, request, result.Armed); err != nil {
+		t.Fatal(err)
+	}
+	renewal, err := switchclient.Renew(context.Background(), path, plan, ownerPrivate, &switchclient.HTTPSReplica{Pins: endpoints.pins, Roots: endpoints.roots}, record.CreatedAt.Add(time.Second))
+	if err != nil || !renewal.Confirmed {
+		t.Fatalf("direct renewal fixture: %+v %v", renewal, err)
+	}
+	return evidence, renewal.Evidence
+}
+
+func assertSwitchArmedJournals(t *testing.T, journals [3]*agent.Journal) {
+	t.Helper()
 	for i, journal := range journals {
 		snapshot, err := journal.Snapshot()
 		if err != nil || snapshot.Phase != switchwire.PhaseArmed || len(snapshot.Receipt) == 0 {
-			t.Fatalf("agent %s did not retain an armed receipt: phase=%d err=%v", endpoints.agents[i].ID, snapshot.Phase, err)
+			t.Fatalf("agent %d lacks retained arm receipt: %v", i, err)
 		}
 	}
-	return evidence
 }
 
 type switchAgentEndpoints struct {
@@ -243,9 +265,13 @@ func TestSwitchBrowserEvidenceFixture(t *testing.T) {
 			return
 		}
 		record := switches.Record{Version: 1, ID: r.URL.Query().Get("id"), IntervalSeconds: int64(interval.Seconds()), GraceSeconds: int64(grace.Seconds()), CreatedAt: created.UTC(), State: switches.StateDraft}
-		evidence := signedSwitchArmEvidence(t, record)
+		evidence, renewal := signedSwitchRenewalEvidence(t, record, true)
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(evidence); err != nil && !strings.Contains(err.Error(), "broken pipe") {
+		response := struct {
+			switches.ArmEvidence
+			Renewal switches.RenewalEvidence `json:"renewal"`
+		}{evidence, renewal}
+		if err := json.NewEncoder(w).Encode(response); err != nil && !strings.Contains(err.Error(), "broken pipe") {
 			t.Error(err)
 		}
 	})

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Crank-Git/epochalypse/internal/switches"
 	"github.com/Crank-Git/epochalypse/internal/switchwire"
 )
 
@@ -24,6 +25,7 @@ type AgentEvidence struct {
 
 // Renewal reports confirmed authority separately from already-issued intent.
 type Renewal struct {
+	Evidence  switches.RenewalEvidence       `json:"evidence"`
 	Confirmed bool                           `json:"confirmed"`
 	B0        int64                          `json:"b0"`
 	Bmax      int64                          `json:"bmax"`
@@ -100,21 +102,21 @@ func Renew(ctx context.Context, path string, p Plan, key ed25519.PrivateKey, tra
 	if err := persistEnvelope(requestPath(path, frame.State.Sequence), r.Request); err != nil {
 		return r, err
 	}
-	r = renewalView(r.B0, frame, r.Request, r.Receipts, e)
+	r = renewalView(r, frame, r.Request, r.Receipts, e)
 	for _, a := range e.Agents {
 		if err := ctx.Err(); err != nil {
-			return renewalView(r.B0, frame, r.Request, r.Receipts, e), err
+			return renewalView(r, frame, r.Request, r.Receipts, e), err
 		}
 		receipt, err := transport.Checkin(ctx, a, r.Request)
 		if err != nil || !validRenewalReceipt(receipt, frame.State, e, a.ID) {
 			continue
 		}
 		if err := persistEnvelope(receiptPath(path, frame.State.Sequence, a.ID), receipt); err != nil {
-			return renewalView(r.B0, frame, r.Request, r.Receipts, e), err
+			return renewalView(r, frame, r.Request, r.Receipts, e), err
 		}
 		r.Receipts[a.ID] = receipt
 	}
-	return renewalView(r.B0, frame, r.Request, r.Receipts, e), nil
+	return renewalView(r, frame, r.Request, r.Receipts, e), nil
 }
 
 func persistConfirmedRenewal(path string, sequence uint64, r Renewal, e switchwire.AdmittedEnrollment) error {
@@ -167,13 +169,18 @@ func validRenewalReceipt(receipt switchwire.Envelope, state switchwire.State, e 
 	return err == nil && f.Signer == id && f.Operation == switchwire.OperationReceipt && f.State == state && f.Phase == switchwire.PhaseArmed && !f.Released && f.Durable == state.Sequence
 }
 
-func renewalView(b0 int64, f switchwire.Frame, request switchwire.Envelope, receipts map[string]switchwire.Envelope, e switchwire.AdmittedEnrollment) Renewal {
+func renewalView(prior Renewal, f switchwire.Frame, request switchwire.Envelope, receipts map[string]switchwire.Envelope, e switchwire.AdmittedEnrollment) Renewal {
+	b0 := prior.B0
 	boundary := f.State.Deadline + int64(f.State.Grace) // #nosec G115 -- The authenticated frame bounds grace.
 	confirmed := switchwire.Confirm(f.State, orderedReceipts(e, receipts), e, switchwire.PhaseArmed)
 	if confirmed {
 		b0 = boundary
 	}
 	r := Renewal{Confirmed: confirmed, B0: b0, Bmax: boundary, Deadline: f.State.Deadline, Grace: f.State.Grace, Allowance: renewalAssumptions, Request: request, Receipts: receipts}
+	r.Evidence = switches.RenewalEvidence{ConfirmedRequest: prior.Evidence.ConfirmedRequest, ConfirmedReceipts: prior.Evidence.ConfirmedReceipts, Request: request, Receipts: orderedReceipts(e, receipts)}
+	if confirmed {
+		r.Evidence.ConfirmedRequest, r.Evidence.ConfirmedReceipts = request, orderedReceipts(e, receipts)
+	}
 	for _, a := range e.Agents {
 		evidence := AgentEvidence{ID: a.ID, State: "uncertain"}
 		if receipt, ok := receipts[a.ID]; ok {

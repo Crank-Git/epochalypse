@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/Crank-Git/epochalypse/internal/switchclient"
@@ -20,6 +21,7 @@ func runSwitchCheckin(args []string, stdout, stderr io.Writer) int {
 	flags.StringVar(&options.keyPath, "owner-key", "", "Owner-only base64 Ed25519 private key file")
 	flags.StringVar(&options.pinsPath, "pins", "", "JSON map of HTTPS endpoints to TLS SPKI SHA256 pins")
 	journal := flags.String("journal", "", "Owner-local client journal directory")
+	evidence := flags.String("evidence", "", "Public renewal evidence output file")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
@@ -35,7 +37,21 @@ func runSwitchCheckin(args []string, stdout, stderr io.Writer) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	result, err := switchclient.Renew(ctx, *journal, inputs.plan, inputs.key, &switchclient.HTTPSReplica{Pins: inputs.pins}, time.Now())
+	if *evidence != "" && len(result.Request.Body) > 0 {
+		if exportErr := writeRenewalEvidence(*evidence, result); exportErr != nil {
+			_, _ = fmt.Fprintln(stderr, exportErr)
+			return writeRenewalResult(stdout, stderr, result, exportErr)
+		}
+	}
 	return writeRenewalResult(stdout, stderr, result, err)
+}
+
+func writeRenewalEvidence(path string, result switchclient.Renewal) error {
+	data, err := json.Marshal(result.Evidence)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o600) // #nosec G306,G304 -- The owner selects a public proof export path.
 }
 
 func writeRenewalResult(stdout, stderr io.Writer, result switchclient.Renewal, err error) int {

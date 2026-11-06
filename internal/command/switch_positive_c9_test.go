@@ -53,7 +53,7 @@ func verifySwitchArmRetries(t *testing.T, binary string, paths switchFixturePath
 }
 
 func switchCheckinArguments(paths switchFixturePaths) []string {
-	return []string{"switch", "checkin", "--plan", paths.plan, "--owner-key", paths.ownerKey, "--journal", paths.bundle + ".checkins", "--pins", paths.pins}
+	return []string{"switch", "checkin", "--plan", paths.plan, "--owner-key", paths.ownerKey, "--journal", paths.bundle + ".checkins", "--pins", paths.pins, "--evidence", paths.bundle + ".renewal.json"}
 }
 
 func verifySwitchCheckinConfirmed(t *testing.T, binary string, paths switchFixturePaths, trust map[string]string) {
@@ -62,6 +62,16 @@ func verifySwitchCheckinConfirmed(t *testing.T, binary string, paths switchFixtu
 	var result switchclient.Renewal
 	if err := json.Unmarshal(output, &result); err != nil || !result.Confirmed || len(result.Receipts) != 3 || result.B0 != result.Bmax {
 		t.Fatalf("direct renewal lacks three receipts: %s %v", output, err)
+	}
+	assertPublicRenewalExport(t, paths, result)
+}
+
+func assertPublicRenewalExport(t *testing.T, paths switchFixturePaths, result switchclient.Renewal) {
+	t.Helper()
+	exported := readSwitchEvidence(t, paths.bundle+".renewal.json")
+	want, err := json.Marshal(result.Evidence)
+	if err != nil || !bytes.Equal(exported, want) || bytes.Contains(exported, []byte("Ciphertext")) || bytes.Contains(exported, []byte("PrivateKey")) {
+		t.Fatalf("public proof export: %v", err)
 	}
 }
 
