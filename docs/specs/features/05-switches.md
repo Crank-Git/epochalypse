@@ -2,7 +2,7 @@
 id: switches
 feature: "Dead man’s switches"
 epic: "Epic 5: Dead man’s switches"
-status: issued
+status: built
 issues: [29, 30, 31, 32, 33, 34]
 mockups: [mockups/switches.html]
 ---
