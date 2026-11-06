@@ -140,6 +140,10 @@ func (t *Transitions) servePublic(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "agent publication is unavailable", http.StatusServiceUnavailable)
 		return
 	}
+	if state.Phase != switchwire.PhaseArmed {
+		http.NotFound(w, r)
+		return
+	}
 	accepted, err := switchwire.ReadEnvelope(bytes.NewReader(state.AcceptedRequest))
 	if err != nil {
 		http.NotFound(w, r)
@@ -162,7 +166,7 @@ func (t *Transitions) servePublic(w http.ResponseWriter, r *http.Request) {
 	if state.PossibleDisclosure {
 		release, err := switchwire.ReadEnvelope(bytes.NewReader(state.ReleaseEnvelope))
 		if err != nil {
-			http.Error(w, "agent publication is unavailable", 503)
+			http.Error(w, "agent publication is unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		manifest.Release = &release

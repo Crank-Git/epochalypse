@@ -408,6 +408,9 @@ It signs one immutable prepare request with the local owner key.
 It requires three matching prepared receipts.
 It exports, syncs, reopens, and validates the recovery bundle before arm transmission.
 The public bundle omits private prepare bytes and encrypted shares.
+Before arm, the public manifest and ciphertext routes return HTTP 404.
+After release, startup validates the durable release before it serves recovery material.
+A durable release requires no new clock assessment. The agent still refuses renewal of that content key.
 It retains enrollment, ciphertext, the exact state, and three prepared receipts.
 The owner pins the public key when `ReadBundle` validates the bundle.
 An arm retry uses the existing bundle and identical signed arm bytes.

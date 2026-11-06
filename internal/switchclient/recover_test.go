@@ -40,7 +40,7 @@ func TestRecoverUsesTwoPublicAgentsWithoutMainService(t *testing.T) {
 	if err != nil || !result.Confirmed {
 		t.Fatalf("arm: %v", err)
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) // #nosec G304 -- The test reads its own temporary recovery bundle.
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestRecoverUsesTwoPublicAgentsWithoutMainService(t *testing.T) {
 		}
 		handlers[i] = tr.Handler()
 	}
-	handlers[2] = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { http.Error(w, "offline", 503) })
+	handlers[2] = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { http.Error(w, "offline", http.StatusServiceUnavailable) })
 	plaintext, err := Recover(context.Background(), bundle, owner, transport)
 	if err != nil || string(plaintext) != "independent public recovery" {
 		t.Fatalf("recover: %q %v", plaintext, err)

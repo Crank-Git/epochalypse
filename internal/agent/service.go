@@ -54,6 +54,15 @@ func OpenService(config ServiceConfig) (*Service, error) {
 		_ = journal.Close()
 		return nil, err
 	}
+	state, err := journal.Snapshot()
+	if err != nil {
+		_ = journal.Close()
+		return nil, err
+	}
+	// A durable release needs no new time decision.
+	if state.PossibleDisclosure {
+		return &Service{journal: journal, transitions: transitions}, nil
+	}
 	if _, err := clock(); err != nil {
 		err = errors.Join(err, latchStartupClockFailure(transitions, journal))
 		_ = journal.Close()
