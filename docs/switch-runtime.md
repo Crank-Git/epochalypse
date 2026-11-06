@@ -2,12 +2,12 @@
 
 See [deployment readiness](readiness.md) for read-only runtime metadata and operator inventory checks.
 
-Issue #31 introduces runtime contracts for the reviewed version-two protocol.
+The runtime implements the reviewed version-two protocol.
 These contracts do not enable production switches.
 The CLI provides local prepare, arm, check-in, status, export, and recover commands.
 The main API retains authenticated public arm evidence.
-The agent runtime supports explicit local experiments over HTTPS.
-Actual-host readiness and complete product verification remain incomplete.
+The agent runtime supports bounded Linux operation and explicit local experiments over HTTPS.
+Required software checks and isolated outage verification pass. Actual-host certification remains a separate production-use gate.
 The local runtime slice provides content, agent transitions, HTTPS transport, and owner orchestration APIs.
 
 ## Canonical wire data
@@ -247,7 +247,8 @@ The installed `go doc time.Time.Sub` also confirms bounded duration arithmetic.
 `agent serve` opens existing authority with the configured volume identity.
 It never initializes a missing authority during startup.
 The runtime validates retained enrollment, requests, ciphertext, shares, and receipts before the clock assessment.
-A corrupt journal or irreversible latch blocks startup.
+A corrupt journal or unsafe-clock latch blocks startup.
+A validated durable release can restart for public recovery without a fresh clock assessment.
 An intact committed transition can recreate its missing receipt through an exact retry.
 
 Local experiments can select an explicit synthetic clock:
@@ -265,7 +266,11 @@ Byte slices use JSON base64 strings.
 The `authority` object uses `agent.Config` fields: `Directory`, `CheckpointDirectory`, `ExpectedVolumeID`, and optional `MaxRecordBytes`.
 The operator supplies the enrolled owner key, signed certificate, local Ed25519 key, and enrolled age identity.
 The TLS private key must also use an owner-only regular file.
-The service requires TLS 1.3 and serves the existing prepare and arm handlers.
+The service requires TLS 1.3 for these interfaces:
+
+- Signed prepare, arm, and check-in routes.
+- Independent public recovery routes.
+- Read-only health, version, and readiness metadata.
 Stop it with SIGTERM or SIGINT before maintenance.
 
 `NewLabClock` reads a fresh wall-clock sample for each local decision.
@@ -331,7 +336,7 @@ It excludes `filippo.io/age/plugin`.
 [GO-2024-3344](https://pkg.go.dev/vuln/GO-2024-3344) affects that plugin package before v1.2.1.
 The selected version and graph exclude that finding.
 This observation does not claim an exhaustive security audit.
-The content adapter must complete the selected graph review before production use.
+The selected graph review below is scoped. Repeat it when a dependency version or import changes.
 
 The content adapter imports `github.com/hashicorp/vault/shamir` at Vault v1.21.4.
 The selected package uses only standard library dependencies.
