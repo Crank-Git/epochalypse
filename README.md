@@ -1,7 +1,8 @@
 # epochalypse
 
 epochalypse provides DNSSEC window experiments, time capsules, and DNS countdowns.
-Owner access protects administration. Switch runtime work remains deferred.
+Owner access protects administration. The [switch runtime](docs/switch-runtime.md) implements independent release and recovery.
+Production switch use requires verified host clocks, storage, and failure domains.
 
 ## Start locally
 

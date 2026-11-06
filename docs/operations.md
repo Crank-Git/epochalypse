@@ -2,7 +2,9 @@
 
 This guide covers the main service, DNSSEC windows, capsules, and countdowns.
 These features require no agent or switch protocol acceptance.
-Switch production use remains disabled. Agent scaffolds provide no switch release behavior.
+Switch production use remains gated on actual-host verification.
+The default lab agent scaffolds provide no switch release behavior.
+The [switch runtime guide](switch-runtime.md) describes the separate implemented runtime.
 The [four-process lab](lab.md) serves development checks. Use the main-only example below for this deployment slice.
 
 ## Local containers

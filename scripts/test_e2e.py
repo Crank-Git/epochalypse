@@ -11,6 +11,9 @@ import urllib.request
 
 
 class CLITests(unittest.TestCase):
+    def test_switch_arm_uses_three_durable_tls_agents(self):
+        subprocess.run(["python3", "scripts/test_switch_arm.py"], check=True, timeout=180)
+
     def test_cli_reports_help_and_errors(self):
         Path(".test-artifacts").mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir=".test-artifacts") as directory:
@@ -33,8 +36,27 @@ class CLITests(unittest.TestCase):
             self.assertEqual(json.loads(result.stdout)["trust_source"], "none")
             self.check_tokens(binary, env, Path(directory))
             self.check_capsules(binary, env, Path(directory))
+            self.check_switches(binary, env, Path(directory))
             Path(".test-artifacts").mkdir(exist_ok=True)
             subprocess.run(["go", "tool", "covdata", "textfmt", f"-i={coverdir}", "-o=.test-artifacts/cli.out"], check=True)
+
+    def check_switches(self, binary, env, directory):
+        state = directory / "switches"
+        args = [binary, "switch", "create", "--state-dir", str(state), "--interval-seconds", "3600", "--grace-seconds", "0"]
+        created = subprocess.run(args, env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(created.returncode, 0, created.stderr)
+        draft = json.loads(created.stdout)
+        self.assertEqual(draft["state"], "draft")
+        self.assertEqual(draft["interval_seconds"], 3600)
+        self.assertEqual(draft["grace_seconds"], 0)
+        self.assertNotIn("deadline", draft)
+        status = subprocess.run([binary, "switch", "status", "--state-dir", str(state), "--id", draft["id"]], env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(status.returncode, 0, status.stderr)
+        self.assertEqual(json.loads(status.stdout), draft)
+        args[-1] = "-1"
+        invalid = subprocess.run(args, env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(invalid.returncode, 1)
+        self.assertEqual(invalid.stdout, "")
 
     def check_capsules(self, binary, env, directory):
         state = directory / "capsules"

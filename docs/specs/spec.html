@@ -194,7 +194,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td>release boundary</td><td>noun</td><td>The deadline plus grace for one accepted state.</td><td>deadline alone</td></tr>
 <tr><td>B0</td><td>noun</td><td>The last release boundary confirmed by three matching durable receipts; the earliest possible disclosure after uncertain renewal.</td><td>exact authority after receipt loss</td></tr>
 <tr><td>Bmax</td><td>noun</td><td>The latest release boundary in any owner-signed renewal already issued for transmission.</td><td>latest received receipt</td></tr>
-<tr><td>E</td><td>noun</td><td>The reviewed allowance for clock error and publication work; no numeric value has acceptance yet.</td><td>exact UTC guarantee</td></tr>
+<tr><td>E</td><td>noun</td><td>The reviewed allowance for clock error and publication work. ADR 0013 accepts candidate E=34 seconds for implementation, subject to actual-host verification.</td><td>exact UTC guarantee</td></tr>
 <tr><td>uncertain outcome</td><td>noun</td><td>An incomplete response that can hide partial or complete renewal acceptance.</td><td>failed renewal</td></tr>
 <tr><td>client journal</td><td>noun</td><td>Durable signed intent stored before transmission, including exact bytes, sequence, deadline, and proposed boundary.</td><td>memory-only retry</td></tr>
 <tr><td>share</td><td>noun</td><td>One agent's part of the content key.</td><td>whole key</td></tr>
@@ -245,7 +245,7 @@ body.rv-open .layout { padding-right:21rem; }
 </li>
 <li>Pass every required test before merge.
 </li>
-<li>Maintain at least 95.00 percent aggregate statement coverage for first-party Go code.
+<li>Maintain at least 90.00 percent aggregate statement coverage for first-party Go code.
 </li>
 <li>Record a reproducible total-loss research result.
 </li>
@@ -287,7 +287,7 @@ body.rv-open .layout { padding-right:21rem; }
  Visitor --&gt; Beacon[Verified drand beacon]
  Agents --&gt;|Two release shares and ciphertext| Visitor</pre></div>
 <p>Use Go 1.27.3 with standard HTTP, templates, JSON, and CLI flags. The <a href="https://go.dev/doc/devel/release">Go release history</a> documents this version and its security fixes. Use server-rendered HTML with a small local JavaScript layer. The web interface requires no external frontend service. Use <code>cmd/epochalypse</code> for the executable and <code>internal/</code> for domain modules. Separate modules cover authentication, DNS, capsules, switches, agent state, content, and the clock. Use injected clocks for deterministic tests. Use monotonic durations for local scheduling, with explicit UTC release boundaries.</p>
-<p>Use <a href="https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128">codeberg.org/miekg/dns v0.6.128</a> for the authoritative server and DNS clients. Keep <a href="https://github.com/miekg/dns/tree/v1.1.73">miekg/dns v1.1.73</a> as an isolated comparison dependency. The <a href="../research/dns-compatibility.md">compatibility report</a> records real resolver evidence and API limits. ADR 0004 records the choice. The implemented contracts are in docs/windows.md and docs/observations.md. The tlock v1.2.0 compatibility report verifies an explicit quicknet identity. Use docs/research/tlock-compatibility.md before production integration; example defaults have no authority. Owner state uses bbolt v1.5.0 and Argon2id from golang.org/x/crypto v0.58.0. ADR 0003 and docs/owner.md define the verified storage and password contracts. The foundation pins the lint tools in its check scripts. The threshold library remains gated on protocol acceptance; no interface has approval.</p>
+<p>Use <a href="https://pkg.go.dev/codeberg.org/miekg/dns@v0.6.128">codeberg.org/miekg/dns v0.6.128</a> for the authoritative server and DNS clients. Keep <a href="https://github.com/miekg/dns/tree/v1.1.73">miekg/dns v1.1.73</a> as an isolated comparison dependency. The <a href="../research/dns-compatibility.md">compatibility report</a> records real resolver evidence and API limits. ADR 0004 records the choice. The implemented contracts are in docs/windows.md and docs/observations.md. The tlock v1.2.0 compatibility report verifies an explicit quicknet identity. Use docs/research/tlock-compatibility.md before production integration; example defaults have no authority. Owner state uses bbolt v1.5.0 and Argon2id from golang.org/x/crypto v0.58.0. ADR 0003 and docs/owner.md define the verified storage and password contracts. The foundation pins the lint tools in its check scripts. Use the pinned HashiCorp Shamir package for two-of-three switch key shares under the reviewed content and authenticated recovery contracts. The switch runtime guide records its scoped license and dependency decision.</p>
 <p>Use provider-neutral Linux services and container examples. Managed platforms must meet port and state requirements. Each agent provides its own public recovery endpoint and durable ciphertext copy. The main server is absent from the switch recovery path.</p>
 <h2 id="data-model">Data model</h2>
 <div class="diagram"><pre class="mermaid">erDiagram
@@ -351,7 +351,7 @@ body.rv-open .layout { padding-right:21rem; }
 </table></div>
 <p>Configuration holds the zone name, agent endpoints, failure domains, public keys, beacon chain, and protocol version. Configure distinct subdomains and signing-key references for signature-window experiments and countdowns. Countdown record names derive from their opaque identifiers under the configured countdown subdomain. Return the actual record name in public metadata. The project does not change delegation automatically. Private key files require owner-only filesystem access. Configuration contains key references rather than key values. Production startup rejects lab keys and insecure public origins. Use a small synthetic capsule, switch, countdown, and window as demo records. Real domains, VPS addresses, and the personal GitHub identity remain operator setup values. No provider budget or spending authority exists.</p>
 <h2 id="testing-strategy">Testing strategy</h2>
-<p>Required pass rate is 100 percent. Coverage is a separate minimum of 95.00 percent. Measure Go statement coverage across every first-party production package, including CLI and HTTP adapters. Exclude dependencies and generated third-party code. Do not exclude difficult branches to reach the threshold. Fail the coverage check when the profile is absent, empty, malformed, or below the unrounded threshold. Require explicit tests for every security and deadline boundary regardless of coverage.</p>
+<p>Required pass rate is 100 percent. Coverage is a separate minimum of 90.00 percent. Measure Go statement coverage across every first-party production package, including CLI and HTTP adapters. Exclude dependencies and generated third-party code. Do not exclude difficult branches to reach the threshold. Fail the coverage check when the profile is absent, empty, malformed, or below the unrounded threshold. Require explicit tests for every security and deadline boundary regardless of coverage.</p>
 <p>Use TDD for behavior changes. First demonstrate a failing assertion against the existing behavior. Then implement the smallest change that passes. Refactor while the checks remain green. A new test that fails only because of a syntax error does not demonstrate the behavior. Record the fail/pass commands in the PR description without mandatory changelog edits.</p>
 <p>Planned commands become executable in Epic 0:</p>
 <div class="table-wrap"><table>
@@ -361,7 +361,7 @@ body.rv-open .layout { padding-right:21rem; }
 <tr><td><code>make test-e2e</code></td><td>Browser and CLI happy paths plus critical errors pass.</td></tr>
 <tr><td><code>make test-resolvers</code></td><td>Pinned default Unbound, strict Unbound, and BIND scenarios pass.</td></tr>
 <tr><td><code>make test-race</code></td><td><code>go test -race ./...</code> reports no races.</td></tr>
-<tr><td><code>make coverage</code></td><td>Instrumented aggregate Go coverage reaches 95.00 percent.</td></tr>
+<tr><td><code>make coverage</code></td><td>Instrumented aggregate Go coverage reaches 90.00 percent.</td></tr>
 <tr><td><code>make fuzz-smoke</code></td><td>Bounded parser and protocol fuzz tests pass for 30 seconds each.</td></tr>
 <tr><td><code>make lint</code></td><td>Format, vet, complexity, nesting, dead-code, and security checks pass.</td></tr>
 <tr><td><code>make build</code></td><td>Linux amd64 and arm64 builds succeed.</td></tr>
@@ -416,7 +416,7 @@ body.rv-open .layout { padding-right:21rem; }
 <li>The historical counterexamples.
 </li>
 </ul>
-<p>Switch completion does not block this local milestone. Actual-host certification and promotion to <code>main</code> remain separate gates. Every required test must pass. Aggregate first-party Go statement coverage must reach 95.00 percent before rounding.</p>
+<p>Switch completion does not block this local milestone. Actual-host certification and promotion to <code>main</code> remain separate gates. Every required test must pass. Aggregate first-party Go statement coverage must reach 90.00 percent before rounding.</p>
 <h3 id="full-project-roadmap">Full project roadmap</h3>
 <ol>
 <li>Establish a green repository and a reproducible DNS demonstration.
@@ -482,6 +482,10 @@ body.rv-open .layout { padding-right:21rem; }
 </ul>
 <p>No unanswered product question blocks the approved plan. Technical gates block the affected implementation or production claim.</p>
 <h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-11-05: The owner lowers aggregate first-party Go statement coverage to 90.00 percent in #125. Preserve every required test and zero required skips. Explicit security, durability, and deadline tests remain required.
+</li>
+</ul>
 <ul>
 <li>2026-11-05: The owner selects DNSSEC experiments, capsules, countdowns, and owner access for the first local milestone in #120. Defer switch runtime and dependent operations. Preserve their requirements and quality gates.
 </li>

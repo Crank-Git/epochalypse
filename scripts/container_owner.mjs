@@ -30,6 +30,8 @@ let diagnostic = '';
 server.stderr.on('data', data => { diagnostic = (diagnostic + data).slice(-2000); });
 const fixture = spawn(`${directory}/capsule-fixture`, ['-test.run=^TestPublicCapsuleBrowserFixture$', '-test.timeout=90s'], {cwd: '/work/internal/service', env: {...env, EPOCHALYPSE_CAPSULE_BROWSER_FIXTURE: '1'}, stdio: ['ignore', 'ignore', 'pipe']});
 fixture.stderr.on('data', data => { diagnostic = (diagnostic + data).slice(-2000); });
+const switchFixture = spawn(`${directory}/capsule-fixture`, ['-test.run=^TestSwitchBrowserEvidenceFixture$', '-test.timeout=90s'], {cwd: '/work/internal/service', env: {...env, EPOCHALYPSE_SWITCH_BROWSER_FIXTURE: '1'}, stdio: ['ignore', 'ignore', 'pipe']});
+switchFixture.stderr.on('data', data => { diagnostic = (diagnostic + data).slice(-2000); });
 try {
   let ready = false;
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -46,6 +48,17 @@ try {
     catch { /* The fixture starts after the test process. */ }
     await pause(50);
   }
+  let switchFixtureReady = false;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    assert.equal(switchFixture.exitCode, null, diagnostic);
+    try {
+      const response = await fetch('http://127.0.0.1:8082/healthz', {signal: AbortSignal.timeout(1000)});
+      switchFixtureReady = response.status === 404;
+    } catch { /* The fixture starts after the test process. */ }
+    if (switchFixtureReady) break;
+    await pause(50);
+  }
+  assert.ok(switchFixtureReady, 'The switch evidence fixture starts');
   const executable = spawnSync('find', ['/ms-playwright', '-name', 'chrome', '-type', 'f'], {encoding: 'utf8', timeout: 3000}).stdout.trim().split('\n')[0];
   assert.ok(executable, 'The pinned image contains Chromium');
   const result = spawnSync('node', ['/work/scripts/owner_browser.mjs', executable, `${directory}/chrome`, 'http://127.0.0.1:8080', `${directory}/window-record.json`, preparedPath, `${directory}/countdown-record.json`], {stdio: 'inherit', timeout: 45000});
@@ -58,6 +71,7 @@ try {
   assert.equal(locked.stdout, '');
 } finally {
   fixture.kill('SIGTERM');
+  switchFixture.kill('SIGTERM');
   server.kill('SIGTERM');
   if (server.exitCode === null && server.signalCode === null) {
     await new Promise(resolve => {

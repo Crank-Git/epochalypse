@@ -34,7 +34,7 @@ They supply synthetic evidence, rather than production services or host certific
 | Clock safety survives new epochs | Pass | `sampledEligibility` uses only the current `U-epsilon`; `TestFreshEpochPublishesWithoutContinuousElapsed` and `TestFreshSamplesIgnoreElapsedRate`. |
 | Missing assessment blocks authority | Pass | `TestSampledRestartRequiresFreshAssessment` blocks receipts and publication and retains the unsafe latch. `Safe` remains an external assertion. |
 | Numeric allowance has explicit limits | Pass as a candidate design profile | epsilon=2 seconds, S=5 seconds, W=25 seconds, P=30 seconds, E=34 seconds. Actual readiness remains unverified. |
-| Restore validates external authority first | Pass as an algorithm | `production-contracts.md`, “Durable authority outside restored archives”; `TestQuarantinesBeforeReceiptsOrShares` checks exact head equality. |
+| Restore validates external authority first | Pass as an algorithm | `production-contracts.md`, “Durable authority outside restored archives”; `TestQuarantinesBeforeReceiptsOrShares` rejects invalid authority; `TestRebuildsKnownCheckpointFromIndependentAuthority` preserves the head through checkpoint reconstruction. |
 | Persistence precedes irreversible output | Pass as an algorithm | The persistence table covers each crash point. `TestLifecyclePersistsBeforeOutput` checks logical commit order, not disk flushes. |
 | Distinct enrolled keys control confirmation | Pass | `admitEnrollment` validates distinct signature keys and canonical recipients. `confirm` derives keys only from that admitted value. |
 | Canonical signed bytes bind state | Pass as a format contract | `TestPreservesVersionTwoByteVector`, `TestVerifiesEveryMessageDomain`, and `TestRejectsAlteredSignedInput`. Nested certificate adapters remain implementation obligations. |
@@ -121,7 +121,10 @@ The implementation must verify the accepted algorithms through concrete adapters
 
 The authority resides on a separate durable volume outside ordinary archive restores.
 Startup validates the complete committed head before receipts, shares, or clock assessment.
-A missing or inconsistent head quarantines the agent. An intact head can reconstruct the disposable checkpoint after an ordinary restart.
+A missing or inconsistent head quarantines the agent.
+An intact head reconstructs a missing checkpoint or an older checkpoint that exactly matches its committed prefix.
+A divergent, newer, or corrupt checkpoint quarantines the agent.
+The [issue #31 ruling](https://github.com/Crank-Git/epochalypse/issues/31#issuecomment-6666312262) makes this restart rule explicit.
 Common rollback of both the whole witness and its state remains outside the intact-state promise.
 A second file inside the same restored snapshot cannot detect that fault.
 Each survivor requires its own accessible authority; this contract introduces no shared network witness.

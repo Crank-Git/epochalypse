@@ -71,7 +71,7 @@ A separate research epic assesses loss of all project-operated servers.
 | release boundary | noun | The deadline plus grace for one accepted state. | deadline alone |
 | B0 | noun | The last release boundary confirmed by three matching durable receipts; the earliest possible disclosure after uncertain renewal. | exact authority after receipt loss |
 | Bmax | noun | The latest release boundary in any owner-signed renewal already issued for transmission. | latest received receipt |
-| E | noun | The reviewed allowance for clock error and publication work; no numeric value has acceptance yet. | exact UTC guarantee |
+| E | noun | The reviewed allowance for clock error and publication work. ADR 0013 accepts candidate E=34 seconds for implementation, subject to actual-host verification. | exact UTC guarantee |
 | uncertain outcome | noun | An incomplete response that can hide partial or complete renewal acceptance. | failed renewal |
 | client journal | noun | Durable signed intent stored before transmission, including exact bytes, sequence, deadline, and proposed boundary. | memory-only retry |
 | share | noun | One agent's part of the content key. | whole key |
@@ -117,7 +117,7 @@ A separate research epic assesses loss of all project-operated servers.
 - Distinguish validation, confidentiality, and availability in every release mode.
 - Recover switch content after main-server loss plus one agent outage.
 - Pass every required test before merge.
-- Maintain at least 95.00 percent aggregate statement coverage for first-party Go code.
+- Maintain at least 90.00 percent aggregate statement coverage for first-party Go code.
 - Record a reproducible total-loss research result.
 
 ## Non-goals
@@ -185,7 +185,8 @@ Use docs/research/tlock-compatibility.md before production integration; example 
 Owner state uses bbolt v1.5.0 and Argon2id from golang.org/x/crypto v0.58.0.
 ADR 0003 and docs/owner.md define the verified storage and password contracts.
 The foundation pins the lint tools in its check scripts.
-The threshold library remains gated on protocol acceptance; no interface has approval.
+Use the pinned HashiCorp Shamir package for two-of-three switch key shares under the reviewed content and authenticated recovery contracts.
+The switch runtime guide records its scoped license and dependency decision.
 
 Use provider-neutral Linux services and container examples. Managed platforms must meet port and state requirements.
 Each agent provides its own public recovery endpoint and durable ciphertext copy.
@@ -295,7 +296,7 @@ No provider budget or spending authority exists.
 
 ## Testing strategy
 
-Required pass rate is 100 percent. Coverage is a separate minimum of 95.00 percent.
+Required pass rate is 100 percent. Coverage is a separate minimum of 90.00 percent.
 Measure Go statement coverage across every first-party production package, including CLI and HTTP adapters.
 Exclude dependencies and generated third-party code. Do not exclude difficult branches to reach the threshold.
 Fail the coverage check when the profile is absent, empty, malformed, or below the unrounded threshold.
@@ -315,7 +316,7 @@ Planned commands become executable in Epic 0:
 | `make test-e2e` | Browser and CLI happy paths plus critical errors pass. |
 | `make test-resolvers` | Pinned default Unbound, strict Unbound, and BIND scenarios pass. |
 | `make test-race` | `go test -race ./...` reports no races. |
-| `make coverage` | Instrumented aggregate Go coverage reaches 95.00 percent. |
+| `make coverage` | Instrumented aggregate Go coverage reaches 90.00 percent. |
 | `make fuzz-smoke` | Bounded parser and protocol fuzz tests pass for 30 seconds each. |
 | `make lint` | Format, vet, complexity, nesting, dead-code, and security checks pass. |
 | `make build` | Linux amd64 and arm64 builds succeed. |
@@ -380,7 +381,7 @@ Preserve these switch artifacts:
 - The historical counterexamples.
 
 Switch completion does not block this local milestone. Actual-host certification and promotion to `main` remain separate gates.
-Every required test must pass. Aggregate first-party Go statement coverage must reach 95.00 percent before rounding.
+Every required test must pass. Aggregate first-party Go statement coverage must reach 90.00 percent before rounding.
 
 ### Full project roadmap
 
@@ -437,6 +438,8 @@ Keep provider selection and actual infrastructure cost outside this planning dec
 No unanswered product question blocks the approved plan. Technical gates block the affected implementation or production claim.
 
 ## Changelog
+
+- 2026-11-05: The owner lowers aggregate first-party Go statement coverage to 90.00 percent in #125. Preserve every required test and zero required skips. Explicit security, durability, and deadline tests remain required.
 
 - 2026-11-05: The owner selects DNSSEC experiments, capsules, countdowns, and owner access for the first local milestone in #120. Defer switch runtime and dependent operations. Preserve their requirements and quality gates.
 

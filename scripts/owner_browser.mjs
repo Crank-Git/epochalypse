@@ -6,6 +6,7 @@ import {checkPublicWindow} from './public_window_browser.mjs';
 import {checkCapsules} from './capsule_browser.mjs';
 import {checkPublicCapsules} from './public_capsule_browser.mjs';
 import {checkCountdowns} from './countdown_browser.mjs';
+import {checkSwitches} from './switch_browser.mjs';
 
 const [chrome, profile, origin, windowResult, preparedPath, countdownResult] = process.argv.slice(2);
 const sandbox = process.getuid?.() === 0 ? ['--no-sandbox'] : [];
@@ -97,6 +98,9 @@ try {
   assert.equal(await evaluate("document.querySelector('#agents').textContent.includes('no verified agent observations')"), true);
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.sections')).display"), 'grid');
   assert.equal(await evaluate("document.querySelector('nav').getAttribute('aria-label')"), 'Dashboard sections');
+  assert.equal(await evaluate("document.querySelector('[href=\"/owner/switches\"]')?.textContent"), 'Configure a switch draft');
+  assert.equal(await evaluate("document.querySelector('#switches').textContent.includes('unarmed and unreplicated switch drafts')"), true);
+  await checkSwitches(call, evaluate, waitFor, origin);
   await checkCapsules(call, evaluate, waitFor, origin, await readFile(preparedPath, 'utf8'));
   await writeFile(countdownResult, JSON.stringify(await checkCountdowns(call, evaluate, waitFor, origin)), {mode: 0o600});
   await evaluate("document.querySelector('nav a').focus()");
