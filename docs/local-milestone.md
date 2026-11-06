@@ -156,4 +156,4 @@ The [lab reset procedure](lab.md#health-and-reset) deletes synthetic state when 
 This milestone verifies local behavior. It does not verify a production deployment, independent agent hosts, or public DNS delegation.
 Production requires protected credentials, valid TLS, separate DNS zones and keys, clock maintenance, and verified recovery endpoints.
 Use the [deployment guide](operations.md) before production configuration.
-Switch runtime work remains deferred. Healthy agent scaffolds do not authorize production switch use.
+Switch runtime software is now implemented and verified in the isolated Linux harness. This walkthrough still uses healthy agent scaffolds. Actual-host verification and production promotion remain deferred.

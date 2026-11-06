@@ -50,6 +50,15 @@ func TestReleasedServiceRestartsWithoutClockAuthority(t *testing.T) {
 	if w.Code != http.StatusOK || clockCalls != 0 {
 		t.Fatalf("released public status = %d, clock calls = %d", w.Code, clockCalls)
 	}
+	report := s.Readiness()
+	if !report.RecoveryAvailable || report.Ready || report.ClockReady {
+		t.Fatalf("released readiness: %+v", report)
+	}
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/agent/v1/public/switches/switch-1", nil))
+	if w.Code != http.StatusOK {
+		t.Fatal("metadata blocks released recovery")
+	}
 	state, err := s.journal.Snapshot()
 	if err != nil || state.UnsafeClock || !state.PossibleDisclosure {
 		t.Fatalf("released restart state: %v", err)

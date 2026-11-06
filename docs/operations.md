@@ -1,5 +1,10 @@
 # Deploy completed features
 
+See [deployment readiness](readiness.md) for the local inventory, public metadata, and direct recovery checks.
+Run `scripts/recovery-drill.sh` for the [isolated synthetic recovery drill](switch-outage-drill.md) after readiness checks.
+Retain `.test-artifacts/switch-outage.json` and `.test-artifacts/switch-outage.log` with the tested commit's verification record.
+This drill verifies software behavior. Live switch exercises require protocol acceptance and actual-host evidence.
+
 This guide covers the main service, DNSSEC windows, capsules, and countdowns.
 These features require no agent or switch protocol acceptance.
 Switch production use remains gated on actual-host verification.
@@ -356,9 +361,11 @@ This procedure makes no live-agent monotonic-state or switch recovery claim.
 ## Release checks and evidence
 
 Check HTTPS with hostname verification, `/healthz`, `/version`, both direct DNS transports, and local anchors before release.
-`/healthz` proves process liveness only. `/readyz` and the later operations scripts are not implemented in this deployment slice.
+`/healthz` proves process liveness only. Use the [readiness checks](readiness.md) for state, configuration, and agent clock evidence.
 Use feature reads and an isolated backup/restore exercise for the applicable state checks.
 Promote `dev` to `main` only through the separate owner-approved step. This guide grants no production promotion approval.
+Follow the [promotion procedure](promotion.md) to retain exact commit, CI, service, host, and compatibility evidence.
+Use the [complete status command](demo.md#complete-deployment-status) for the full switch inventory.
 
 Verified interfaces, retrieved 2026-11-05:
 

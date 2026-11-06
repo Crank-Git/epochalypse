@@ -25,6 +25,7 @@ test-unit:
 	python3 -m unittest discover -s scripts -p 'test_coverage.py'
 	python3 -m unittest discover -s scripts -p 'test_checks.py'
 	python3 -m unittest discover -s scripts -p 'test_go_tests.py'
+	python3 -m unittest discover -s scripts -p 'test_recovery_drill.py'
 
 test-e2e:
 	python3 -m unittest discover -s scripts -p 'test_e2e.py'
