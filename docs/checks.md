@@ -47,6 +47,10 @@ Persistent sync failures prevent arm transmission. A later durable retry preserv
 The export tests replace a package-local sync function and run without parallel tests.
 
 The executable switch test retries the exact arm request after three agents accept it.
+The [outage drill](switch-outage-drill.md) also stops the main process and each possible one agent before release.
+It verifies lost receipts, permanent owner-client loss, agent restart, unsafe-clock quarantine, retained public shares, and bounded standalone recovery.
+Its synthetic clock and candidate allowance provide isolated runtime evidence only.
+The runner records exact commit identity, source isolation hashes, versions, and elapsed results.
 It checks that the bundle and both intent files preserve their bytes.
 After one agent stops, the CLI preserves prior armed evidence and reports the incomplete response.
 Public capsule cancellation tests withhold plaintext and released keys.
