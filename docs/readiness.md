@@ -3,6 +3,8 @@
 Run `epochalypse readiness --inventory /private/deployment.json` on the operator's machine.
 No HTTP route accepts an inventory or performs these probes.
 Keep actual host addresses and evidence outside tracked files.
+After readiness checks, run `scripts/recovery-drill.sh` for the [isolated synthetic recovery drill](switch-outage-drill.md).
+Its retained report verifies local software behavior. It does not certify the declared deployment or actual-host clock bounds.
 
 The version 1 inventory contains these fields:
 

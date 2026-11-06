@@ -1,8 +1,18 @@
 # Switch outage drill
 
-This isolated Linux drill verifies AC-switches-10 and AC-switches-15 against the switch runtime.
-Run `make test-e2e`, or run `python3 scripts/test_switch_arm.py` with the repository's Go cache environment.
+This isolated Linux drill verifies AC-operations-4, AC-switches-10, and AC-switches-15 against the switch runtime.
+Run `scripts/recovery-drill.sh` from the repository root.
+From another directory, use the command's absolute path.
+The command accepts no arguments except `--help`. It rejects target addresses before it creates local state.
+It sets repository-local Go, temporary, XDG, and Buildx cache paths before it executes `scripts/test_switch_arm.py`.
+It preserves the runner's exit status. The runner requires all three outage schedules without skipped tests.
 The runner requires Docker and Go 1.27.3.
+`make test-e2e` also executes the same runner.
+
+Run this synthetic software check after the [deployment readiness checks](readiness.md).
+Retain the JSON and log described below with the tested commit's verification record.
+The command creates its own isolated processes. It accepts no deployment inventory and stops no deployed service.
+Live switch exercises require separate protocol acceptance and actual-host evidence.
 
 The container has no external network. Its repository mount is read-only.
 It uses random loopback ports and temporary owner state.
