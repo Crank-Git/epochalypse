@@ -26,7 +26,13 @@ The Go test runner limits each command to 120 seconds.
 The race target first prepares race binaries with a separate 120-second compilation limit.
 This build-only phase runs `go test -race -run '^$' ./...` and supplies no executed-test evidence.
 Compilation failure or timeout fails the target and retains diagnostic output.
-The required race command then runs with its unchanged 120-second limit and the checks below.
+The runner obtains the complete package inventory with `go list ./...` under a separate 120-second limit.
+Inventory failure or timeout retains diagnostics and fails the target.
+The runner requires unique module paths, `internal/switchclient`, and a nonempty group of remaining packages.
+The first group runs `internal/switchclient` alone to isolate its maximum-content HTTPS test from other resource-heavy packages.
+The second group runs every remaining package. Each discovered package executes exactly once.
+Both groups use `go test -json -race -count=1` with their explicit package paths.
+Each group retains the 120-second execution limit and the checks below.
 If a command exceeds this limit, the runner fails with the command to inspect.
 Malformed JSON events fail with the event line number and output requirements.
 Empty suites, skipped tests, and nonzero command results fail the check.

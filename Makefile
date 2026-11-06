@@ -40,7 +40,7 @@ test-resolvers:
 
 test-race:
 	python3 scripts/go_tests.py --prepare-race
-	python3 scripts/go_tests.py -race -count=1 ./...
+	python3 scripts/go_tests.py --race-groups
 
 coverage:
 	mkdir -p .test-artifacts
