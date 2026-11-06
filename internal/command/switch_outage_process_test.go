@@ -36,25 +36,10 @@ func TestSwitchOutageAgentProcess(t *testing.T) {
 	if err := json.Unmarshal(data, &settings); err != nil {
 		t.Fatal(err)
 	}
-	clock := func() (agent.Reading, error) {
-		data, err := os.ReadFile(filepath.Join(root, "clock")) // #nosec G304 G703 -- The child reads its protected test clock.
-		if err != nil {
-			return agent.Reading{}, err
-		}
-		var sample outageClock
-		if err := json.Unmarshal(data, &sample); err != nil {
-			return agent.Reading{}, agent.ErrClock
-		}
-		elapsed := time.Since(time.Unix(0, sample.RecordedNano))
-		if elapsed < 0 {
-			return agent.Reading{}, agent.ErrClock
-		}
-		return agent.NewLabClock(func() time.Time { return time.Unix(sample.UTCSeconds, 0).Add(elapsed) })()
-	}
 	runtime, err := agent.OpenService(agent.ServiceConfig{Authority: settings.Authority, LabOnlySyntheticClock: true,
 		Transition: agent.TransitionConfig{OwnerKey: settings.OwnerKey, EnrollmentBody: settings.Certificate,
 			EnrollmentSignature: settings.CertificateSignature, AgentID: settings.AgentID,
-			SigningKey: settings.SigningKey, AgeIdentity: settings.AgeIdentity, ReadClock: clock}})
+			SigningKey: settings.SigningKey, AgeIdentity: settings.AgeIdentity, ReadClock: func() (agent.Reading, error) { return readOutageClock(root) }}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,4 +82,20 @@ func TestSwitchOutageAgentProcess(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
+
+func readOutageClock(root string) (agent.Reading, error) {
+	data, err := os.ReadFile(filepath.Join(root, "clock")) // #nosec G304 G703 -- The child reads its protected test clock.
+	if err != nil {
+		return agent.Reading{}, err
+	}
+	var sample outageClock
+	if err := json.Unmarshal(data, &sample); err != nil {
+		return agent.Reading{}, agent.ErrClock
+	}
+	elapsed := time.Since(time.Unix(0, sample.RecordedNano))
+	if elapsed < 0 {
+		return agent.Reading{}, agent.ErrClock
+	}
+	return agent.NewLabClock(func() time.Time { return time.Unix(sample.UTCSeconds, 0).Add(elapsed) })()
 }
