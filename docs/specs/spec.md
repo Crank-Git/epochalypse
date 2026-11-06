@@ -71,7 +71,7 @@ A separate research epic assesses loss of all project-operated servers.
 | release boundary | noun | The deadline plus grace for one accepted state. | deadline alone |
 | B0 | noun | The last release boundary confirmed by three matching durable receipts; the earliest possible disclosure after uncertain renewal. | exact authority after receipt loss |
 | Bmax | noun | The latest release boundary in any owner-signed renewal already issued for transmission. | latest received receipt |
-| E | noun | The reviewed allowance for clock error and publication work; ADR 0013 accepts candidate E=34 seconds for implementation, subject to actual-host verification. | exact UTC guarantee |
+| E | noun | The reviewed allowance for clock error and publication work. ADR 0013 accepts candidate E=34 seconds for implementation, subject to actual-host verification. | exact UTC guarantee |
 | uncertain outcome | noun | An incomplete response that can hide partial or complete renewal acceptance. | failed renewal |
 | client journal | noun | Durable signed intent stored before transmission, including exact bytes, sequence, deadline, and proposed boundary. | memory-only retry |
 | share | noun | One agent's part of the content key. | whole key |
