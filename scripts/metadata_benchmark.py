@@ -28,8 +28,12 @@ def main():
     build_cache = root / "var/cache/buildx"
     build_cache.mkdir(parents=True, exist_ok=True)
     os.environ["BUILDX_CONFIG"] = str(build_cache)
-    command("git", "diff", "--exit-code", "HEAD", "--", "cmd", "internal", "web", "config", "third_party",
-            "deploy/lab/Dockerfile", "go.mod", "go.sum", "tests/backup/fixture_test.go")
+    source_paths = ("cmd", "internal", "web", "config", "third_party", "deploy/lab/Dockerfile",
+                    "go.mod", "go.sum", "tests/backup/fixture_test.go")
+    command("git", "diff", "--exit-code", "HEAD", "--", *source_paths)
+    untracked = command("git", "ls-files", "--others", "--exclude-standard", "--", *source_paths).stdout
+    if untracked:
+        raise RuntimeError("untracked build inputs prevent source provenance")
     commit = command("git", "rev-parse", "HEAD").stdout.strip()
     project = "epochalypse-metadata-" + uuid.uuid4().hex[:10]
     builder, image = project + ":build", project + ":main"

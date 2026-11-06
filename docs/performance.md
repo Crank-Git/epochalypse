@@ -10,7 +10,7 @@ The command builds the actual main executable with the pinned images in `deploy/
 It uses the Go 1.27.3 builder and the Alpine 3.22.2 runtime.
 It reuses `tests/backup/fixture_test.go` for synthetic owner state, a window, a released capsule, a countdown, and TLS material.
 The fixture creates one record per feature.
-The command rejects changes to tracked build inputs before it records the source commit.
+The command rejects changes to tracked build inputs and untracked files under the build input paths.
 
 The server has a two-CPU quota, a 256 MiB memory limit, and no additional swap allowance.
 Docker inspection verifies these limits before the workload starts.
@@ -48,12 +48,14 @@ The workload excludes uploads, preparation, content downloads, and DNS queries.
 Window metadata uses the implemented public HTML path.
 The dashboard measures the current bounded summary, rather than a large retained inventory.
 
-The report records every request, status, error, start time, and duration.
+The report records every request, status, error, launch time, dispatch time, socket wait, and duration.
+The Node.js request `finish` event records dispatch after the client hands the request bytes to the operating system.
+The socket wait includes time in the HTTPS agent queue.
 Each request has a three-second timeout and a bounded response body.
 The duration covers request dispatch through the complete response body.
 The p50 and p95 use the nearest-rank method across all 200 samples, including errors.
 The report also records latency from the scheduled start to expose client delays.
-Any request error, missing sample, p95 at or above 250 ms, or start delay at or above 50 ms fails the command.
+Any request error, missing sample, p95 at or above 250 ms, or dispatch delay at or above 50 ms fails the command.
 The JSON report remains available after a measured failure.
 Setup failures stop before a measurement report exists.
 
@@ -64,7 +66,9 @@ All 200 requests return their expected HTTP 200 responses.
 The error count is zero.
 The p50 is 2.601 ms, the p95 is 4.333 ms, and the maximum is 6.769 ms.
 The measured p95 passes the local target of less than 250 ms.
-The maximum start delay is 11.129 ms.
+The maximum task launch delay is 11.129 ms.
+This initial client does not record dispatch or socket wait separately.
+The final client adds these fields and gates dispatch delay.
 The elapsed sample time is 9959.727 ms, which gives 20.081 completed requests per second.
 
 The Linux host uses Docker Desktop 4.98.0 with Docker Engine 29.9.2 on `aarch64`.
