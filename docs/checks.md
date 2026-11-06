@@ -23,6 +23,10 @@ The command requires every currently applicable check to pass:
 - Linux amd64 and arm64 builds.
 
 The Go test runner limits each command to 120 seconds.
+The race target first prepares race binaries with a separate 120-second compilation limit.
+This build-only phase runs `go test -race -run '^$' ./...` and supplies no executed-test evidence.
+Compilation failure or timeout fails the target and retains diagnostic output.
+The required race command then runs with its unchanged 120-second limit and the checks below.
 If a command exceeds this limit, the runner fails with the command to inspect.
 Malformed JSON events fail with the event line number and output requirements.
 Empty suites, skipped tests, and nonzero command results fail the check.

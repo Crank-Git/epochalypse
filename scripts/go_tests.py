@@ -4,6 +4,7 @@ import sys
 
 
 TEST_TIMEOUT_SECONDS = 120
+RACE_PREPARATION_TIMEOUT_SECONDS = 120
 
 
 def timeout_output(output):
@@ -13,6 +14,8 @@ def timeout_output(output):
 
 
 def run(args):
+    if args == ["--prepare-race"]:
+        return prepare_race()
     try:
         result = subprocess.run(["go", "test", "-json", *args], capture_output=True, text=True, timeout=TEST_TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired as error:
@@ -42,6 +45,21 @@ def run(args):
             skipped += event["Action"] == "skip"
     print(f"Go tests: {passed} passed; {skipped} skipped")
     return int(result.returncode != 0 or passed == 0 or skipped != 0)
+
+
+def prepare_race():
+    print("Go race preparation: build-only; required tests run in the next command.", flush=True)
+    command = ["go", "test", "-race", "-run", "^$", "./..."]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=RACE_PREPARATION_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired as error:
+        print(timeout_output(error.stdout), end="")
+        print(timeout_output(error.stderr), end="", file=sys.stderr)
+        print(f"Go race preparation exceeded {RACE_PREPARATION_TIMEOUT_SECONDS} seconds. Inspect the compilation command: {' '.join(command)}", file=sys.stderr)
+        return 1
+    print(result.stdout, end="")
+    print(result.stderr, end="", file=sys.stderr)
+    return int(result.returncode != 0)
 
 
 if __name__ == "__main__":
