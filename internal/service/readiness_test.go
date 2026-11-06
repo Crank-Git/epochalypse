@@ -22,24 +22,7 @@ func TestMainProductionReadinessRequiresValidConfigurationAndOpenStores(t *testi
 					t.Fatal(err)
 				}
 			}
-			switch name {
-			case "lab":
-				config.Environment = "lab"
-			case "unspecified environment":
-				config.Environment = ""
-			case "local lab":
-				config.LocalLab = true
-			case "invalid configuration":
-				config.HTTPAddr = ""
-			case "closed owner":
-				if err := state.owner.Close(); err != nil {
-					t.Fatal(err)
-				}
-			case "closed content":
-				if err := state.content.Close(); err != nil {
-					t.Fatal(err)
-				}
-			}
+			changeMainReadinessPrerequisite(t, name, &config, state)
 			mux := http.NewServeMux()
 			runtimeinfo.Routes(mux, func() runtimeinfo.Report { return state.readiness(config) })
 			response := httptest.NewRecorder()
@@ -57,6 +40,28 @@ func TestMainProductionReadinessRequiresValidConfigurationAndOpenStores(t *testi
 				t.Fatalf("main readiness: status=%d report=%+v", response.Code, report)
 			}
 		})
+	}
+}
+
+func changeMainReadinessPrerequisite(t *testing.T, name string, config *Config, state *mainState) {
+	t.Helper()
+	switch name {
+	case "lab":
+		config.Environment = "lab"
+	case "unspecified environment":
+		config.Environment = ""
+	case "local lab":
+		config.LocalLab = true
+	case "invalid configuration":
+		config.HTTPAddr = ""
+	case "closed owner":
+		if err := state.owner.Close(); err != nil {
+			t.Fatal(err)
+		}
+	case "closed content":
+		if err := state.content.Close(); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
