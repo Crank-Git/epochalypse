@@ -57,8 +57,37 @@ The journal permanently retains possible-disclosure and unsafe-clock latches.
 The per-record byte limit rejects an oversized successor before journal mutation.
 This refusal preserves the accepted journal, material, and latches across restart.
 An unexpected append failure can leave uncertain persistence and quarantine the journal.
-The runtime does not reserve publication capacity.
-Issue #33 owns the complete reservation and growth policy before the batch can claim the release bound.
+The runtime reserves physical publication capacity on Linux ext4 volumes before it accepts new state.
+Other filesystems and platforms fail closed for this claim.
+`MaxJournalBytes` defaults to 256 MiB. Its supported maximum is 1 GiB.
+`MaxJournalRecords` defaults to 4096. Its supported maximum is 65536.
+These limits bound the complete replay and authentic-prefix checks.
+Admission preserves two maximum-sized records for the release and unsafe-clock latches.
+An intent also reserves its receipt record before the accepted deadline changes.
+The transition adapter preserves record space for receipts and the release envelope.
+
+The journal uses `FALLOC_FL_KEEP_SIZE` before acceptance.
+The runtime verifies allocated blocks and unchanged logical journal length.
+Each checkpoint volume retains two private, preallocated inodes.
+The runtime uses `RENAME_EXCHANGE` to replace checkpoints without discarding their reserved blocks.
+Whitespace padding preserves strict JSON reads without truncation.
+Restart validates or reserves these allocations before readiness.
+An intact reservation needs no new allocation for release or restart.
+A legacy journal keeps its authenticated append format and accepted authority during this validation.
+A reservation failure prevents readiness and preserves the journal.
+Checkpoint directory creation synchronizes every parent entry before readiness.
+
+`LabOnlySyntheticStorage` explicitly disables physical and atomic-exchange claims for local tests.
+Service startup requires the explicit synthetic lab clock with this option.
+Public responses identify this mode with `X-Epochalypse-Storage: lab-only-synthetic-unverified`.
+The verified clock mode rejects synthetic storage.
+Two admitted HTTP requests bound concurrent material copies and output buffers.
+Public output releases the transition lock before a potentially slow network write.
+Actual-host publication latency and production readiness remain separate gates.
+
+Verified against: [Linux fallocate](https://man7.org/linux/man-pages/man2/fallocate.2.html)
+and [Linux rename](https://man7.org/linux/man-pages/man2/rename.2.html), retrieved 2026-11-05.
+The implementation uses the pinned `golang.org/x/sys` v0.49.0 syscall signatures.
 It rejects attempts to clear either latch.
 
 Replay validates the full committed prefix before the caller can obtain state.

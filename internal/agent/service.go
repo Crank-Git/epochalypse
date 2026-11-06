@@ -26,6 +26,9 @@ type Service struct {
 
 // OpenService validates authority and enrollment before it returns readiness.
 func OpenService(config ServiceConfig) (*Service, error) {
+	if config.Authority.LabOnlySyntheticStorage && !config.LabOnlySyntheticClock {
+		return nil, errors.New("synthetic storage requires the explicit lab clock mode")
+	}
 	if config.LabOnlySyntheticClock == (config.VerifiedClock != nil) {
 		return nil, errors.New("configure exactly one clock mode")
 	}

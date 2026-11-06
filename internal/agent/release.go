@@ -129,50 +129,55 @@ func (t *Transitions) servePublic(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	data, contentType, status := t.publicResponse(r)
+	if status != http.StatusOK {
+		http.Error(w, "agent publication is unavailable", status)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", contentType)
+	_, _ = w.Write(data)
+}
+
+func (t *Transitions) publicResponse(r *http.Request) ([]byte, string, int) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if err := t.publish(); err != nil {
-		http.Error(w, "agent publication is unavailable", http.StatusServiceUnavailable)
-		return
+		return nil, "", http.StatusServiceUnavailable
 	}
 	state, err := t.journal.Snapshot()
 	if err != nil {
-		http.Error(w, "agent publication is unavailable", http.StatusServiceUnavailable)
-		return
+		return nil, "", http.StatusServiceUnavailable
 	}
 	if state.Phase != switchwire.PhaseArmed {
-		http.NotFound(w, r)
-		return
+		return nil, "", http.StatusNotFound
 	}
 	accepted, err := switchwire.ReadEnvelope(bytes.NewReader(state.AcceptedRequest))
 	if err != nil {
-		http.NotFound(w, r)
-		return
+		return nil, "", http.StatusNotFound
 	}
 	frame, err := switchwire.DecodeFrame(accepted.Body)
 	base := "/agent/v1/public/switches/" + frame.State.Switch
 	if err != nil || (r.URL.Path != base && r.URL.Path != base+"/ciphertext") {
-		http.NotFound(w, r)
-		return
+		return nil, "", http.StatusNotFound
 	}
-	w.Header().Set("Cache-Control", "no-store")
 	if strings.HasSuffix(r.URL.Path, "/ciphertext") {
-		w.Header().Set("Content-Type", "application/octet-stream")
-		_, _ = w.Write(state.Ciphertext)
-		return
+		return state.Ciphertext, "application/octet-stream", http.StatusOK
 	}
 	end := len(t.enrollmentB) - ed25519.SignatureSize
 	manifest := switchwire.PublicManifest{Version: 1, Certificate: t.enrollmentB[4:end], CertificateSignature: t.enrollmentB[end:], Accepted: accepted}
 	if state.PossibleDisclosure {
 		release, err := switchwire.ReadEnvelope(bytes.NewReader(state.ReleaseEnvelope))
 		if err != nil {
-			http.Error(w, "agent publication is unavailable", http.StatusServiceUnavailable)
-			return
+			return nil, "", http.StatusServiceUnavailable
 		}
 		manifest.Release = &release
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(manifest)
+	data, err := json.Marshal(manifest)
+	if err != nil {
+		return nil, "", http.StatusServiceUnavailable
+	}
+	return data, "application/json", http.StatusOK
 }
 
 func enrolledReleaseKeys(enrollment switchwire.AdmittedEnrollment) map[string]ed25519.PublicKey {

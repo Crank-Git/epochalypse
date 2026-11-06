@@ -32,9 +32,11 @@ class SwitchArmExecutableTests(unittest.TestCase):
                 "docker", "run", "--rm", "--init", "--network", "none",
                 "--mount", f"type=bind,src={Path.cwd()},dst=/work,readonly",
                 "--mount", f"type=bind,src={directory},dst=/state",
+                "--mount", "type=volume,dst=/agent-storage",
+                "--env", "TMPDIR=/agent-storage",
                 BROWSER_IMAGE,
                 "sh", "-c",
-                "mkdir -p /tmp/switch-cover; GOCOVERDIR=/tmp/switch-cover EPOCHALYPSE_SWITCH_ARM_BINARY=/state/epochalypse /state/switch-positive.test -test.run=^TestCLIArmsSwitchWithThreeDurableTLSAgents$ -test.timeout=90s && /state/agent-clock.test -test.v -test.gocoverdir=/tmp/switch-cover -test.run='^Test(SystemCapture|ProfileClock|ChronyClock|DurationFromTimespec|ValidBootID)' -test.timeout=60s; result=$?; cp -R /tmp/switch-cover/. /state/coverage/; chmod -R a+rwX /state; exit \"$result\"",
+                "mkdir -p /tmp/switch-cover; GOCOVERDIR=/tmp/switch-cover EPOCHALYPSE_SWITCH_ARM_BINARY=/state/epochalypse /state/switch-positive.test -test.run=^TestCLIArmsSwitchWithThreeDurableTLSAgents$ -test.timeout=90s && /state/agent-clock.test -test.v -test.gocoverdir=/tmp/switch-cover -test.run='^Test(PhysicalReservation|SystemCapture|ProfileClock|ChronyClock|DurationFromTimespec|ValidBootID)' -test.timeout=60s; result=$?; cp -R /tmp/switch-cover/. /state/coverage/; chmod -R a+rwX /state; exit \"$result\"",
             ], check=True, timeout=150)
             coverage_profile = Path(".test-artifacts/switch-arm.out")
             subprocess.run(["go", "tool", "covdata", "textfmt", f"-i={coverage}", f"-o={coverage_profile}"], check=True, timeout=20)

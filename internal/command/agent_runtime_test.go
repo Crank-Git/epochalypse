@@ -52,7 +52,7 @@ func TestAgentInitializePreservesKnownAuthority(t *testing.T) {
 	if err := os.Mkdir(authority, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	settings := agentRuntimeSettings{Authority: agent.Config{Directory: authority, CheckpointDirectory: filepath.Join(root, "checkpoint"), ExpectedVolumeID: "explicit-test-volume"}}
+	settings := agentRuntimeSettings{Authority: agent.Config{Directory: authority, CheckpointDirectory: filepath.Join(root, "checkpoint"), ExpectedVolumeID: "explicit-test-volume", LabOnlySyntheticStorage: true}}
 	data, err := json.Marshal(settings)
 	if err != nil {
 		t.Fatal(err)

@@ -42,14 +42,15 @@ type TransitionConfig struct {
 
 // Transitions serializes authenticated preparation and arm operations.
 type Transitions struct {
-	mu          sync.Mutex
-	journal     *Journal
-	enrollment  switchwire.AdmittedEnrollment
-	enrollmentB []byte
-	agentID     string
-	signingKey  ed25519.PrivateKey
-	ageIdentity *age.X25519Identity
-	clock       func() (Reading, error)
+	mu           sync.Mutex
+	journal      *Journal
+	enrollment   switchwire.AdmittedEnrollment
+	enrollmentB  []byte
+	agentID      string
+	signingKey   ed25519.PrivateKey
+	ageIdentity  *age.X25519Identity
+	clock        func() (Reading, error)
+	requestSlots chan struct{}
 }
 
 type transitionRequest struct {
@@ -86,7 +87,8 @@ func NewTransitions(config TransitionConfig) (*Transitions, error) {
 		return nil, err
 	}
 	return &Transitions{
-		journal: config.Journal, enrollment: enrollment, enrollmentB: enrollmentBytes,
+		requestSlots: make(chan struct{}, 2),
+		journal:      config.Journal, enrollment: enrollment, enrollmentB: enrollmentBytes,
 		agentID: config.AgentID, signingKey: ed25519.PrivateKey(bytes.Clone(config.SigningKey)), ageIdentity: identity, clock: config.ReadClock,
 	}, nil
 }
@@ -260,6 +262,16 @@ func (t *Transitions) Handler() http.Handler {
 }
 
 func (t *Transitions) serveTransition(w http.ResponseWriter, r *http.Request) {
+	if t.journal.config.LabOnlySyntheticStorage {
+		w.Header().Set("X-Epochalypse-Storage", "lab-only-synthetic-unverified")
+	}
+	select {
+	case t.requestSlots <- struct{}{}:
+		defer func() { <-t.requestSlots }()
+	default:
+		http.Error(w, "agent request capacity is unavailable", http.StatusServiceUnavailable)
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, "/agent/v1/public/switches/") {
 		t.servePublic(w, r)
 		return
@@ -445,6 +457,13 @@ func (t *Transitions) validateClockBoundary(frame switchwire.Frame, reading Read
 }
 
 func (t *Transitions) commit(state State) (State, error) {
+	if !state.PossibleDisclosure && !state.UnsafeClock && state.Phase != 0 {
+		data, _ := json.Marshal(state)
+		// Signed receipts and the final release envelope need bounded record headroom.
+		if len(data)+16<<10 > int(t.journal.config.MaxRecordBytes) {
+			return State{}, ErrRecordLimit
+		}
+	}
 	current, err := t.journal.Snapshot()
 	if err != nil {
 		return State{}, fmt.Errorf("read agent authority before commit: %w", err)

@@ -36,14 +36,18 @@ var (
 	ErrVolumeIdentity    = errors.New("agent authority volume identity does not match")
 	ErrRecordLimit       = errors.New("agent authority record exceeds its configured limit")
 	ErrLocked            = errors.New("agent authority is already open")
+	ErrCapacity          = errors.New("agent authority has no admission capacity")
 )
 
 type Config struct {
-	Directory           string
-	CheckpointDirectory string
-	ExpectedVolumeID    string
-	MaxRecordBytes      uint32
-	performIO           func(string, func() error) error
+	Directory               string
+	CheckpointDirectory     string
+	ExpectedVolumeID        string
+	MaxRecordBytes          uint32
+	MaxJournalBytes         int64
+	MaxJournalRecords       uint64
+	LabOnlySyntheticStorage bool
+	performIO               func(string, func() error) error
 }
 
 type State struct {
@@ -62,16 +66,17 @@ type State struct {
 }
 
 type Journal struct {
-	mu          sync.Mutex
-	config      Config
-	journal     *os.File
-	lock        *os.File
-	state       State
-	headHash    [sha256.Size]byte
-	closed      bool
-	quarantined bool
-	afterStep   func(string)
-	performIO   func(string, func() error) error
+	mu           sync.Mutex
+	config       Config
+	journal      *os.File
+	lock         *os.File
+	state        State
+	headHash     [sha256.Size]byte
+	closed       bool
+	quarantined  bool
+	afterStep    func(string)
+	performIO    func(string, func() error) error
+	storageReady bool
 }
 
 type diskRecord struct {
@@ -168,6 +173,12 @@ func Open(config Config) (*Journal, error) {
 		return nil, errors.Join(err, instance.Close())
 	}
 	if err := instance.validateOrRepairCheckpoint(); err != nil {
+		return nil, errors.Join(err, instance.Close())
+	}
+	if err := instance.prepareStorage(); err != nil {
+		return nil, errors.Join(err, instance.Close())
+	}
+	if err := instance.writeCheckpoint(); err != nil {
 		return nil, errors.Join(err, instance.Close())
 	}
 	return instance, nil
@@ -316,6 +327,9 @@ func (j *Journal) Commit(next State) (State, error) {
 	if len(payload) > int(j.config.MaxRecordBytes) {
 		return State{}, ErrRecordLimit
 	}
+	if err := j.checkCapacity(stateCopy, len(payload)); err != nil {
+		return State{}, err
+	}
 	checksum := sha256.Sum256(payload)
 	if err := j.appendRecord(payload, checksum); err != nil {
 		return State{}, err
@@ -396,6 +410,13 @@ func (j *Journal) Close() error {
 }
 
 func (j *Journal) replay() error {
+	info, err := j.journal.Stat()
+	if err != nil {
+		return fmt.Errorf("inspect journal capacity: %w", err)
+	}
+	if info.Size() > j.config.MaxJournalBytes {
+		return ErrCapacity
+	}
 	if err := j.io("replay-journal-seek-start", func() error { _, err := j.journal.Seek(0, io.SeekStart); return err }); err != nil {
 		return fmt.Errorf("seek authority journal: %w", err)
 	}
@@ -413,6 +434,9 @@ func (j *Journal) replay() error {
 		state, previous, err = applyAuthorityRecord(payload, checksum, state, previous)
 		if err != nil {
 			return err
+		}
+		if state.Generation > j.config.MaxJournalRecords {
+			return ErrCapacity
 		}
 	}
 	if err := j.io("replay-journal-seek-end", func() error { _, err := j.journal.Seek(0, io.SeekEnd); return err }); err != nil {
@@ -489,7 +513,7 @@ func applyAuthorityRecord(payload []byte, checksum [sha256.Size]byte, state Stat
 }
 
 func (j *Journal) validateOrRepairCheckpoint() error {
-	if err := os.MkdirAll(j.config.CheckpointDirectory, 0o700); err != nil {
+	if err := j.createCheckpointDirectory(j.config.CheckpointDirectory); err != nil {
 		return fmt.Errorf("create checkpoint directory: %w", err)
 	}
 	if err := checkPrivateDirectory(j.config.CheckpointDirectory); err != nil {
@@ -502,7 +526,7 @@ func (j *Journal) validateOrRepairCheckpoint() error {
 	defer func() { _ = root.Close() }()
 	saved, err := readAuthorityCheckpoint(root, j.config.MaxRecordBytes)
 	if os.IsNotExist(err) {
-		return j.writeCheckpoint()
+		return j.writeInitialCheckpoint()
 	}
 	if err != nil {
 		return err
@@ -564,7 +588,7 @@ func (j *Journal) matchesJournalPrefix(saved checkpoint) bool {
 	return state.Generation == saved.Generation && saved.HeadSHA256 == hex.EncodeToString(previous[:]) && equalAuthorityState(saved.State, state)
 }
 
-func (j *Journal) writeCheckpoint() error {
+func (j *Journal) writeInitialCheckpoint() error {
 	saved := checkpoint{
 		Version:    authorityFormatVersion,
 		Generation: j.state.Generation,
@@ -651,6 +675,19 @@ func normalizeAuthorityConfig(config Config) (Config, error) {
 	}
 	if config.MaxRecordBytes < 1024 || config.MaxRecordBytes > authorityMaxAllowed {
 		return Config{}, errors.New("authority record limit is outside the supported range")
+	}
+	return normalizeJournalLimits(config)
+}
+
+func normalizeJournalLimits(config Config) (Config, error) {
+	if config.MaxJournalBytes == 0 {
+		config.MaxJournalBytes = 256 << 20
+	}
+	if config.MaxJournalRecords == 0 {
+		config.MaxJournalRecords = 4096
+	}
+	if config.MaxJournalBytes < 4*(int64(config.MaxRecordBytes)+48) || config.MaxJournalBytes > 1<<30 || config.MaxJournalRecords < 4 || config.MaxJournalRecords > 65536 {
+		return Config{}, errors.New("authority journal limit is outside the supported range")
 	}
 	return config, nil
 }

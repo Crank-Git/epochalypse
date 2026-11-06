@@ -130,7 +130,7 @@ func localJournals(t *testing.T, p Plan, owner ed25519.PublicKey, agents [3]swit
 		if err := os.Mkdir(directory, 0o700); err != nil {
 			t.Fatal(err)
 		}
-		configs[i] = agent.Config{Directory: directory, CheckpointDirectory: filepath.Join(root, "checkpoint"), ExpectedVolumeID: "lab-" + a.ID}
+		configs[i] = agent.Config{Directory: directory, CheckpointDirectory: filepath.Join(root, "checkpoint"), ExpectedVolumeID: "lab-" + a.ID, LabOnlySyntheticStorage: true}
 		if err := agent.Initialize(configs[i]); err != nil {
 			t.Fatal(err)
 		}
