@@ -77,6 +77,10 @@ func TestPhysicalReservationReadinessRejectsLostBlocksWithoutRepair(t *testing.T
 	if !journal.readinessStorage() {
 		t.Fatal("reserved storage fails readiness")
 	}
+	// Linux ignores a hole beyond the logical end of a file.
+	if err := journal.journal.Truncate(config.MaxJournalBytes); err != nil {
+		t.Fatal(err)
+	}
 	if err := unix.Fallocate(int(journal.journal.Fd()), unix.FALLOC_FL_PUNCH_HOLE|unix.FALLOC_FL_KEEP_SIZE, 0, config.MaxJournalBytes); err != nil {
 		t.Fatal(err)
 	}
