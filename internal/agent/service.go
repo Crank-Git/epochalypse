@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -25,6 +26,9 @@ type Service struct {
 
 // OpenService validates authority and enrollment before it returns readiness.
 func OpenService(config ServiceConfig) (*Service, error) {
+	if config.Authority.LabOnlySyntheticStorage && !config.LabOnlySyntheticClock {
+		return nil, errors.New("synthetic storage requires the explicit lab clock mode")
+	}
 	if config.LabOnlySyntheticClock == (config.VerifiedClock != nil) {
 		return nil, errors.New("configure exactly one clock mode")
 	}
@@ -52,6 +56,15 @@ func OpenService(config ServiceConfig) (*Service, error) {
 	if err := validateServiceState(transitions, journal); err != nil {
 		_ = journal.Close()
 		return nil, err
+	}
+	state, err := journal.Snapshot()
+	if err != nil {
+		_ = journal.Close()
+		return nil, err
+	}
+	// A durable release needs no new time decision.
+	if state.PossibleDisclosure {
+		return &Service{journal: journal, transitions: transitions}, nil
 	}
 	if _, err := clock(); err != nil {
 		err = errors.Join(err, latchStartupClockFailure(transitions, journal))
@@ -81,8 +94,11 @@ func validateServiceState(transitions *Transitions, journal *Journal) error {
 	if err != nil {
 		return fmt.Errorf("read agent authority before readiness: %w", err)
 	}
-	if state.PossibleDisclosure || state.UnsafeClock {
+	if state.UnsafeClock {
 		return ErrQuarantined
+	}
+	if state.PossibleDisclosure {
+		return transitions.validateRelease(state)
 	}
 	if state.Phase == 0 {
 		if state.Generation != 0 || !emptyAgentState(state) {
@@ -162,6 +178,9 @@ func emptyAgentState(state State) bool {
 
 // Handler returns the bounded transition endpoints.
 func (s *Service) Handler() http.Handler { return s.transitions.Handler() }
+
+// RunPublisher publishes eligible material without an HTTP request or another service.
+func (s *Service) RunPublisher(ctx context.Context) error { return s.transitions.RunPublisher(ctx) }
 
 // Close releases the exclusive authority lock.
 func (s *Service) Close() error { return s.journal.Close() }

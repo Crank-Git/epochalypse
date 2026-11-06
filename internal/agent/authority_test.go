@@ -30,9 +30,11 @@ func authorityTestConfig(t *testing.T) Config {
 		t.Fatal(err)
 	}
 	return Config{
-		Directory:           authorityDir,
-		CheckpointDirectory: checkpointDir,
-		ExpectedVolumeID:    "volume-test-01",
+		Directory:               authorityDir,
+		CheckpointDirectory:     checkpointDir,
+		ExpectedVolumeID:        "volume-test-01",
+		LabOnlySyntheticStorage: true,
+		MaxRecordBytes:          1 << 20,
 	}
 }
 
@@ -357,9 +359,11 @@ func TestAuthorityCrashHelper(t *testing.T) {
 		return
 	}
 	config := Config{
-		Directory:           os.Getenv("EPOCHALYPSE_AUTHORITY_DIR"),
-		CheckpointDirectory: os.Getenv("EPOCHALYPSE_AUTHORITY_CHECKPOINT"),
-		ExpectedVolumeID:    "volume-test-01",
+		Directory:               os.Getenv("EPOCHALYPSE_AUTHORITY_DIR"),
+		CheckpointDirectory:     os.Getenv("EPOCHALYPSE_AUTHORITY_CHECKPOINT"),
+		ExpectedVolumeID:        "volume-test-01",
+		LabOnlySyntheticStorage: true,
+		MaxRecordBytes:          1 << 20,
 	}
 	journal, err := Open(config)
 	if err != nil {

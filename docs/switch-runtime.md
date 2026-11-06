@@ -2,7 +2,7 @@
 
 Issue #31 introduces runtime contracts for the reviewed version-two protocol.
 These contracts do not enable production switches.
-The CLI provides local prepare, arm, check-in, status, and export commands.
+The CLI provides local prepare, arm, check-in, status, export, and recover commands.
 The main API retains authenticated public arm evidence.
 The agent runtime supports explicit local experiments over HTTPS.
 Actual-host readiness and complete product verification remain incomplete.
@@ -57,8 +57,37 @@ The journal permanently retains possible-disclosure and unsafe-clock latches.
 The per-record byte limit rejects an oversized successor before journal mutation.
 This refusal preserves the accepted journal, material, and latches across restart.
 An unexpected append failure can leave uncertain persistence and quarantine the journal.
-The runtime does not reserve publication capacity.
-Issue #33 owns the complete reservation and growth policy before the batch can claim the release bound.
+The runtime reserves physical publication capacity on Linux ext4 volumes before it accepts new state.
+Other filesystems and platforms fail closed for this claim.
+`MaxJournalBytes` defaults to 256 MiB. Its supported maximum is 1 GiB.
+`MaxJournalRecords` defaults to 4096. Its supported maximum is 65536.
+These limits bound the complete replay and authentic-prefix checks.
+Admission preserves two maximum-sized records for the release and unsafe-clock latches.
+An intent also reserves its receipt record before the accepted deadline changes.
+The transition adapter preserves record space for receipts and the release envelope.
+
+The journal uses `FALLOC_FL_KEEP_SIZE` before acceptance.
+The runtime verifies allocated blocks and unchanged logical journal length.
+Each checkpoint volume retains two private, preallocated inodes.
+The runtime uses `RENAME_EXCHANGE` to replace checkpoints without discarding their reserved blocks.
+Whitespace padding preserves strict JSON reads without truncation.
+Restart validates or reserves these allocations before readiness.
+An intact reservation needs no new allocation for release or restart.
+A legacy journal keeps its authenticated append format and accepted authority during this validation.
+A reservation failure prevents readiness and preserves the journal.
+Checkpoint directory creation synchronizes every parent entry before readiness.
+
+`LabOnlySyntheticStorage` explicitly disables physical and atomic-exchange claims for local tests.
+Service startup requires the explicit synthetic lab clock with this option.
+Public responses identify this mode with `X-Epochalypse-Storage: lab-only-synthetic-unverified`.
+The verified clock mode rejects synthetic storage.
+Two admitted HTTP requests bound concurrent material copies and output buffers.
+Public output releases the transition lock before a potentially slow network write.
+Actual-host publication latency and production readiness remain separate gates.
+
+Verified against: [Linux fallocate](https://man7.org/linux/man-pages/man2/fallocate.2.html)
+and [Linux rename](https://man7.org/linux/man-pages/man2/rename.2.html), retrieved 2026-11-05.
+The implementation uses the pinned `golang.org/x/sys` v0.49.0 syscall signatures.
 It rejects attempts to clear either latch.
 
 Replay validates the full committed prefix before the caller can obtain state.
@@ -74,7 +103,7 @@ The transition adapter must authenticate that material and enforce one immutable
 It must validate freshness before a new clock assessment and before any receipt or share.
 The journal does not provide protocol semantics.
 The transition adapter supplies prepare, arm, and signed check-in endpoints.
-The release scheduler and public recovery endpoint remain incomplete.
+The release scheduler and public recovery endpoints use the same serialized authority transition as check-in.
 
 `POST /agent/v1/switches/{id}/checkins` uses the existing signed envelope and HTTPS identity pins.
 The agent verifies the enrolled owner, immutable content, increasing sequence, and nondecreasing signed deadline.
@@ -85,7 +114,44 @@ The agent persists accepted intent before it signs and persists a receipt.
 Restart validates renewed material against the retained original prepare request and the complete authority journal.
 Possible disclosure and unsafe clocks prevent renewal.
 The owner-local client journal and CLI support direct renewal.
-Main API and browser reconciliation remain incomplete in this slice of issue #32.
+The main API and owner page reconcile authenticated public renewal evidence.
+
+## Independent public recovery
+
+`Service.RunPublisher` samples fresh clock evidence at a five-second interval.
+The agent executable starts this scheduler with its HTTPS server.
+Publication requires the conservative UTC bound to reach the accepted deadline plus grace.
+The scheduler never projects release authority from elapsed time.
+The agent synchronizes the release envelope and irreversible disclosure latch before public output.
+Restart authenticates the retained release envelope against the current accepted state and enrolled agent key.
+The released content key cannot renew.
+
+`GET /agent/v1/public/switches/{id}` returns a version-one JSON public manifest.
+The manifest contains the canonical enrollment certificate, owner signature, accepted signed request, and optional signed release envelope.
+`GET /agent/v1/public/switches/{id}/ciphertext` returns the complete authenticated ciphertext object.
+These routes require no owner authentication, main service, main DNS, or other agent.
+Each agent retains its own complete ciphertext copy.
+
+```sh
+epochalypse switch recover --bundle recovery.json \
+  --owner-public-key owner-public.key --pins tls-pins.json > recovered-content
+```
+
+The recovery command uses public keys and public data only.
+It queries the three enrolled HTTPS endpoints concurrently with pinned TLS identities.
+Each request has a five-second timeout. The complete attempt has a twenty-second timeout.
+The client bounds manifests to 64 KiB and ciphertext to 11 MiB per agent.
+It verifies enrollment, accepted owner intent, release signatures, distinct agent identities, and content bindings.
+It reconstructs the key from two shares through the adopted content package.
+It verifies authenticated ciphertext before stdout receives plaintext.
+A failed recovery returns no plaintext.
+
+The HTTPS tests recover through two independent journals while the third endpoint returns an outage.
+Negative tests reject invalid manifests, signatures, shares, and ciphertext without plaintext output.
+The executable test starts two agents from durable released state and runs the standalone recovery command.
+The main state and the third agent remain unavailable. A single reachable agent cannot recover the content.
+Controlled clock evidence creates the test release state. This test establishes no actual-host timing bound.
+These software tests establish no actual-host timing or production acceptance.
 
 ## Owner-local renewal
 
@@ -374,6 +440,9 @@ It signs one immutable prepare request with the local owner key.
 It requires three matching prepared receipts.
 It exports, syncs, reopens, and validates the recovery bundle before arm transmission.
 The public bundle omits private prepare bytes and encrypted shares.
+Before arm, the public manifest and ciphertext routes return HTTP 404.
+After release, startup validates the durable release before it serves recovery material.
+A durable release requires no new clock assessment. The agent still refuses renewal of that content key.
 It retains enrollment, ciphertext, the exact state, and three prepared receipts.
 The owner pins the public key when `ReadBundle` validates the bundle.
 An arm retry uses the existing bundle and identical signed arm bytes.

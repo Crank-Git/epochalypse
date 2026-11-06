@@ -60,7 +60,7 @@ func readLinuxBootID() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	value, err := io.ReadAll(io.LimitReader(file, 129))
 	if err != nil {
 		return "", err
