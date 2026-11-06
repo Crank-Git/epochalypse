@@ -260,6 +260,10 @@ func (t *Transitions) Handler() http.Handler {
 }
 
 func (t *Transitions) serveTransition(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/agent/v1/public/switches/") {
+		t.servePublic(w, r)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return

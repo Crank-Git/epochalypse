@@ -2,7 +2,7 @@
 
 Issue #31 introduces runtime contracts for the reviewed version-two protocol.
 These contracts do not enable production switches.
-The CLI provides local prepare, arm, check-in, status, and export commands.
+The CLI provides local prepare, arm, check-in, status, export, and recover commands.
 The main API retains authenticated public arm evidence.
 The agent runtime supports explicit local experiments over HTTPS.
 Actual-host readiness and complete product verification remain incomplete.
@@ -74,7 +74,7 @@ The transition adapter must authenticate that material and enforce one immutable
 It must validate freshness before a new clock assessment and before any receipt or share.
 The journal does not provide protocol semantics.
 The transition adapter supplies prepare, arm, and signed check-in endpoints.
-The release scheduler and public recovery endpoint remain incomplete.
+The release scheduler and public recovery endpoints use the same serialized authority transition as check-in.
 
 `POST /agent/v1/switches/{id}/checkins` uses the existing signed envelope and HTTPS identity pins.
 The agent verifies the enrolled owner, immutable content, increasing sequence, and nondecreasing signed deadline.
@@ -85,7 +85,41 @@ The agent persists accepted intent before it signs and persists a receipt.
 Restart validates renewed material against the retained original prepare request and the complete authority journal.
 Possible disclosure and unsafe clocks prevent renewal.
 The owner-local client journal and CLI support direct renewal.
-Main API and browser reconciliation remain incomplete in this slice of issue #32.
+The main API and owner page reconcile authenticated public renewal evidence.
+
+## Independent public recovery
+
+`Service.RunPublisher` samples fresh clock evidence at a five-second interval.
+The agent executable starts this scheduler with its HTTPS server.
+Publication requires the conservative UTC bound to reach the accepted deadline plus grace.
+The scheduler never projects release authority from elapsed time.
+The agent synchronizes the release envelope and irreversible disclosure latch before public output.
+Restart authenticates the retained release envelope against the current accepted state and enrolled agent key.
+The released content key cannot renew.
+
+`GET /agent/v1/public/switches/{id}` returns a version-one JSON public manifest.
+The manifest contains the canonical enrollment certificate, owner signature, accepted signed request, and optional signed release envelope.
+`GET /agent/v1/public/switches/{id}/ciphertext` returns the complete authenticated ciphertext object.
+These routes require no owner authentication, main service, main DNS, or other agent.
+Each agent retains its own complete ciphertext copy.
+
+```sh
+epochalypse switch recover --bundle recovery.json \
+  --owner-public-key owner-public.key --pins tls-pins.json > recovered-content
+```
+
+The recovery command uses public keys and public data only.
+It queries the three enrolled HTTPS endpoints concurrently with pinned TLS identities.
+Each request has a five-second timeout. The complete attempt has a twenty-second timeout.
+The client bounds manifests to 64 KiB and ciphertext to 11 MiB per agent.
+It verifies enrollment, accepted owner intent, release signatures, distinct agent identities, and content bindings.
+It reconstructs the key from two shares through the adopted content package.
+It verifies authenticated ciphertext before stdout receives plaintext.
+A failed recovery returns no plaintext.
+
+The initial HTTPS test recovers through two independent journals while the third endpoint returns an outage.
+Capacity admission, complete failure tests, and executable recovery verification remain incomplete under issue #33.
+These software tests establish no actual-host timing or production acceptance.
 
 ## Owner-local renewal
 

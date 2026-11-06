@@ -129,13 +129,20 @@ func serveAgentRuntime(ctx context.Context, settings agentRuntimeSettings, addre
 		WriteTimeout: 30 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16384,
 	}
 	defer func() { _ = server.Close() }()
-	result := make(chan error, 1)
+	result := make(chan error, 2)
 	go func() { result <- server.ServeTLS(listener, "", "") }()
+	publisherContext, stopPublisher := context.WithCancel(ctx)
+	publisherDone := make(chan struct{})
+	go func() {
+		defer close(publisherDone)
+		result <- runtime.RunPublisher(publisherContext)
+	}()
+	defer func() { stopPublisher(); <-publisherDone }()
 	select {
 	case <-ctx.Done():
 		return nil
 	case err := <-result:
-		if errors.Is(err, http.ErrServerClosed) {
+		if errors.Is(err, http.ErrServerClosed) || errors.Is(err, context.Canceled) {
 			return nil
 		}
 		return fmt.Errorf("serve agent HTTPS: %w", err)

@@ -16,7 +16,7 @@ import (
 
 func runSwitch(args []string, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
-		_, _ = fmt.Fprintln(stderr, "use switch create, prepare, status, arm, checkin, or export")
+		_, _ = fmt.Fprintln(stderr, "use switch create, prepare, status, arm, checkin, export, or recover")
 		return 2
 	}
 	switch args[1] {
@@ -28,13 +28,15 @@ func runSwitch(args []string, stdout, stderr io.Writer) int {
 		return runSwitchCheckin(args[2:], stdout, stderr)
 	case "export":
 		return runSwitchExport(args[2:], stdout, stderr)
+	case "recover":
+		return runSwitchRecover(args[2:], stdout, stderr)
 	case "create", "status":
 		if args[1] == "status" && usesClientJournal(args[2:]) {
 			return runSwitchJournalStatus(args[2:], stdout, stderr)
 		}
 		return runSwitchRecord(args, stdout, stderr)
 	default:
-		_, _ = fmt.Fprintln(stderr, "use switch create, prepare, status, arm, checkin, or export")
+		_, _ = fmt.Fprintln(stderr, "use switch create, prepare, status, arm, checkin, export, or recover")
 		return 2
 	}
 }

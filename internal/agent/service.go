@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -81,8 +82,11 @@ func validateServiceState(transitions *Transitions, journal *Journal) error {
 	if err != nil {
 		return fmt.Errorf("read agent authority before readiness: %w", err)
 	}
-	if state.PossibleDisclosure || state.UnsafeClock {
+	if state.UnsafeClock {
 		return ErrQuarantined
+	}
+	if state.PossibleDisclosure {
+		return transitions.validateRelease(state)
 	}
 	if state.Phase == 0 {
 		if state.Generation != 0 || !emptyAgentState(state) {
@@ -162,6 +166,9 @@ func emptyAgentState(state State) bool {
 
 // Handler returns the bounded transition endpoints.
 func (s *Service) Handler() http.Handler { return s.transitions.Handler() }
+
+// RunPublisher publishes eligible material without an HTTP request or another service.
+func (s *Service) RunPublisher(ctx context.Context) error { return s.transitions.RunPublisher(ctx) }
 
 // Close releases the exclusive authority lock.
 func (s *Service) Close() error { return s.journal.Close() }
