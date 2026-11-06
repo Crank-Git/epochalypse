@@ -139,7 +139,8 @@ class CLITests(unittest.TestCase):
                     with self.assertRaises(urllib.error.HTTPError) as unavailable:
                         urllib.request.urlopen(f"http://127.0.0.1:{port}/readyz", timeout=1)
                     self.assertEqual(unavailable.exception.code, 503)
-                    self.assertFalse(json.load(unavailable.exception)["ready"])
+                    with unavailable.exception as response:
+                        self.assertFalse(json.load(response)["ready"])
                     for requested, expected in ((self.commit, "success"), ("b" * 40, "failure")):
                         result = subprocess.run([binary, "status", "--endpoints", f"http://127.0.0.1:{port}", requested], env=env, capture_output=True, text=True, timeout=10)
                         self.assertEqual(result.returncode, 0, result.stderr)
