@@ -1,6 +1,9 @@
 # Deploy completed features
 
 See [deployment readiness](readiness.md) for the local inventory, public metadata, and direct recovery checks.
+Run `scripts/recovery-drill.sh` for the [isolated synthetic recovery drill](switch-outage-drill.md) after readiness checks.
+Retain `.test-artifacts/switch-outage.json` and `.test-artifacts/switch-outage.log` with the tested commit's verification record.
+This drill verifies software behavior. Live switch exercises require protocol acceptance and actual-host evidence.
 
 This guide covers the main service, DNSSEC windows, capsules, and countdowns.
 These features require no agent or switch protocol acceptance.
