@@ -78,7 +78,8 @@ Show B0 as earliest possible disclosure, not an exact authority for every agent.
 Show Bmax as the latest already-issued signed boundary. Show the reviewed allowance E separately.
 Release can precede the proposed boundary or follow B0. The default uncertainty can approach 24 hours.
 After main loss plus one outage, two reachable, honest agents with intact durable state release by Bmax plus E.
-The reviewed clock assumptions apply. No numeric allowance has acceptance yet.
+The reviewed clock assumptions apply. ADR 0013 accepts candidate E=34 seconds for implementation.
+Actual-host clock and publication verification remain required before a production bound claim.
 Reject check-ins whose issue time exceeds the reviewed clock tolerance.
 A DNS query never renews a switch. Automated main-server check-ins do not establish owner presence.
 Require an owner signing key for direct check-ins. Store a web-use key only after the owner accepts its weaker host-compromise model.

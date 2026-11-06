@@ -71,7 +71,7 @@ A separate research epic assesses loss of all project-operated servers.
 | release boundary | noun | The deadline plus grace for one accepted state. | deadline alone |
 | B0 | noun | The last release boundary confirmed by three matching durable receipts; the earliest possible disclosure after uncertain renewal. | exact authority after receipt loss |
 | Bmax | noun | The latest release boundary in any owner-signed renewal already issued for transmission. | latest received receipt |
-| E | noun | The reviewed allowance for clock error and publication work; no numeric value has acceptance yet. | exact UTC guarantee |
+| E | noun | The reviewed allowance for clock error and publication work; ADR 0013 accepts candidate E=34 seconds for implementation, subject to actual-host verification. | exact UTC guarantee |
 | uncertain outcome | noun | An incomplete response that can hide partial or complete renewal acceptance. | failed renewal |
 | client journal | noun | Durable signed intent stored before transmission, including exact bytes, sequence, deadline, and proposed boundary. | memory-only retry |
 | share | noun | One agent's part of the content key. | whole key |
@@ -185,7 +185,8 @@ Use docs/research/tlock-compatibility.md before production integration; example 
 Owner state uses bbolt v1.5.0 and Argon2id from golang.org/x/crypto v0.58.0.
 ADR 0003 and docs/owner.md define the verified storage and password contracts.
 The foundation pins the lint tools in its check scripts.
-The threshold library remains gated on protocol acceptance; no interface has approval.
+Use the pinned HashiCorp Shamir package for two-of-three switch key shares under the reviewed content and authenticated recovery contracts.
+The switch runtime guide records its scoped license and dependency decision.
 
 Use provider-neutral Linux services and container examples. Managed platforms must meet port and state requirements.
 Each agent provides its own public recovery endpoint and durable ciphertext copy.
