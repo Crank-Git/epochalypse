@@ -42,7 +42,7 @@ class SwitchArmExecutableTests(unittest.TestCase):
                 "--env", f"EPOCHALYPSE_OUTAGE_COMMIT={commit}",
                 BROWSER_IMAGE,
                 "sh", "-c",
-                "mkdir -p /tmp/switch-cover; GOCOVERDIR=/tmp/switch-cover EPOCHALYPSE_SWITCH_ARM_BINARY=/state/epochalypse /state/switch-positive.test -test.v -test.run='^Test(CLIArmsSwitchWithThreeDurableTLSAgents|SwitchOutageRecoversAfterMainAndEachAgentStop)$' -test.timeout=90s && /state/agent-clock.test -test.v -test.gocoverdir=/tmp/switch-cover -test.run='^Test(PhysicalReservation|SystemCapture|ProfileClock|ChronyClock|DurationFromTimespec|ValidBootID)' -test.timeout=60s; result=$?; cp -R /tmp/switch-cover/. /state/coverage/; chmod -R a+rwX /state; exit \"$result\"",
+                "mkdir -p /tmp/switch-cover; GOCOVERDIR=/tmp/switch-cover EPOCHALYPSE_SWITCH_ARM_BINARY=/state/epochalypse /state/switch-positive.test -test.v -test.run='^Test(CLIArmsSwitchWithThreeDurableTLSAgents|CLIStatusChecksPinnedInventory|SwitchOutageRecoversAfterMainAndEachAgentStop)$' -test.timeout=90s && /state/agent-clock.test -test.v -test.gocoverdir=/tmp/switch-cover -test.run='^Test(PhysicalReservation|SystemCapture|ProfileClock|ChronyClock|DurationFromTimespec|ValidBootID)' -test.timeout=60s; result=$?; cp -R /tmp/switch-cover/. /state/coverage/; chmod -R a+rwX /state; exit \"$result\"",
             ], capture_output=True, text=True, timeout=150)
             Path(".test-artifacts/switch-outage.log").write_text(result.stdout + result.stderr)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
