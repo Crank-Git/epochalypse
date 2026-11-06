@@ -16,5 +16,6 @@ func (s *mainState) readiness(config Config) runtimeinfo.Report {
 	}
 	// Main-service wall time has no verified error bound.
 	report.Ready = report.StateReady && report.ConfigurationReady
+	report.ProductionReady = report.Ready && !report.Synthetic
 	return report
 }
