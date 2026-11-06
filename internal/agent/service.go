@@ -129,19 +129,29 @@ func validateArmedState(transitions *Transitions, state State) error {
 		return fmt.Errorf("decode durable arm request: %w", err)
 	}
 	frame, err := switchwire.VerifyOwnerRequest(request, transitions.enrollment)
-	if err != nil || frame.Operation != switchwire.OperationArm {
+	if err != nil || frame.Phase != switchwire.PhaseArmed || frame.Released {
 		return ErrQuarantined
 	}
-	if err := transitions.validateStoredPrepare(state, frame.State); err != nil {
-		return fmt.Errorf("validate durable prepared material: %w", err)
-	}
-	if err := transitions.validateAcceptedArm(state.AcceptedRequest, frame.State); err != nil {
-		return fmt.Errorf("validate durable arm request: %w", err)
+	if err := transitions.validateArmedMaterial(state, frame); err != nil {
+		return err
 	}
 	if len(state.Receipt) == 0 {
 		return nil
 	}
 	return transitions.validateReceipt(state.Receipt, frame.State, switchwire.PhaseArmed)
+}
+
+func (t *Transitions) validateArmedMaterial(state State, frame switchwire.Frame) error {
+	if frame.Operation == switchwire.OperationCheckin {
+		return t.validateRenewedMaterial(state, frame)
+	}
+	if frame.Operation != switchwire.OperationArm {
+		return ErrQuarantined
+	}
+	if err := t.validateStoredPrepare(state, frame.State); err != nil {
+		return err
+	}
+	return t.validateAcceptedArm(state.AcceptedRequest, frame.State)
 }
 
 func emptyAgentState(state State) bool {

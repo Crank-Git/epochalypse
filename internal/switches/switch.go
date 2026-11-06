@@ -1,4 +1,4 @@
-// Package switches stores switch configuration and public arm evidence.
+// Package switches stores switch configuration and authenticated public evidence.
 package switches
 
 import (
@@ -50,21 +50,35 @@ func (in Input) durations() (int64, int64, error) {
 
 // Record contains versioned configuration without an authoritative deadline.
 type Record struct {
-	Version         int          `json:"version"`
-	ID              string       `json:"id"`
-	IntervalSeconds int64        `json:"interval_seconds"`
-	GraceSeconds    int64        `json:"grace_seconds"`
-	CreatedAt       time.Time    `json:"created_at"`
-	State           string       `json:"state"`
-	Arm             *ArmEvidence `json:"arm,omitempty"`
+	Version         int              `json:"version"`
+	ID              string           `json:"id"`
+	IntervalSeconds int64            `json:"interval_seconds"`
+	GraceSeconds    int64            `json:"grace_seconds"`
+	CreatedAt       time.Time        `json:"created_at"`
+	State           string           `json:"state"`
+	Arm             *ArmEvidence     `json:"arm,omitempty"`
+	Renewal         *RenewalEvidence `json:"renewal,omitempty"`
 }
 
-// ValidateRecord validates version-one drafts and their public arm evidence.
+// ValidateRecord validates version-one records and their authenticated public evidence.
 func ValidateRecord(record Record) error {
 	if !validConfiguration(record) {
 		return ErrIntegrity
 	}
-	if record.State == StateDraft && record.Arm == nil {
+	if record.State == StateDraft && record.Arm == nil && record.Renewal == nil {
+		return nil
+	}
+	if record.Renewal != nil {
+		if _, _, _, err := validateRenewal(record, *record.Renewal); err != nil {
+			return ErrIntegrity
+		}
+		state := StateUncertain
+		if len(record.Renewal.Receipts) == 3 {
+			state = StateArmed
+		}
+		if record.State != state {
+			return ErrIntegrity
+		}
 		return nil
 	}
 	if record.Arm == nil || ValidateArmEvidence(record, *record.Arm) != nil || record.State != evidenceState(*record.Arm) {

@@ -42,6 +42,11 @@ func (h *HTTPSReplica) Arm(ctx context.Context, a switchwire.Agent, e switchwire
 	return h.call(ctx, a, "arm", replicaRequest{Request: e})
 }
 
+// Checkin sends the exact owner-signed renewal to one enrolled endpoint.
+func (h *HTTPSReplica) Checkin(ctx context.Context, a switchwire.Agent, e switchwire.Envelope) (switchwire.Envelope, error) {
+	return h.call(ctx, a, "checkins", replicaRequest{Request: e})
+}
+
 func (h *HTTPSReplica) call(ctx context.Context, a switchwire.Agent, operation string, payload replicaRequest) (switchwire.Envelope, error) {
 	if len(payload.Ciphertext) > 11<<20 || len(payload.Manifest) != 0 {
 		return switchwire.Envelope{}, errors.New("agent material exceeds limit")

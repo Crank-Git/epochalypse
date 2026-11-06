@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/Crank-Git/epochalypse/internal/installation"
@@ -15,7 +16,7 @@ import (
 
 func runSwitch(args []string, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
-		_, _ = fmt.Fprintln(stderr, "use switch create, prepare, status, arm, or export")
+		_, _ = fmt.Fprintln(stderr, "use switch create, prepare, status, arm, checkin, or export")
 		return 2
 	}
 	switch args[1] {
@@ -23,13 +24,31 @@ func runSwitch(args []string, stdout, stderr io.Writer) int {
 		return runSwitchPrepare(args[2:], stdout, stderr)
 	case "arm":
 		return runSwitchArm(args[2:], stdout, stderr)
+	case "checkin":
+		return runSwitchCheckin(args[2:], stdout, stderr)
 	case "export":
 		return runSwitchExport(args[2:], stdout, stderr)
 	case "create", "status":
+		if args[1] == "status" && usesClientJournal(args[2:]) {
+			return runSwitchJournalStatus(args[2:], stdout, stderr)
+		}
+		return runSwitchRecord(args, stdout, stderr)
 	default:
-		_, _ = fmt.Fprintln(stderr, "use switch create, prepare, status, arm, or export")
+		_, _ = fmt.Fprintln(stderr, "use switch create, prepare, status, arm, checkin, or export")
 		return 2
 	}
+}
+
+func usesClientJournal(args []string) bool {
+	for _, arg := range args {
+		if arg == "--journal" || strings.HasPrefix(arg, "--journal=") {
+			return true
+		}
+	}
+	return false
+}
+
+func runSwitchRecord(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("switch "+args[1], flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	state := flags.String("state-dir", envDefault("EPOCHALYPSE_STATE_DIR", "var/state"), "State directory; stop the main server first")

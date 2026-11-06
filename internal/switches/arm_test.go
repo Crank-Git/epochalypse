@@ -16,6 +16,12 @@ import (
 
 func armEvidence(t *testing.T, record Record) ArmEvidence {
 	t.Helper()
+	e, _, _ := armEvidenceKeys(t, record)
+	return e
+}
+
+func armEvidenceKeys(t *testing.T, record Record) (ArmEvidence, ed25519.PrivateKey, [3]ed25519.PrivateKey) {
+	t.Helper()
 	pub, key, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -64,7 +70,7 @@ func armEvidence(t *testing.T, record Record) ArmEvidence {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return e
+	return e, key, keys
 }
 
 func TestObserveArmRequiresThreeReceiptsAndPreservesEvidenceAfterRestart(t *testing.T) {

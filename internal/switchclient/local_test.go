@@ -46,6 +46,7 @@ func TestLocalHTTPSArmPersistsThreeReplicasAndRecoveryBundle(t *testing.T) {
 	if err != nil || !result.Confirmed {
 		t.Fatalf("exact local retry: %+v %v", result, err)
 	}
+	renewLocalHTTPSAgents(t, p, key, transport, agents)
 	shares := restartLocalJournals(t, journals, configs, identities, material.Ciphertext)
 	plaintext, err := switchcontent.Recover(material.Ciphertext, shares[:2])
 	if err != nil || string(plaintext) != "local authenticated switch content" {
@@ -58,6 +59,33 @@ func TestLocalHTTPSArmPersistsThreeReplicasAndRecoveryBundle(t *testing.T) {
 	defer func() { _ = file.Close() }()
 	if _, err := ReadBundle(file, owner); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func renewLocalHTTPSAgents(t *testing.T, p Plan, key ed25519.PrivateKey, transport *HTTPSReplica, agents [3]switchwire.Agent) {
+	t.Helper()
+	frame, err := switchwire.DecodeFrame(p.Prepare.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame.Operation, frame.Phase, frame.Entries = switchwire.OperationCheckin, switchwire.PhaseArmed, nil
+	frame.State.Sequence++
+	frame.State.Deadline++
+	request, err := switchwire.SignFrame(frame, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var receipts []switchwire.Envelope
+	for _, a := range agents {
+		receipt, err := transport.Checkin(context.Background(), a, request)
+		if err != nil {
+			t.Fatalf("direct HTTPS check-in: %v", err)
+		}
+		receipts = append(receipts, receipt)
+	}
+	e, err := switchwire.AdmitCertificate(p.Certificate, p.CertificateSignature, key.Public().(ed25519.PublicKey))
+	if err != nil || !switchwire.Confirm(frame.State, receipts, e, switchwire.PhaseArmed) {
+		t.Fatal("three direct HTTPS receipts do not confirm the signed renewal")
 	}
 }
 

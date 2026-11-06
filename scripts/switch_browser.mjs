@@ -22,7 +22,8 @@ export async function checkSwitches(call, evaluate, waitFor, origin) {
   const query = new URLSearchParams({id, interval_seconds: String(record.interval_seconds), grace_seconds: String(record.grace_seconds), created_at: record.created_at});
   const fixture = await fetch('http://127.0.0.1:8082/fixture/switch-evidence?' + query, {headers: {Origin: origin}});
   assert.equal(fixture.status, 200, 'The durable agent fixture succeeds');
-  const evidence = await fixture.json();
+  const fixtureEvidence = await fixture.json();
+  const {renewal, ...evidence} = fixtureEvidence;
   const csrf = await evaluate("fetch('/api/v1/csrf').then(response => response.json()).then(result => result.csrf_token)");
   const submitEvidence = value => evaluate(`(async () => {
     const id = document.querySelector('#switch-list li').dataset.id;
@@ -52,6 +53,45 @@ export async function checkSwitches(call, evaluate, waitFor, origin) {
   await call('Page.reload');
   await waitFor("document.querySelector('#switch-list').textContent.includes('Armed — three matching durable receipts')");
   assert.ok(await evaluate("document.querySelector('#switch-list').textContent.includes('Armed receipts: 3 of 3.')"));
+  const importRenewal = value => evaluate(`(async () => {
+    const form = document.querySelector('.renewal-evidence-form');
+    const input = form.elements.evidence;
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([${JSON.stringify(JSON.stringify(value))}], 'renewal.json', {type: 'application/json'}));
+    input.files = transfer.files;
+    form.requestSubmit();
+    return true;
+  })()`);
+  const waitForRenewalReload = async outcome => {
+    await waitFor(`document.querySelector('.renewal-outcome')?.textContent.includes(${JSON.stringify(outcome)})`);
+    await waitFor("document.querySelector('.renewal-time')?.textContent.includes(' UTC / ')");
+  };
+  const partialRenewal = {...renewal, confirmed_request: evidence.request, confirmed_receipts: evidence.armed, receipts: renewal.receipts.slice(0, 2)};
+  await importRenewal(partialRenewal);
+  await waitForRenewalReload('Uncertain outcome');
+  const renewalText = await evaluate("document.querySelector('.renewal-status').textContent");
+  assert.ok(renewalText.includes('B0:') && renewalText.includes('Bmax:') && renewalText.includes('E assumptions:'));
+  assert.equal(await evaluate("document.querySelectorAll('.renewal-agents [data-agent-id]').length"), 3);
+  assert.ok(await evaluate("[...document.querySelectorAll('.renewal-agents li')].some(agent => agent.textContent.includes('uncertain'))"));
+  assert.equal(await evaluate("document.querySelector('.renewal-status').textContent.includes('UTC /')"), true);
+  assert.equal(await evaluate("document.querySelector('.renewal-status').textContent.includes('local')"), true);
+  assert.equal(await evaluate("document.querySelector('.renewal-outcome').textContent.includes('Armed')"), false);
+  const invalidRenewal = structuredClone(renewal);
+  invalidRenewal.receipts[2].signature = 'AA==';
+  await importRenewal(invalidRenewal);
+  await waitFor("document.querySelector('.renewal-evidence-form button').disabled === false && document.querySelector('.renewal-evidence-status').textContent.includes('Provide valid')");
+  await importRenewal(renewal);
+  await waitForRenewalReload('Renewed');
+  assert.equal(await evaluate("document.querySelectorAll('.renewal-agents li').length"), 3);
+  const regression = {...partialRenewal, receipts: partialRenewal.receipts.slice(0, 1)};
+  await importRenewal(regression);
+  await waitFor("document.querySelector('.renewal-evidence-form button').disabled === false && document.querySelector('.renewal-evidence-status').textContent.includes('Provide valid')");
+  assert.ok(await evaluate("document.querySelector('.renewal-outcome').textContent.includes('Renewed')"));
+  const switchScript = await evaluate("fetch('/owner/switches.js').then(response => response.text())");
+  await evaluate("document.querySelector('.renewal-time').dataset.unix='10000000000000'; document.querySelector('#switch-fields').disabled=true");
+  await evaluate(switchScript);
+  await waitFor("document.querySelector('#switch-fields').disabled === false");
+  assert.ok(await evaluate("document.querySelector('.renewal-time').textContent.includes('outside the browser date range')"));
   await call('Page.navigate', {url: origin + '/owner'});
   await waitFor("document.querySelector('h1')?.textContent === 'Signed in'");
 }

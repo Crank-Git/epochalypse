@@ -37,7 +37,10 @@ func (s *Store) ObserveArm(ctx context.Context, id string, evidence ArmEvidence)
 		if ValidateArmEvidence(record, evidence) != nil || !extendsEvidence(record.Arm, evidence) {
 			return ErrInput
 		}
-		record.Arm, record.State = &evidence, evidenceState(evidence)
+		record.Arm = &evidence
+		if record.Renewal == nil {
+			record.State = evidenceState(evidence)
+		}
 		data, err := json.Marshal(record)
 		if err != nil {
 			return err

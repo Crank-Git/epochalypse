@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -28,6 +29,7 @@ func (api *switchAPI) routes(mux *http.ServeMux, owners *owner.Store, lab bool) 
 		mux.Handle(path, owner.SecureHandler(lab, owners.RequireScope("switch:write", http.HandlerFunc(api.serve))))
 	}
 	mux.Handle("/api/v1/switches/{id}/arm", owner.SecureHandler(lab, owners.RequireScope("switch:write", http.HandlerFunc(api.armEvidence))))
+	mux.Handle("/api/v1/switches/{id}/checkins", owner.SecureHandler(lab, owners.RequireScope("switch:write", http.HandlerFunc(api.armEvidence))))
 }
 
 func (api *switchAPI) armEvidence(w http.ResponseWriter, r *http.Request) {
@@ -54,12 +56,7 @@ func (api *switchAPI) armEvidence(w http.ResponseWriter, r *http.Request) {
 		switchError(w, 429, "too_many_requests", "Switch work is busy. Try again.")
 		return
 	}
-	evidence, err := switchArmBody(w, r)
-	if err != nil {
-		switchDomainError(w, err)
-		return
-	}
-	record, err := api.store.ObserveArm(r.Context(), r.PathValue("id"), evidence)
+	record, err := api.observeEvidence(w, r)
 	if err != nil {
 		switchDomainError(w, err)
 		return
@@ -68,25 +65,57 @@ func (api *switchAPI) armEvidence(w http.ResponseWriter, r *http.Request) {
 	if record.State == switches.StateArmed {
 		status = http.StatusOK
 	}
-	switchJSON(w, status, record)
+	switchJSON(w, status, switchRecordView(record))
+}
+
+func (api *switchAPI) observeEvidence(w http.ResponseWriter, r *http.Request) (switches.Record, error) {
+	if strings.HasSuffix(r.URL.Path, "/checkins") {
+		var evidence switches.RenewalEvidence
+		if err := switchEvidenceBody(w, r, &evidence); err != nil {
+			return switches.Record{}, err
+		}
+		return api.store.ObserveRenewal(r.Context(), r.PathValue("id"), evidence)
+	}
+	evidence, err := switchArmBody(w, r)
+	if err != nil {
+		return switches.Record{}, err
+	}
+	return api.store.ObserveArm(r.Context(), r.PathValue("id"), evidence)
+}
+
+func switchRecordView(record switches.Record) any {
+	return struct {
+		switches.Record
+		Status *switches.RenewalStatus `json:"renewal_status,omitempty"`
+	}{Record: record, Status: record.RenewalStatus()}
 }
 
 func switchArmBody(w http.ResponseWriter, r *http.Request) (switches.ArmEvidence, error) {
 	var evidence switches.ArmEvidence
+	if err := switchEvidenceBody(w, r, &evidence); err != nil {
+		return evidence, err
+	}
+	if evidence.OwnerKey == [32]byte{} {
+		return evidence, switches.ErrInput
+	}
+	return evidence, nil
+}
+
+func switchEvidenceBody(w http.ResponseWriter, r *http.Request, evidence any) error {
 	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || media != "application/json" || r.URL.RawQuery != "" {
-		return evidence, switches.ErrInput
+		return switches.ErrInput
 	}
 	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, switches.MaxRecordBytes))
 	if err != nil {
-		return evidence, err
+		return err
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
-	if !utf8.Valid(data) || decoder.Decode(&evidence) != nil || decoder.Decode(&struct{}{}) != io.EOF || evidence.OwnerKey == [32]byte{} {
-		return switches.ArmEvidence{}, switches.ErrInput
+	if !utf8.Valid(data) || decoder.Decode(evidence) != nil || decoder.Decode(&struct{}{}) != io.EOF {
+		return switches.ErrInput
 	}
-	return evidence, nil
+	return nil
 }
 
 func (api *switchAPI) serve(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +177,7 @@ func (api *switchAPI) work(w http.ResponseWriter, r *http.Request) {
 		switchDomainError(w, err)
 		return
 	}
-	switchJSON(w, 200, record)
+	switchJSON(w, 200, switchRecordView(record))
 }
 
 func (api *switchAPI) create(w http.ResponseWriter, r *http.Request) {
@@ -205,7 +234,7 @@ func switchDomainError(w http.ResponseWriter, err error) {
 	var size *http.MaxBytesError
 	switch {
 	case errors.Is(err, switches.ErrInput):
-		switchError(w, 400, "invalid_request", "Provide valid switch configuration or authenticated arm evidence.")
+		switchError(w, 400, "invalid_request", "Provide valid switch configuration or authenticated switch evidence.")
 	case errors.As(err, &size):
 		switchError(w, 413, "request_too_large", "The switch request exceeds its byte limit.")
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
