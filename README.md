@@ -7,6 +7,7 @@
 <p align="center">
   <a href="https://github.com/Crank-Git/epochalypse/actions/workflows/check.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Crank-Git/epochalypse/check.yml?branch=dev&style=flat-square&label=ci&labelColor=30363d"></a>
   <img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/Crank-Git/epochalypse?style=flat-square&label=go&labelColor=30363d&color=7ee787">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-7ee787?style=flat-square&labelColor=30363d"></a>
 </p>
 
 <p align="center">
@@ -166,7 +167,7 @@ infrastructure values out of tracked files.
 
 ## License
 
-There's no license file in this repository yet.
+MIT. See [LICENSE](LICENSE).
 
 ---
 
