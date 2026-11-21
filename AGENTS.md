@@ -39,6 +39,7 @@ Resolver feature checks and isolated compatibility research use separate runners
 ## Required rules
 
 Read docs/rules/ste.md before prose, code comments, docstrings, test names, issues, or pull-request text.
+README.md is the one exception to STE. It uses the voice of the owner. docs/rules/ste.md records the exception.
 Read docs/rules/quality.md before source or test changes and their review.
 Read docs/rules/external-apis.md before code that uses an external library, protocol adapter, service, or CLI.
 Use the controlled vocabulary in the spec's Terms table.

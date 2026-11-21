@@ -44,6 +44,9 @@ reads two ways gets built two ways.
 
 Rewriting evidence destroys it. Rewriting a quote misrepresents the person.
 
+**Exception: `README.md`.** The README uses the voice of the owner, not STE.
+It still uses US English. Every other Markdown file, including each page in `docs/`, keeps this standard.
+
 ---
 
 ## 2 — The rules
